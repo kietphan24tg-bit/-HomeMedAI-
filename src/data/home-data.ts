@@ -1,0 +1,188 @@
+import { colors } from '../styles/tokens';
+import {
+    type ArticleItem,
+    type FamilyMember,
+    type MedItem,
+    type ScheduleItem,
+    type StatCard,
+} from '../types';
+import { getAvatarGradient, getCategoryColor } from '../utils/color-palette';
+
+export const STAT_CARDS: StatCard[] = [
+    {
+        id: 'records',
+        iconName: 'document-text-outline',
+        iconColor: colors.cMedical,
+        iconBg: colors.cMedicalBg,
+        badgeBg: colors.cReminderBg,
+        badgeColor: colors.cReminder,
+        badgeText: '3 mới',
+        value: '12',
+        label: 'Sổ khám bệnh',
+        sub: 'Hồ sơ bệnh án',
+    },
+    {
+        id: 'vaccine',
+        iconName: 'clipboard-outline',
+        iconColor: colors.cDanger,
+        iconBg: colors.cDangerBg,
+        badgeBg: colors.cDangerBg,
+        badgeColor: colors.cDanger,
+        badgeText: 'Cần bổ sung',
+        value: '85%',
+        valueColor: colors.cDanger,
+        valueSize: 22,
+        label: 'Tiêm chủng',
+        progress: 85,
+        progressColor: colors.cDanger,
+    },
+    {
+        id: 'rx',
+        iconName: 'grid-outline',
+        iconColor: colors.cReminder,
+        iconBg: colors.cReminderBg,
+        badgeBg: colors.cReminderBg,
+        badgeColor: colors.cReminder,
+        badgeText: 'Hôm nay',
+        value: '2',
+        label: 'Đơn thuốc',
+        sub: 'Đang uống dở',
+    },
+    {
+        id: 'health',
+        iconName: 'pulse',
+        iconColor: colors.cHealth,
+        iconBg: colors.cHealthBg,
+        badgeBg: colors.cHealthBg,
+        badgeColor: colors.cHealth,
+        badgeText: 'Tốt',
+        value: 'Bình thường',
+        valueColor: colors.cHealth,
+        valueSize: 17,
+        label: 'Chỉ số sức khoẻ',
+        progress: 78,
+        progressColor: colors.cHealth,
+    },
+];
+
+export const FAMILY: FamilyMember[] = [
+    {
+        code: 'AN',
+        name: 'Văn An',
+        role: 'Bố · 38t',
+        color: colors.primary,
+        gradient: getAvatarGradient(0),
+        status: colors.cHealth,
+    },
+    {
+        code: 'LAN',
+        name: 'Thu Lan',
+        role: 'Mẹ · 35t',
+        color: colors.cFamily,
+        gradient: getAvatarGradient(1),
+        status: colors.cReminder,
+    },
+    {
+        code: 'MINH',
+        name: 'Bảo Minh',
+        role: 'Con · 8t',
+        color: colors.cFamily,
+        gradient: getAvatarGradient(2),
+        status: colors.cHealth,
+    },
+    {
+        code: 'ANH',
+        name: 'Bảo Anh',
+        role: 'Con · 3t',
+        color: colors.secondary,
+        gradient: getAvatarGradient(3),
+        status: colors.cDanger,
+    },
+];
+
+export const SCHEDULE: ScheduleItem[] = [
+    {
+        id: 1,
+        initials: 'LAN',
+        bg: '#EF4444',
+        gradient: ['#EF4444', '#DC2626'],
+        title: 'Tái khám huyết áp',
+        meta: 'BV Chợ Rẫy · Phòng 305',
+        time: '14:30',
+        day: 'Hôm nay',
+        color: colors.cDanger,
+    },
+    {
+        id: 2,
+        initials: 'ANH',
+        bg: getCategoryColor(1).bg,
+        gradient: getAvatarGradient(3),
+        title: 'Khám nhi định kỳ',
+        meta: 'BV Nhi Đồng 1',
+        time: '09:00',
+        day: '12/03',
+        color: colors.cReminder,
+    },
+    {
+        id: 3,
+        initials: 'AN',
+        bg: getCategoryColor(0).bg,
+        gradient: getAvatarGradient(0),
+        title: 'Khám mắt tổng quát',
+        meta: 'Mắt Sài Gòn IEC',
+        time: '10:00',
+        day: '15/03',
+        color: colors.cMedical,
+    },
+];
+
+export const MEDS: MedItem[] = [
+    {
+        name: 'Amlodipine 5mg',
+        info: 'Thu Lan · 1 viên/ngày',
+        time: '07:00',
+        bg: getCategoryColor(0).bg,
+        iconColor: getCategoryColor(0).color,
+        taken: true,
+    },
+    {
+        name: 'Vitamin D3 1000IU',
+        info: 'Bảo Anh · 1 viên/ngày',
+        time: '08:00',
+        bg: getCategoryColor(2).bg,
+        iconColor: getCategoryColor(2).color,
+        taken: false,
+    },
+    {
+        name: 'Amoxicillin 250mg',
+        info: 'Bảo Minh · 3 lần/ngày',
+        time: '12:00',
+        bg: getCategoryColor(5).bg,
+        iconColor: getCategoryColor(5).color,
+        taken: true,
+    },
+];
+
+export const ARTICLES: ArticleItem[] = [
+    {
+        tag: 'Vaccine',
+        title: 'Vaccine 5 trong 1 là gì? Lịch tiêm cho bé',
+        bg: colors.cMedicalBg,
+        color: colors.cMedical,
+        image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80',
+    },
+    {
+        tag: 'Dinh dưỡng',
+        title: '5 món ăn tốt cho tim mạch mỗi ngày',
+        bg: colors.cHealthBg,
+        color: colors.cHealth,
+        image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&q=80',
+    },
+    {
+        tag: 'Trẻ em',
+        title: 'Phát triển trẻ 3 tuổi: cột mốc cần biết',
+        bg: colors.cFamilyBg,
+        color: colors.cFamily,
+        image: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=400&q=80',
+    },
+];

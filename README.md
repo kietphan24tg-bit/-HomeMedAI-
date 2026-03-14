@@ -1,50 +1,82 @@
-# Welcome to your Expo app 👋
+# 🏥 HomeMedAI - Technical Documentation
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. Tài liệu này tập trung vào kiến trúc và hướng dẫn phát triển cho thành viên trong team.
 
-## Get started
+---
 
-1. Install dependencies
+## 🏗 Kiến trúc Dự án (Architecture)
 
-   ```bash
-   npm install
-   ```
+Dự án sử dụng kiến trúc **Modular Screen-based**, chia phân vùng theo chức năng màn hình để dễ dàng mở rộng và bảo trì.
 
-2. Start the app
+### 1. Cấu trúc Thư mục (Project Structure)
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+├── app/                  # Expo Router (File-based Routing)
+│   ├── (tabs)/          # Giao diện chính sau khi Login (Tab Navigation)
+│   ├── _layout.tsx      # Root Layout, cấu hình Provider & Fonts
+│   └── onboarding.tsx   # Luồng giới thiệu & Auth ban đầu
+├── src/
+│   ├── screens/         # Chứa Logic & UI chính của từng màn hình
+│   │   ├── family/      # Quản lý thành viên & nhóm gia đình
+│   │   ├── health/      # Hồ sơ bệnh án, tiêm chủng, đơn thuốc
+│   │   └── home/        # Dashboard tổng hợp thông tin
+│   ├── components/      # Reusable Components
+│   │   ├── ui/          # Các UI nguyên tử (Button, Input, Badge...)
+│   │   └── profile/     # Các component chuyên biệt cho hồ sơ
+│   ├── data/            # Mock data & Static configuration
+│   ├── styles/          # Design System (tokens, shared styles)
+│   └── utils/           # Helper functions (color-palette, formatting...)
+└── assets/              # Fonts, Images, Icons
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Luồng Điều hướng (Navigation Flow)
 
-## Learn more
+Ứng dụng sử dụng **Expo Router v3**:
 
-To learn more about developing your project with Expo, look at the following resources:
+- **Root**: Kiểm tra trạng thái Auth/Onboarding tại `app/index.tsx`.
+- **Onboarding Stack**: Chạy luồng Welcome -> Auth tại `app/onboarding.tsx`.
+- **Main Tabs**: Sau khi vào app, điều hướng chính nằm trong `app/(tabs)/_layout.tsx`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🎨 Design System & Styling
 
-Join our community of developers creating universal apps.
+### Design Tokens (`src/styles/tokens.ts`)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radius) phải được lấy từ file `tokens.ts`. Tuyệt đối không hardcode giá trị màu lạ trong file UI.
+
+### Hệ thống Màu sắc Thông minh (`src/utils/color-palette.ts`)
+
+Ứng dụng sử dụng cơ chế màu sắc xác định (Deterministic):
+
+- **getAvatarGradient(index/key)**: Tạo gradient cho avatar dựa trên vị trí hoặc tên thành viên.
+- **recordColors(specialty)**: Tự động trả về bộ mapping màu dựa trên chuyên khoa (Tim mạch, Nhi...).
+- **CATEGORY_PALETTES**: Danh sách các cặp màu (text + background contrast) cho các thẻ danh sách.
+
+---
+
+## 🛠 Hướng dẫn Nội bộ cho Developer
+
+### Nguyên tắc code UI:
+
+1. **SafeAreaView**: Luôn dùng `SafeAreaView` từ thư viện `react-native-safe-area-context`.
+2. **Icons**: Sử dụng bộ `@expo/vector-icons` (ưu tiên Ionicons).
+3. **Mock Data**: Khi tạo data mới, hãy cập nhật vào `src/data/` và định nghĩa Type tương ứng trong `src/types/`.
+
+### Lệnh chạy (Scripts):
+
+- `npm start`: Chạy Expo server.
+- `npm run lint`: Kiểm tra code style.
+- `npm run reset-project`: Cài đặt lại môi trường mẫu (Thận trọng khi dùng).
+
+---
+
+## 📦 Dependencies quan trọng
+
+- `expo-router`: Hệ thống điều hướng.
+- `expo-linear-gradient`: Xử lý màu sắc gradient cho avatar/cards.
+- `react-native-safe-area-context`: Quản lý vùng an toàn trên các thiết bị mobile mới.
+
+---
+
+_Tài liệu nội bộ - Cập nhật lần cuối: 14/03/2026_
