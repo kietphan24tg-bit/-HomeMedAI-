@@ -1,7 +1,6 @@
 # 🏥 HomeMedAI - Technical Documentation
 
-Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. Tài liệu này tập trung vào kiến trúc và hướng dẫn phát triển cho thành viên trong team.
-
+Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. 
 ---
 
 ## 🏗 Kiến trúc Dự án (Architecture)
