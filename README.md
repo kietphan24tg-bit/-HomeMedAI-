@@ -54,7 +54,7 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 ---
 
-## 🛠 Hướng dẫn Nội bộ cho Developer
+
 
 ### Nguyên tắc code UI:
 
@@ -78,4 +78,4 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 ---
 
-_Tài liệu nội bộ - Cập nhật lần cuối: 14/03/2026_
+
