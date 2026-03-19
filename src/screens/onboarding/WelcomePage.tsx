@@ -1,4 +1,5 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, type ReactNode } from 'react';
 import {
     Animated,
@@ -107,9 +108,12 @@ export default function WelcomePage({
                                 { transform: [{ rotate: ringSpinReverse }] },
                             ]}
                         />
-                        <View style={styles.illusCenter}>
+                        <LinearGradient
+                            colors={['#0F766E', '#14B8A6']}
+                            style={styles.illusCenter}
+                        >
                             <Feather name='activity' size={44} color='#fff' />
-                        </View>
+                        </LinearGradient>
                         {renderChip(
                             chip1Anim,
                             styles.chip1,
@@ -160,21 +164,21 @@ export default function WelcomePage({
                     <View
                         style={[
                             shared.inlineBadge,
-                            { backgroundColor: colors.primaryBg },
+                            { backgroundColor: colors.secondaryBg },
                         ]}
                     >
                         <Feather
                             name='activity'
                             size={12}
-                            color={colors.primary}
+                            color={colors.secondary}
                         />
                         <Text
                             style={[
                                 shared.inlineBadgeText,
-                                { color: colors.primary },
+                                { color: colors.secondary },
                             ]}
                         >
-                            CareSync
+                            HomeMedAI
                         </Text>
                     </View>
                     <Text style={styles.s1Title}>
@@ -217,8 +221,9 @@ export default function WelcomePage({
                         pressed && shared.pressed,
                     ]}
                     onPress={() => {
-                        setAuthTab('login');
-                        goTo(3);
+                        import('expo-router').then(({ router }) => {
+                            router.push('/signin');
+                        });
                     }}
                 >
                     <Text style={shared.btnOutlineText}>

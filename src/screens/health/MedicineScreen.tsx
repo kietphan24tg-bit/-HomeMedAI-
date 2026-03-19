@@ -846,19 +846,35 @@ function MedDetail({
                                                 {s.label}
                                             </Text>
                                         </Pressable>
-                                        <TextInput
-                                            style={[
-                                                styles.mdSlotTime,
-                                                slot.active &&
-                                                    styles.mdSlotTimeActive,
-                                            ]}
-                                            value={slot.time}
-                                            onChangeText={(t) =>
-                                                updateSlotTime(s.label, t)
-                                            }
-                                            editable={slot.active}
-                                            placeholder='HH:MM'
-                                            keyboardType='numbers-and-punctuation'
+                                        <DateField
+                                            mode='time'
+                                            containerStyle={{ flex: 1 }}
+                                            value={(() => {
+                                                if (!slot.time) return null;
+                                                const [h, m] = slot.time
+                                                    .split(':')
+                                                    .map(Number);
+                                                const d = new Date();
+                                                d.setHours(
+                                                    h || 0,
+                                                    m || 0,
+                                                    0,
+                                                    0,
+                                                );
+                                                return d;
+                                            })()}
+                                            onChange={(date) => {
+                                                const hh = String(
+                                                    date.getHours(),
+                                                ).padStart(2, '0');
+                                                const mm = String(
+                                                    date.getMinutes(),
+                                                ).padStart(2, '0');
+                                                updateSlotTime(
+                                                    s.label,
+                                                    `${hh}:${mm}`,
+                                                );
+                                            }}
                                         />
                                     </View>
                                 );
@@ -1160,24 +1176,33 @@ function AddMedSheet({
                                         {s.label}
                                     </Text>
                                 </Pressable>
-                                <TextInput
-                                    style={[
-                                        styles.mdSlotTime,
-                                        slot.active && styles.mdSlotTimeActive,
-                                    ]}
-                                    value={slot.time}
-                                    onChangeText={(t) =>
+                                <DateField
+                                    mode='time'
+                                    containerStyle={{ flex: 1 }}
+                                    value={(() => {
+                                        if (!slot.time) return null;
+                                        const [h, m] = slot.time
+                                            .split(':')
+                                            .map(Number);
+                                        const d = new Date();
+                                        d.setHours(h || 0, m || 0, 0, 0);
+                                        return d;
+                                    })()}
+                                    onChange={(date) => {
+                                        const hh = String(
+                                            date.getHours(),
+                                        ).padStart(2, '0');
+                                        const mm = String(
+                                            date.getMinutes(),
+                                        ).padStart(2, '0');
                                         setSlots((prev) => ({
                                             ...prev,
                                             [s.label]: {
                                                 ...prev[s.label],
-                                                time: t,
+                                                time: `${hh}:${mm}`,
                                             },
-                                        }))
-                                    }
-                                    editable={slot.active}
-                                    placeholder='HH:MM'
-                                    keyboardType='numbers-and-punctuation'
+                                        }));
+                                    }}
                                 />
                             </View>
                         );

@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
+import { DateField } from '../../components/ui';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 
@@ -31,6 +32,7 @@ interface SheetState {
     suffix?: string;
     keyboard?: 'default' | 'numeric';
     options?: string[];
+    isStepper?: boolean;
 }
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
@@ -45,28 +47,6 @@ const BLOOD_OPTIONS = [
     'O-',
     'Chưa biết',
 ];
-
-const MONTH_NAMES = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-];
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-function daysInMonth(m: number, y: number) {
-    return new Date(y, m + 1, 0).getDate();
-}
-function firstDow(m: number, y: number) {
-    return new Date(y, m, 1).getDay();
-}
 
 function calcBMI(h: string, w: string): string {
     const hNum = parseFloat(h);
@@ -90,21 +70,9 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const [sheet, setSheet] = useState<SheetState | null>(null);
     const [draft, setDraft] = useState('');
-    const [calMonth, setCalMonth] = useState(2);
-    const [calYear, setCalYear] = useState(1987);
-    const [calDay, setCalDay] = useState<number | null>(12);
-    const [showCal, setShowCal] = useState(false);
-
     const openDate = () => {
         Keyboard.dismiss();
-        const parts = fields.dob.split('/');
-        if (parts.length === 3) {
-            setCalDay(parseInt(parts[0], 10));
-            setCalMonth(parseInt(parts[1], 10) - 1);
-            setCalYear(parseInt(parts[2], 10));
-        }
         setDraft(fields.dob);
-        setShowCal(false);
         setSheet({
             type: 'date',
             key: 'dob',
@@ -114,77 +82,13 @@ export default function ProfileScreen(): React.JSX.Element {
         });
     };
 
-    const calPrev = () => {
-        if (calMonth === 0) {
-            setCalMonth(11);
-            setCalYear((y) => y - 1);
-        } else setCalMonth((m) => m - 1);
-    };
-    const calNext = () => {
-        if (calMonth === 11) {
-            setCalMonth(0);
-            setCalYear((y) => y + 1);
-        } else setCalMonth((m) => m + 1);
-    };
-
-    const calendarGrid = () => {
-        const days = daysInMonth(calMonth, calYear);
-        const first = firstDow(calMonth, calYear);
-        const prevD = daysInMonth(
-            calMonth === 0 ? 11 : calMonth - 1,
-            calMonth === 0 ? calYear - 1 : calYear,
-        );
-        const cells: { day: number; cur: boolean }[] = [];
-        for (let i = first - 1; i >= 0; i--) {
-            cells.push({ day: prevD - i, cur: false });
-        }
-        for (let d = 1; d <= days; d++) cells.push({ day: d, cur: true });
-        while (cells.length < 42) {
-            cells.push({ day: cells.length - first - days + 1, cur: false });
-        }
-        const now = new Date();
-        const weeks: (typeof cells)[] = [];
-        for (let i = 0; i < cells.length; i += 7) {
-            weeks.push(cells.slice(i, i + 7));
-        }
-        return weeks.map((week, wi) => (
-            <View key={wi} style={styles.calWeekRow}>
-                {week.map((c, di) => {
-                    const sel = c.cur && c.day === calDay;
-                    const td =
-                        c.cur &&
-                        c.day === now.getDate() &&
-                        calMonth === now.getMonth() &&
-                        calYear === now.getFullYear();
-                    return (
-                        <Pressable
-                            key={di}
-                            style={[styles.calDayCell, sel && styles.calDaySel]}
-                            onPress={() => c.cur && setCalDay(c.day)}
-                        >
-                            <Text
-                                style={[
-                                    styles.calDayText,
-                                    !c.cur && styles.calDayOther,
-                                    sel && styles.calDayTextSel,
-                                    td && !sel && styles.calDayTextToday,
-                                ]}
-                            >
-                                {c.day}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-            </View>
-        ));
-    };
-
     const openSimple = (
         key: string,
         title: string,
         icon: string,
         suffix?: string,
         keyboard?: 'default' | 'numeric',
+        isStepper?: boolean,
     ) => {
         Keyboard.dismiss();
         setDraft(fields[key as keyof typeof fields]);
@@ -196,6 +100,7 @@ export default function ProfileScreen(): React.JSX.Element {
             icon,
             suffix,
             keyboard,
+            isStepper,
         });
     };
 
@@ -219,18 +124,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const saveSheet = () => {
         if (!sheet) return;
-        if (sheet.type === 'date') {
-            if (calDay) {
-                const dd = String(calDay).padStart(2, '0');
-                const mm = String(calMonth + 1).padStart(2, '0');
-                setFields((prev) => ({
-                    ...prev,
-                    dob: `${dd}/${mm}/${calYear}`,
-                }));
-            }
-        } else {
-            setFields((prev) => ({ ...prev, [sheet.key]: draft }));
-        }
+        setFields((prev) => ({ ...prev, [sheet.key]: draft }));
         setSheet(null);
     };
 
@@ -383,16 +277,17 @@ export default function ProfileScreen(): React.JSX.Element {
                             label='Cân nặng'
                             value={`${fields.weight} kg`}
                             badge={bmi}
-                            iconName='fitness'
+                            iconName='speedometer-outline'
                             iconColor={colors.cHealth}
                             iconBg={colors.cHealthBg}
                             onPress={() =>
                                 openSimple(
                                     'weight',
                                     'Cân nặng',
-                                    'fitness',
+                                    'speedometer-outline',
                                     'kg',
                                     'numeric',
+                                    true,
                                 )
                             }
                         />
@@ -460,156 +355,176 @@ export default function ProfileScreen(): React.JSX.Element {
                                 </Pressable>
                             </View>
 
-                            {/* Date Picker */}
+                            {/* Date Picker (Replaced manual calendar with DateField) */}
                             {sheet?.type === 'date' && (
                                 <View style={shared.sheetBody}>
-                                    {showCal && (
-                                        <>
-                                            <View style={styles.calHeader}>
-                                                <Text
-                                                    style={styles.calMonthYear}
-                                                >
-                                                    {MONTH_NAMES[calMonth]}{' '}
-                                                    {calYear} ▾
-                                                </Text>
-                                                <View style={styles.calNav}>
-                                                    <Pressable
-                                                        onPress={calPrev}
-                                                        style={styles.calNavBtn}
-                                                    >
-                                                        <Ionicons
-                                                            name='chevron-up'
-                                                            size={18}
-                                                            color={colors.text2}
-                                                        />
-                                                    </Pressable>
-                                                    <Pressable
-                                                        onPress={calNext}
-                                                        style={styles.calNavBtn}
-                                                    >
-                                                        <Ionicons
-                                                            name='chevron-down'
-                                                            size={18}
-                                                            color={colors.text2}
-                                                        />
-                                                    </Pressable>
-                                                </View>
-                                            </View>
-                                            <View style={styles.calWeekRow}>
-                                                {WEEKDAYS.map((d) => (
-                                                    <Text
-                                                        key={d}
-                                                        style={
-                                                            styles.calWeekDay
-                                                        }
-                                                    >
-                                                        {d}
-                                                    </Text>
-                                                ))}
-                                            </View>
-                                            {calendarGrid()}
-                                            <View style={styles.calActions}>
-                                                <Pressable
-                                                    onPress={() =>
-                                                        setCalDay(null)
-                                                    }
-                                                >
-                                                    <Text
-                                                        style={styles.calClear}
-                                                    >
-                                                        Clear
-                                                    </Text>
-                                                </Pressable>
-                                                <Pressable
-                                                    onPress={() => {
-                                                        const t = new Date();
-                                                        setCalDay(t.getDate());
-                                                        setCalMonth(
-                                                            t.getMonth(),
-                                                        );
-                                                        setCalYear(
-                                                            t.getFullYear(),
-                                                        );
-                                                    }}
-                                                >
-                                                    <Text
-                                                        style={styles.calToday}
-                                                    >
-                                                        Today
-                                                    </Text>
-                                                </Pressable>
-                                            </View>
-                                        </>
-                                    )}
-                                    <View
-                                        style={[
-                                            shared.sheetInputWrap,
-                                            showCal && { marginTop: 12 },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='create-outline'
-                                            size={18}
-                                            color={colors.primary}
-                                        />
-                                        <Text
-                                            style={[
-                                                shared.sheetInput,
-                                                !calDay && {
-                                                    color: colors.text3,
-                                                },
-                                            ]}
-                                        >
-                                            {calDay
-                                                ? `${String(calMonth + 1).padStart(2, '0')}/${String(calDay).padStart(2, '0')}/${calYear}`
-                                                : 'mm/dd/yyyy'}
-                                        </Text>
-                                        <Pressable
-                                            onPress={() =>
-                                                setShowCal((v) => !v)
+                                    <DateField
+                                        value={(() => {
+                                            const parts = draft.split('/');
+                                            if (parts.length === 3) {
+                                                const d = parseInt(
+                                                    parts[0],
+                                                    10,
+                                                );
+                                                const m = parseInt(
+                                                    parts[1],
+                                                    10,
+                                                );
+                                                const y = parseInt(
+                                                    parts[2],
+                                                    10,
+                                                );
+                                                const date = new Date(
+                                                    y,
+                                                    m - 1,
+                                                    d,
+                                                );
+                                                if (!isNaN(date.getTime()))
+                                                    {return date;}
                                             }
-                                        >
-                                            <Ionicons
-                                                name='calendar-outline'
-                                                size={18}
-                                                color={
-                                                    showCal
-                                                        ? colors.primary
-                                                        : colors.text3
-                                                }
-                                            />
-                                        </Pressable>
-                                    </View>
+                                            return null;
+                                        })()}
+                                        onChange={(date) => {
+                                            const dd = String(
+                                                date.getDate(),
+                                            ).padStart(2, '0');
+                                            const mm = String(
+                                                date.getMonth() + 1,
+                                            ).padStart(2, '0');
+                                            const yyyy = date.getFullYear();
+                                            setDraft(`${dd}/${mm}/${yyyy}`);
+                                        }}
+                                    />
+                                    <Text
+                                        style={{
+                                            fontSize: 11,
+                                            color: colors.text3,
+                                            marginTop: 12,
+                                            textAlign: 'center',
+                                        }}
+                                    >
+                                        Bạn có thể nhập ngày trực tiếp
+                                        (dd/mm/yyyy) hoặc nhấn biểu tượng lịch.
+                                    </Text>
                                 </View>
                             )}
 
-                            {/* Simple Input */}
+                            {/* Simple Input / Stepper */}
                             {sheet?.type === 'simple' && (
                                 <View style={shared.sheetBody}>
-                                    <View style={shared.sheetInputWrap}>
-                                        <Ionicons
-                                            name={
-                                                (sheet.icon || 'create') as any
-                                            }
-                                            size={18}
-                                            color={colors.primary}
-                                        />
-                                        <TextInput
-                                            style={shared.sheetInput}
-                                            value={draft}
-                                            onChangeText={setDraft}
-                                            keyboardType={
-                                                sheet.keyboard || 'default'
-                                            }
-                                            placeholder={sheet.title}
-                                            placeholderTextColor={colors.text3}
-                                        />
-                                        {sheet.suffix && (
-                                            <Text style={styles.sheetSuffix}>
-                                                {sheet.suffix}
-                                            </Text>
-                                        )}
-                                    </View>
+                                    {sheet.isStepper ? (
+                                        <View
+                                            style={[
+                                                styles.stepperContainer,
+                                                { height: 60 },
+                                            ]}
+                                        >
+                                            <TextInput
+                                                style={[
+                                                    styles.stepperInput,
+                                                    { fontSize: 22 },
+                                                ]}
+                                                value={draft}
+                                                onChangeText={setDraft}
+                                                keyboardType='numeric'
+                                                autoFocus
+                                            />
+                                            <View
+                                                style={styles.stepperControls}
+                                            >
+                                                <Pressable
+                                                    style={[
+                                                        styles.stepBtn,
+                                                        {
+                                                            width: 44,
+                                                            height: 44,
+                                                        },
+                                                    ]}
+                                                    onPress={() => {
+                                                        const val =
+                                                            parseInt(
+                                                                draft || '0',
+                                                            ) + 5;
+                                                        setDraft(String(val));
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='add'
+                                                        size={20}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                                <Pressable
+                                                    style={[
+                                                        styles.stepBtn,
+                                                        {
+                                                            width: 44,
+                                                            height: 44,
+                                                        },
+                                                    ]}
+                                                    onPress={() => {
+                                                        const val = Math.max(
+                                                            0,
+                                                            parseInt(
+                                                                draft || '0',
+                                                            ) - 5,
+                                                        );
+                                                        setDraft(String(val));
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='remove'
+                                                        size={20}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                            </View>
+                                            {sheet.suffix && (
+                                                <Text
+                                                    style={[
+                                                        styles.stepperUnit,
+                                                        {
+                                                            fontSize: 16,
+                                                            marginRight: 10,
+                                                        },
+                                                    ]}
+                                                >
+                                                    {sheet.suffix}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    ) : (
+                                        <View style={shared.sheetInputWrap}>
+                                            <Ionicons
+                                                name={
+                                                    (sheet.icon ||
+                                                        'create') as any
+                                                }
+                                                size={18}
+                                                color={colors.primary}
+                                            />
+                                            <TextInput
+                                                style={shared.sheetInput}
+                                                value={draft}
+                                                onChangeText={setDraft}
+                                                keyboardType={
+                                                    sheet.keyboard || 'default'
+                                                }
+                                                placeholder={sheet.title}
+                                                placeholderTextColor={
+                                                    colors.text3
+                                                }
+                                                autoFocus
+                                            />
+                                            {sheet.suffix && (
+                                                <Text
+                                                    style={styles.sheetSuffix}
+                                                >
+                                                    {sheet.suffix}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    )}
                                 </View>
                             )}
 

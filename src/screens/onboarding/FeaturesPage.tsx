@@ -22,10 +22,7 @@ export default function FeaturesPage({
             {renderDots()}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={[
-                    styles.sScroll,
-                    { justifyContent: 'center' },
-                ]}
+                contentContainerStyle={styles.sScroll}
                 showsVerticalScrollIndicator={false}
             >
                 <View
@@ -56,7 +53,7 @@ export default function FeaturesPage({
                     chăm sóc
                 </Text>
                 <Text style={styles.s2Desc}>
-                    Từ hồ sơ bệnh án đến lịch tiêm chủng — CareSync giúp bạn
+                    Từ hồ sơ bệnh án đến lịch tiêm chủng — HomeMedAI giúp bạn
                     không bỏ lỡ điều quan trọng nào.
                 </Text>
                 <View style={styles.featList}>

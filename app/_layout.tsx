@@ -16,7 +16,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Toaster } from 'sonner-native';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
 
 SplashScreen.preventAutoHideAsync();
@@ -46,14 +48,19 @@ export default function RootLayout() {
     }
 
     return (
-        <ThemeProvider
-            value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
-        >
-            <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name='onboarding' />
-                <Stack.Screen name='(tabs)' />
-            </Stack>
-            <StatusBar style='auto' />
-        </ThemeProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                <ThemeProvider
+                    value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
+                >
+                    <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name='onboarding' />
+                        <Stack.Screen name='(tabs)' />
+                    </Stack>
+                    <StatusBar style='auto' />
+                </ThemeProvider>
+            </SafeAreaProvider>
+            <Toaster />
+        </GestureHandlerRootView>
     );
 }

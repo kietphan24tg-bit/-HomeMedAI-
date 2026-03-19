@@ -2,12 +2,20 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HapticTab } from '@/src/components/HapticTab';
 import { IconSymbol } from '@/src/components/ui/IconSymbol';
 import { colors } from '@/src/styles/tokens';
 
 export default function TabLayout() {
+    const insets = useSafeAreaInsets();
+
+    // Calculate tab bar height based on safe area bottom inset
+    // Base height 60 + top padding 8 + bottom padding (base 10 + safe area)
+    const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 72 + insets.bottom;
+    const PADDING_BOTTOM = Platform.OS === 'ios' ? 24 : insets.bottom + 12;
+
     return (
         <Tabs
             screenOptions={{
@@ -17,8 +25,8 @@ export default function TabLayout() {
                 tabBarInactiveTintColor: colors.text3,
                 tabBarShowLabel: true,
                 tabBarStyle: {
-                    height: 78,
-                    paddingBottom: 16,
+                    height: TAB_BAR_HEIGHT,
+                    paddingBottom: PADDING_BOTTOM,
                     paddingTop: 8,
                     backgroundColor: colors.card,
                     borderTopColor: colors.border,

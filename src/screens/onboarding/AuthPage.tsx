@@ -1,15 +1,20 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { styles } from './styles';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 
+const GOOGLE_LOGO_URI =
+    'data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTIyLjU2IDEyLjI1YzAtLjc4LS4wNy0xLjUzLS4yLTIuMjVIMTJ2NC4yNmg1LjkyYy0uMjYgMS4zNy0xLjA0IDIuNTMtMi4yMSAzLjMxdjIuNzdoMy41N2MyLjA4LTEuOTIgMy4yOC00Ljc0IDMuMjgtOC4wOXoiIGZpbGw9IiM0Mjg1RjQiLz48cGF0aCBkPSJNMTIgMjNjMi45NyAwIDUuNDYtLjk4IDcuMjgtMi42NmwtMy41Ny0yLjc3Yy0uOTguNjYtMi4yMyAxLjA2LTMuNzEgMS4wNi0yLjg2IDAtNS4yOS0xLjkzLTYuMTYtNC41M0gyLjE4djIuODRDMy45OSAyMC41MyA3LjcgMjMgMTIgMjN6IiBmaWxsPSIjMzRBODUzIi8+PHBhdGggZD0iTTUuODQgMTQuMDljLS4yMi0uNjYtLjM1LTEuMzYtLjM1LTIuMDlzLjEzLTEuNDMuMzUtMi4wOVY3LjA3SDIuMThDMS40MyA4LjU1IDEgMTAuMjIgMSAxMnMuNDMgMy40NSAxLjE4IDQuOTNsMy42Ni0yLjg0eiIgZmlsbD0iI0ZCQkMwNSIvPjxwYXRoIGQ9Ik0xMiA1LjM4YzEuNjIgMCAzLjA2LjU2IDQuMjEgMS42NGwzLjE1LTMuMTVDMTcuNDUgMi4wOSAxNC45NyAxIDEyIDEgNy43IDEgMy45OSAzLjQ3IDIuMTggNy4wN2wzLjY2IDIuODRjLjg3LTIuNiAzLjMtNC41MyA2LjE2LTQuNTN6IiBmaWxsPSIjRUE0MzM1Ii8+PC9zdmc+';
+
 interface Props {
     width: number;
     authTab: 'login' | 'register';
     setAuthTab: (tab: 'login' | 'register') => void;
-    goMain: () => void;
+    goNext: () => void;
     renderDots: () => React.JSX.Element;
 }
 
@@ -17,7 +22,7 @@ export default function AuthPage({
     width,
     authTab,
     setAuthTab,
-    goMain,
+    goNext,
     renderDots,
 }: Props): React.JSX.Element {
     const [email, setEmail] = useState('');
@@ -30,18 +35,18 @@ export default function AuthPage({
             {renderDots()}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={[
-                    styles.sScroll,
-                    { justifyContent: 'center' },
-                ]}
+                contentContainerStyle={styles.sScroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
             >
                 <View style={styles.s4Top}>
-                    <View style={styles.s4Logo}>
+                    <LinearGradient
+                        colors={['#0F766E', '#14B8A6']}
+                        style={styles.s4Logo}
+                    >
                         <Feather name='activity' size={28} color='#fff' />
-                    </View>
-                    <Text style={styles.s4App}>CareSync</Text>
+                    </LinearGradient>
+                    <Text style={styles.s4App}>HomeMedAI</Text>
                     <Text style={styles.s4Title}>
                         Bắt đầu hành trình{'\n'}
                         <Text style={{ color: colors.primary }}>
@@ -255,7 +260,7 @@ export default function AuthPage({
                                 },
                                 pressed && shared.pressed,
                             ]}
-                            onPress={goMain}
+                            onPress={goNext}
                         >
                             <Ionicons
                                 name='log-in-outline'
@@ -277,23 +282,14 @@ export default function AuthPage({
                                     pressed && shared.pressed,
                                 ]}
                             >
-                                <Text style={styles.googleG}>G</Text>
-                                <Text style={styles.btnSocialLabel}>
-                                    Google
-                                </Text>
-                            </Pressable>
-                            <Pressable
-                                style={({ pressed }) => [
-                                    styles.btnApple,
-                                    pressed && shared.pressed,
-                                ]}
-                            >
-                                <Ionicons
-                                    name='logo-apple'
-                                    size={18}
-                                    color='#fff'
+                                <Image
+                                    source={{ uri: GOOGLE_LOGO_URI }}
+                                    style={styles.googleLogo}
+                                    contentFit='contain'
                                 />
-                                <Text style={styles.btnAppleText}>Apple</Text>
+                                <Text style={styles.btnSocialLabel}>
+                                    Tiếp tục với Google
+                                </Text>
                             </Pressable>
                         </View>
                         <View style={styles.trustRow}>
@@ -330,7 +326,7 @@ export default function AuthPage({
                                 },
                                 pressed && shared.pressed,
                             ]}
-                            onPress={goMain}
+                            onPress={goNext}
                         >
                             <Text style={shared.btnFilledText}>
                                 Tạo tài khoản

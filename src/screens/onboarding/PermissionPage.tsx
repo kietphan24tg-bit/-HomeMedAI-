@@ -41,10 +41,7 @@ export default function PermissionPage({
             {renderDots()}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={[
-                    styles.sScroll,
-                    { justifyContent: 'center' },
-                ]}
+                contentContainerStyle={styles.sScroll}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.s3Illo}>
@@ -87,7 +84,7 @@ export default function PermissionPage({
                     </Text>
                 </View>
                 <Text style={styles.s2Title}>
-                    CareSync luôn{'\n'}
+                    HomeMedAI luôn{'\n'}
                     <Text style={{ color: '#F59E0B' }}>ở đây</Text> nhắc bạn
                 </Text>
                 <Text style={styles.s3Desc}>

@@ -1,5 +1,6 @@
 // src/styles/tokens.ts
 import { type ViewStyle } from 'react-native';
+import { moderateScale, verticalScale } from './responsive';
 
 export const colors = {
     primary: '#2563EB',
@@ -30,10 +31,10 @@ export const colors = {
 } as const;
 
 export const radius = {
-    lg: 20,
-    md: 16,
-    sm: 12,
-    phone: 48,
+    lg: moderateScale(20),
+    md: moderateScale(16),
+    sm: moderateScale(12),
+    phone: moderateScale(48),
 } as const;
 
 export const typography = {
@@ -51,7 +52,7 @@ export const shadows: { card: ViewStyle } = {
         shadowColor: '#0f172a',
         shadowOpacity: 0.05,
         shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         elevation: 3,
     },
 };

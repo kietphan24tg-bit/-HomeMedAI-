@@ -1,25 +1,24 @@
 import axios from 'axios';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
-// Bạn có thể thay đổi baseURL này cho phù hợp với backend của mình
-const BASE_URL = 'https://api.example.com';
+const BASE_URL = process.env.BE_URL;
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
     timeout: 10000,
     headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+        'Content-Type': 'application/json', // send data as json
+        Accept: 'application/json', // expect json response
     },
 });
 
 // Interceptor cho Request (ví dụ: thêm token vào header)
 apiClient.interceptors.request.use(
     (config) => {
-        // Bạn có thể lấy token từ storage (như AsyncStorage) ở đây
-        // const token = await AsyncStorage.getItem('userToken');
-        // if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        // }
+        const token = useAuthStore.getState().accessToken;
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error) => {
@@ -29,24 +28,31 @@ apiClient.interceptors.request.use(
 
 // Interceptor cho Response (ví dụ: xử lý lỗi tập trung)
 apiClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
-    (error) => {
-        if (error.response) {
-            // Server trả về response với status code nằm ngoài khoảng 2xx
-            console.error('API Error:', error.response.data);
-
-            // Xử lý các lỗi cụ thể như 401 (Unauthorized)
-            if (error.response.status === 401) {
-                // Ví dụ: Logout người dùng nếu token hết hạn
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+        //những api ko cần check
+        if (
+            originalRequest.url.includes('/signin') ||
+            originalRequest.url.includes('/signup') ||
+            originalRequest.url.includes('/signout')
+        ) {
+            return Promise.reject(error);
+        }
+        originalRequest._retry = originalRequest._retry || 0;
+        if (error.response.status === 403 && originalRequest._retry < 4) {
+            originalRequest._retry += 1;
+            try {
+                const res = await authService.refresh();
+                const accessToken = res.accessToken;
+                useAuthStore.getState().setAccessToken(accessToken);
+                originalRequest.headers['Authorization'] =
+                    `Bearer ${accessToken}`;
+                return api(originalRequest);
+            } catch (error) {
+                useAuthStore.getState().clearStore();
+                return Promise.reject(error);
             }
-        } else if (error.request) {
-            // Request đã được gửi nhưng không nhận được response
-            console.error('Network Error: No response received');
-        } else {
-            // Có lỗi gì đó xảy ra khi thiết lập request
-            console.error('Error:', error.message);
         }
         return Promise.reject(error);
     },

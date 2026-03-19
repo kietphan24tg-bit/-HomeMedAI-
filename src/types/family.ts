@@ -16,6 +16,23 @@ export interface FamilyMember {
     height?: number;
     weight?: number;
     address?: string;
+    bloodType?: string;
+    chronicIllness?: string;
+    allergies?: string;
+    recordCount?: number;
+    vaccineDoseCount?: number;
+    vaccineTotalCount?: number;
+    records?: {
+        title: string;
+        desc: string;
+        tag: string;
+        date: string;
+    }[];
+    medications?: {
+        name: string;
+        desc: string;
+        type: 'blue' | 'teal' | 'rose';
+    }[];
 }
 
 export interface FamilyGroup {
