@@ -1,7 +1,6 @@
 # 🏥 HomeMedAI - Technical Documentation
 
-Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. Tài liệu này tập trung vào kiến trúc và hướng dẫn phát triển cho thành viên trong team.
-
+Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. 
 ---
 
 ## 🏗 Kiến trúc Dự án (Architecture)
@@ -55,7 +54,7 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 ---
 
-## 🛠 Hướng dẫn Nội bộ cho Developer
+
 
 ### Nguyên tắc code UI:
 
@@ -79,4 +78,4 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 ---
 
-_Tài liệu nội bộ - Cập nhật lần cuối: 14/03/2026_
+
