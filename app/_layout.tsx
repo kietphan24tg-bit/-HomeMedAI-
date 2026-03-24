@@ -1,3 +1,5 @@
+import LaunchScreen from '@/src/components/LaunchScreen';
+import { useColorScheme } from '@/src/hooks/use-color-scheme';
 import {
     Inter_400Regular,
     Inter_500Medium,
@@ -14,13 +16,13 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
-import { useColorScheme } from '@/src/hooks/use-color-scheme';
 
+//ngăn slash mặc định tắt
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
@@ -29,6 +31,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
+    const [showLaunchScreen, setShowLaunchScreen] = useState(true);
     const [loaded, error] = useFonts({
         Inter_400Regular,
         Inter_500Medium,
@@ -38,13 +41,25 @@ export default function RootLayout() {
     });
 
     useEffect(() => {
-        if (loaded || error) {
-            SplashScreen.hideAsync();
+        if (!loaded && !error) {
+            return;
         }
+
+        //Tắt slash mặc định
+        SplashScreen.hideAsync();
+        const timer = setTimeout(() => {
+            setShowLaunchScreen(false);
+        }, 2000); // 2s
+
+        return () => clearTimeout(timer);
     }, [loaded, error]);
 
     if (!loaded && !error) {
         return null;
+    }
+
+    if (showLaunchScreen) {
+        return <LaunchScreen />;
     }
 
     return (
@@ -56,6 +71,8 @@ export default function RootLayout() {
                     <Stack screenOptions={{ headerShown: false }}>
                         <Stack.Screen name='onboarding' />
                         <Stack.Screen name='(tabs)' />
+                        <Stack.Screen name='auth' />
+                        <Stack.Screen name='personal-info' />
                     </Stack>
                     <StatusBar style='auto' />
                 </ThemeProvider>

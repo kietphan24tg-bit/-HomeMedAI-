@@ -14,12 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthPage from './AuthPage';
 import FeaturesPage from './FeaturesPage';
 import PermissionPage from './PermissionPage';
-import PersonalInfoPage from './PersonalInfoPage';
 import { styles } from './styles';
 import WelcomePage from './WelcomePage';
 import { colors } from '../../styles/tokens';
 
-const TOTAL_PAGES = 5;
+const TOTAL_PAGES = 4;
 
 export default function OnboardingScreen(): React.JSX.Element {
     const router = useRouter();
@@ -103,12 +102,6 @@ export default function OnboardingScreen(): React.JSX.Element {
                         width={width}
                         authTab={authTab}
                         setAuthTab={setAuthTab}
-                        goNext={() => goTo(4)}
-                        renderDots={renderDots}
-                    />
-                    <PersonalInfoPage
-                        width={width}
-                        goMain={goMain}
                         renderDots={renderDots}
                     />
                 </ScrollView>

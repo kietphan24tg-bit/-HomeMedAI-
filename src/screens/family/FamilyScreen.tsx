@@ -1,7 +1,6 @@
-// src/screens/family/FamilyScreen.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
     KeyboardAvoidingView,
     Modal,
@@ -15,9 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
-import { CardBlock, DateField, SectionHeader } from '../../components/ui';
 import { FAMILIES } from '../../data/family-data';
-import { scaleFont } from '../../styles/responsive';
+import { scale, scaleFont, verticalScale } from '../../styles/responsive';
 import { shared } from '../../styles/shared';
 import { colors, typography } from '../../styles/tokens';
 import type { FamilyGroup, FamilyMember } from '../../types/family';
@@ -25,10 +23,80 @@ import type { FamilyGroup, FamilyMember } from '../../types/family';
 type Screen =
     | 'list'
     | 'detail'
-    | 'addMember'
     | 'memberDetail'
-    | 'createProfile'
-    | 'searchPhone';
+    | 'addMember'
+    | 'searchPhone'
+    | 'inviteList';
+
+type MemberTab = 'info' | 'health';
+type SearchState = 'idle' | 'loading' | 'found' | 'notFound';
+
+type InviteItem = {
+    id: string;
+    familyName: string;
+    memberCount: number;
+    inviterName: string;
+    inviterRole: string;
+    role: string;
+    roleEmoji: string;
+    invitedAt: string;
+    gradient: [string, string];
+};
+
+const RECENT_CONTACTS = [
+    {
+        name: 'Nguyễn Thị Bình',
+        phone: '0901224567',
+        initials: 'NB',
+        gradient: ['#7C3AED', '#A855F7'] as [string, string],
+    },
+    {
+        name: 'Nguyễn Văn Ba',
+        phone: '0912345678',
+        initials: 'BA',
+        gradient: ['#0D9488', '#2563EB'] as [string, string],
+    },
+];
+
+const ROLE_OPTIONS = [
+    { id: 'father', label: 'Cha', emoji: '👨' },
+    { id: 'mother', label: 'Mẹ', emoji: '👩' },
+    { id: 'son', label: 'Con trai', emoji: '👦' },
+    { id: 'daughter', label: 'Con gái', emoji: '👧' },
+    { id: 'grandfather', label: 'Ông', emoji: '👴' },
+    { id: 'grandmother', label: 'Bà', emoji: '👵' },
+    { id: 'brother', label: 'Anh/Em trai', emoji: '👦' },
+    { id: 'sister', label: 'Chị/Em gái', emoji: '👧' },
+    { id: 'uncle', label: 'Chú/Bác', emoji: '👨' },
+    { id: 'aunt', label: 'Cô/Dì', emoji: '👩' },
+    { id: 'nephew', label: 'Cháu', emoji: '👦' },
+    { id: 'other', label: 'Người thân khác', emoji: '🤝' },
+] as const;
+
+const INITIAL_INVITES: InviteItem[] = [
+    {
+        id: 'inv-1',
+        familyName: 'Nhà Bác Hai',
+        memberCount: 3,
+        inviterName: 'Nguyễn Văn Hải',
+        inviterRole: 'Chủ gia đình',
+        role: 'Cháu',
+        roleEmoji: '🧒',
+        invitedAt: '2 giờ trước',
+        gradient: ['#064E3B', '#059669'],
+    },
+    {
+        id: 'inv-2',
+        familyName: 'Gia đình Trần',
+        memberCount: 5,
+        inviterName: 'Trần Thị Mai',
+        inviterRole: 'Chủ gia đình',
+        role: 'Con dâu',
+        roleEmoji: '👩',
+        invitedAt: '1 ngày trước',
+        gradient: ['#1E1B4B', '#4F46E5'],
+    },
+];
 
 export default function FamilyScreen(): React.ReactNode {
     const [screen, setScreen] = useState<Screen>('list');
@@ -38,473 +106,256 @@ export default function FamilyScreen(): React.ReactNode {
     const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(
         null,
     );
-    const [memberTab, setMemberTab] = useState<'info' | 'health'>('info');
-
-    // State for Custom sheets/popups
+    const [memberTab, setMemberTab] = useState<MemberTab>('info');
     const [showCreateSheet, setShowCreateSheet] = useState(false);
+    const [showRoleSheet, setShowRoleSheet] = useState(false);
 
-    // Form states - Create Family
     const [familyName, setFamilyName] = useState('');
     const [familyAddress, setFamilyAddress] = useState('');
-
-    // Form states - Member Profile
-    const [profileName, setProfileName] = useState('');
-    const [profileDate, setProfileDate] = useState<Date | null>(null);
-    const [profileRelation, setProfileRelation] = useState('Khác');
-    const [showRelationModal, setShowRelationModal] = useState(false);
-    const [profileGender, setProfileGender] = useState('');
-    const [profileHeight, setProfileHeight] = useState('');
-    const [profileWeight, setProfileWeight] = useState('');
-    const [profileAddress, setProfileAddress] = useState('');
     const [searchPhone, setSearchPhone] = useState('');
-    const [searchState, setSearchState] = useState<
-        'idle' | 'loading' | 'found' | 'notFound'
-    >('idle');
-    const [focusedField, setFocusedField] = useState<
-        'height' | 'weight' | null
-    >(null);
+    const [searchState, setSearchState] = useState<SearchState>('idle');
+    const [selectedInviteRole, setSelectedInviteRole] = useState<string | null>(
+        null,
+    );
+    const [inviteList, setInviteList] = useState<InviteItem[]>(INITIAL_INVITES);
 
-    const openFamily = useCallback((f: FamilyGroup) => {
-        setSelectedFamily(f);
+    const openFamily = (family: FamilyGroup) => {
+        setSelectedFamily(family);
         setScreen('detail');
-    }, []);
+    };
 
-    const openMember = useCallback((m: FamilyMember) => {
-        setSelectedMember(m);
+    const openMember = (member: FamilyMember) => {
+        setSelectedMember(member);
         setMemberTab('info');
         setScreen('memberDetail');
-    }, []);
+    };
 
-    const goBack = useCallback(() => {
+    const handleBack = () => {
         if (screen === 'memberDetail') {
             setScreen('detail');
-        } else if (screen === 'searchPhone') {
-            setScreen('addMember');
-        } else if (screen === 'addMember') {
-            setScreen('detail');
-        } else if (screen === 'detail') {
-            setScreen('list');
-            setSelectedFamily(null);
+            return;
         }
-    }, [screen]);
+        if (screen === 'searchPhone') {
+            setScreen('addMember');
+            return;
+        }
+        if (screen === 'addMember') {
+            setScreen('detail');
+            return;
+        }
+        if (screen === 'inviteList') {
+            setScreen('list');
+            return;
+        }
+        if (screen === 'detail') {
+            setSelectedFamily(null);
+            setScreen('list');
+        }
+    };
 
-    // ═══════ SCREEN: LIST ═══════
-    if (screen === 'list') {
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar
-                    barStyle='dark-content'
-                    backgroundColor={colors.bg}
-                />
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <View style={styles.statusTopSpacer} />
-                    <View style={styles.topbar}>
-                        <Text style={styles.topbarTitle}>Gia Đình</Text>
-                        <View style={styles.topbarRight}>
-                            <Pressable
-                                style={[
-                                    shared.iconBtn,
-                                    {
-                                        backgroundColor: colors.primaryBg,
-                                        borderColor: colors.primaryLight,
-                                    },
-                                ]}
-                            >
+    const handleSearchPhone = () => {
+        const cleanPhone = searchPhone.replace(/\D/g, '');
+        if (cleanPhone.length < 9) return;
+
+        setSelectedInviteRole(null);
+        setSearchState('loading');
+
+        setTimeout(() => {
+            if (cleanPhone.startsWith('090') || cleanPhone.startsWith('091')) {
+                setSearchState('found');
+            } else {
+                setSearchState('notFound');
+            }
+        }, 900);
+    };
+
+    const acceptInvite = (id: string) => {
+        setInviteList((prev) => prev.filter((item) => item.id !== id));
+    };
+
+    const rejectInvite = (id: string) => {
+        setInviteList((prev) => prev.filter((item) => item.id !== id));
+    };
+
+    const renderFamilyList = () => (
+        <SafeAreaView style={styles.container}>
+            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.statusTopSpacer} />
+
+                <View style={styles.topbar}>
+                    <Text style={styles.topbarTitle}>Gia đình</Text>
+                    <View style={styles.topbarRight}>
+                        <Pressable
+                            style={shared.iconBtn}
+                            onPress={() => setScreen('inviteList')}
+                        >
+                            <View>
                                 <Ionicons
-                                    name='grid-outline'
-                                    size={16}
-                                    color={colors.primary}
-                                />
-                            </Pressable>
-                            <Pressable style={shared.iconBtn}>
-                                <Ionicons
-                                    name='search-outline'
+                                    name='mail-unread-outline'
                                     size={16}
                                     color={colors.text2}
                                 />
-                            </Pressable>
-                        </View>
+                                {inviteList.length > 0 ? (
+                                    <View
+                                        style={{
+                                            position: 'absolute',
+                                            top: -7,
+                                            right: -9,
+                                            minWidth: 18,
+                                            height: 18,
+                                            paddingHorizontal: 4,
+                                            borderRadius: 9,
+                                            backgroundColor: '#E11D48',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderWidth: 2,
+                                            borderColor: colors.bg,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: '#fff',
+                                                fontFamily:
+                                                    typography.font.bold,
+                                                fontSize: scaleFont(9),
+                                            }}
+                                        >
+                                            {inviteList.length}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                shared.iconBtn,
+                                {
+                                    backgroundColor: colors.primaryBg,
+                                    borderColor: '#BFDBFE',
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name='grid-outline'
+                                size={16}
+                                color={colors.primary}
+                            />
+                        </Pressable>
                     </View>
+                </View>
 
-                    <SectionHeader title='Gia đình của tôi' />
-
-                    {FAMILIES.length === 0 ? (
-                        <View
-                            style={{
-                                padding: 40,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
+                <SectionLabel title='Gia đình của tôi' />
+                {FAMILIES.map((family) => (
+                    <Pressable
+                        key={family.id}
+                        style={styles.fcard}
+                        onPress={() => openFamily(family)}
+                    >
+                        <LinearGradient
+                            colors={
+                                family.gradientColors as LinearGradientProps['colors']
+                            }
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.fcardBg}
                         >
                             <View
                                 style={{
-                                    width: 80,
-                                    height: 80,
-                                    borderRadius: 24,
-                                    backgroundColor: '#F1F5F9',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: 20,
+                                    position: 'absolute',
+                                    top: -verticalScale(80),
+                                    right: -scale(40),
+                                    width: scale(200),
+                                    height: scale(200),
+                                    borderRadius: scale(100),
+                                    backgroundColor: 'rgba(255,255,255,0.07)',
                                 }}
-                            >
-                                <Ionicons
-                                    name='people-outline'
-                                    size={36}
-                                    color={colors.text3}
-                                />
-                            </View>
-                            <Text
-                                style={{
-                                    fontSize: 16,
-                                    fontWeight: '800',
-                                    color: colors.text,
-                                    marginBottom: 8,
-                                }}
-                            >
-                                Chưa có gia đình
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 13,
-                                    color: colors.text3,
-                                    textAlign: 'center',
-                                    lineHeight: 20,
-                                }}
-                            >
-                                Bạn chưa tham gia gia đình nào. Hãy tạo mới hoặc
-                                tham gia để quản lý sức khoẻ người thân.
-                            </Text>
-                        </View>
-                    ) : (
-                        FAMILIES.map((f) => (
-                            <Pressable
-                                key={f.id}
-                                style={styles.fcard}
-                                onPress={() => openFamily(f)}
-                            >
-                                <LinearGradient
-                                    colors={
-                                        f.gradientColors as LinearGradientProps['colors']
-                                    }
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.fcardBg}
-                                >
-                                    <View style={styles.fcardInner}>
-                                        <View style={styles.fcardIcon}>
-                                            <Ionicons
-                                                name={f.iconName as any}
-                                                size={22}
-                                                color='#fff'
-                                            />
-                                        </View>
-                                        <View style={styles.fcardInfo}>
-                                            <Text style={styles.fcardName}>
-                                                {f.name}
-                                            </Text>
-                                            <Text style={styles.fcardMeta}>
-                                                {f.memberCount} thành viên
-                                            </Text>
-                                            <Text style={styles.fcardRole}>
-                                                Vai trò của bạn: {f.roleEmoji}{' '}
-                                                {f.role}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.fcardArrow}>
-                                            <Ionicons
-                                                name='chevron-forward'
-                                                size={14}
-                                                color='#fff'
-                                            />
-                                        </View>
-                                    </View>
-                                </LinearGradient>
-                            </Pressable>
-                        ))
-                    )}
-
-                    <Pressable
-                        style={styles.addFcard}
-                        onPress={() => setShowCreateSheet(true)}
-                    >
-                        <View style={styles.addFcardInner}>
-                            <View style={styles.addFcardIc}>
-                                <Ionicons
-                                    name='add'
-                                    size={20}
-                                    color={colors.primary}
-                                />
-                            </View>
-                            <View>
-                                <Text style={styles.addFcardTitle}>
-                                    Thêm gia đình
-                                </Text>
-                                <Text style={styles.addFcardSub}>
-                                    Tạo hoặc tham gia một gia đình mới
-                                </Text>
-                            </View>
-                        </View>
-                    </Pressable>
-                </ScrollView>
-
-                <Modal
-                    visible={showCreateSheet}
-                    transparent
-                    animationType='slide'
-                    onRequestClose={() => setShowCreateSheet(false)}
-                >
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={{ flex: 1 }}
-                    >
-                        <Pressable
-                            style={shared.overlay}
-                            onPress={() => setShowCreateSheet(false)}
-                        >
-                            <Pressable
-                                style={shared.sheetContainer}
-                                onPress={(e) => e.stopPropagation()}
-                            >
-                                <View style={shared.sheetHandle}>
-                                    <View style={shared.sheetBar} />
-                                </View>
-                                <View style={shared.sheetHeader}>
-                                    <Text style={shared.sheetTitle}>
-                                        Tạo gia đình
-                                    </Text>
-                                    <Pressable
-                                        onPress={() =>
-                                            setShowCreateSheet(false)
-                                        }
-                                    >
-                                        <Ionicons
-                                            name='close'
-                                            size={20}
-                                            color={colors.text3}
-                                        />
-                                    </Pressable>
-                                </View>
-                                <View style={shared.sheetBody}>
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>
-                                            Tên gia đình
-                                        </Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            placeholder='VD: Phan Family, Nhà Nguyễn…'
-                                            value={familyName}
-                                            onChangeText={setFamilyName}
-                                        />
-                                    </View>
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>
-                                            Địa chỉ
-                                        </Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            placeholder='Số nhà, đường…'
-                                            value={familyAddress}
-                                            onChangeText={setFamilyAddress}
-                                        />
-                                    </View>
-                                    <LinearGradient
-                                        colors={
-                                            [
-                                                '#7C3AED',
-                                                '#2563EB',
-                                            ] as LinearGradientProps['colors']
-                                        }
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.createBtn}
-                                    >
-                                        <Pressable
-                                            onPress={() =>
-                                                setShowCreateSheet(false)
-                                            }
-                                            style={{
-                                                width: '100%',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <Text style={styles.createBtnText}>
-                                                Tạo gia đình
-                                            </Text>
-                                        </Pressable>
-                                    </LinearGradient>
-                                </View>
-                            </Pressable>
-                        </Pressable>
-                    </KeyboardAvoidingView>
-                </Modal>
-            </SafeAreaView>
-        );
-    }
-
-    // ═══════ SCREEN: DETAIL ═══════
-    if (screen === 'detail' && selectedFamily) {
-        const family = selectedFamily;
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar
-                    barStyle='light-content'
-                    backgroundColor='transparent'
-                    translucent
-                />
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <LinearGradient
-                        colors={
-                            family.gradientColors as LinearGradientProps['colors']
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.detailHero}
-                    >
-                        <Pressable style={styles.backBtn} onPress={goBack}>
-                            <Ionicons
-                                name='chevron-back'
-                                size={14}
-                                color='#fff'
                             />
-                            <Text style={styles.backBtnText}>Gia đình</Text>
-                        </Pressable>
-                        <View style={styles.detailHeroContent}>
-                            <View style={styles.davStack}>
-                                <View
-                                    style={[
-                                        styles.dav,
-                                        {
-                                            backgroundColor:
-                                                'rgba(255,255,255,0.2)',
-                                        },
-                                    ]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.davText,
-                                            { fontSize: 9 },
-                                        ]}
-                                    >
-                                        +2
+                            <View
+                                style={{
+                                    position: 'absolute',
+                                    bottom: -verticalScale(40),
+                                    left: scale(20),
+                                    width: scale(110),
+                                    height: scale(110),
+                                    borderRadius: scale(55),
+                                    backgroundColor: 'rgba(255,255,255,0.04)',
+                                }}
+                            />
+                            <View style={styles.fcardInner}>
+                                <View style={styles.fcardIcon}>
+                                    <Ionicons
+                                        name={family.iconName as never}
+                                        size={22}
+                                        color='#fff'
+                                    />
+                                </View>
+                                <View style={styles.fcardInfo}>
+                                    <Text style={styles.fcardName}>
+                                        {family.name}
+                                    </Text>
+                                    <Text style={styles.fcardMeta}>
+                                        {family.memberCount} thành viên
+                                    </Text>
+                                    <Text style={styles.fcardRole}>
+                                        Vai trò của bạn: {family.roleEmoji}{' '}
+                                        {family.role}
                                     </Text>
                                 </View>
-                                {family.members.slice(0, 3).map((m, i) => (
-                                    <View
-                                        key={m.id}
-                                        style={[
-                                            styles.dav,
-                                            {
-                                                backgroundColor:
-                                                    m.gradientColors[0],
-                                            },
-                                        ]}
-                                    >
-                                        <Text style={styles.davText}>
-                                            {m.initials}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                            <View style={styles.detailInfo}>
-                                <Text style={styles.detailName}>
-                                    {family.name}
-                                </Text>
-                                <Text style={styles.detailSub}>
-                                    {family.memberCount} thành viên · Tạo{' '}
-                                    {family.createdDate}
-                                </Text>
-                            </View>
-                            <Pressable style={styles.detailMore}>
-                                <Ionicons
-                                    name='ellipsis-vertical'
-                                    size={18}
-                                    color='#fff'
-                                />
-                            </Pressable>
-                        </View>
-                    </LinearGradient>
-
-                    <SectionHeader title='Thành viên' />
-                    <CardBlock>
-                        {family.members.map((m, idx) => (
-                            <Pressable
-                                key={m.id}
-                                style={[
-                                    styles.mrow,
-                                    idx === family.members.length - 1 &&
-                                        styles.mrowLast,
-                                ]}
-                                onPress={() => openMember(m)}
-                            >
-                                <LinearGradient
-                                    colors={
-                                        m.gradientColors as LinearGradientProps['colors']
-                                    }
-                                    style={styles.mav}
-                                >
-                                    <Text style={styles.mavText}>
-                                        {m.initials}
-                                    </Text>
-                                </LinearGradient>
-                                <View style={styles.minfo}>
-                                    <Text style={styles.mname}>
-                                        {m.name}{' '}
-                                        {m.isSelf && (
-                                            <Text style={styles.mbadge}>
-                                                Bạn
-                                            </Text>
-                                        )}
-                                    </Text>
-                                    <Text style={styles.mrole}>
-                                        {m.isOwner ? '👑 ' : ''}
-                                        {m.role} · {m.age} tuổi
-                                    </Text>
+                                <View style={styles.fcardArrow}>
+                                    <Ionicons
+                                        name='chevron-forward'
+                                        size={14}
+                                        color='#fff'
+                                    />
                                 </View>
-                                <Ionicons
-                                    name='chevron-forward'
-                                    size={14}
-                                    color={colors.text3}
-                                />
-                            </Pressable>
-                        ))}
-                        <Pressable
-                            style={styles.addMrow}
-                            onPress={() => setScreen('addMember')}
-                        >
-                            <View style={styles.addMic}>
-                                <Ionicons
-                                    name='add'
-                                    size={16}
-                                    color={colors.primary}
-                                />
                             </View>
-                            <Text style={styles.addMlbl}>Thêm thành viên</Text>
-                        </Pressable>
-                    </CardBlock>
-
-                    <Pressable style={styles.dangerCard}>
-                        <Ionicons
-                            name='log-out-outline'
-                            size={18}
-                            color='#E11D48'
-                        />
-                        <Text style={styles.dangerText}>Rời khỏi gia đình</Text>
+                        </LinearGradient>
                     </Pressable>
-                </ScrollView>
-            </SafeAreaView>
-        );
-    }
+                ))}
 
-    // ═══════ SCREEN: ADD MEMBER ═══════
-    if (screen === 'addMember' && selectedFamily) {
+                <Pressable
+                    style={styles.addFcard}
+                    onPress={() => setShowCreateSheet(true)}
+                >
+                    <View style={styles.addFcardInner}>
+                        <View style={styles.addFcardIc}>
+                            <Ionicons
+                                name='add'
+                                size={18}
+                                color={colors.primary}
+                            />
+                        </View>
+                        <View>
+                            <Text style={styles.addFcardTitle}>
+                                Thêm gia đình
+                            </Text>
+                            <Text style={styles.addFcardSub}>
+                                Tạo hoặc tham gia một gia đình mới
+                            </Text>
+                        </View>
+                    </View>
+                </Pressable>
+            </ScrollView>
+
+            <CreateFamilyModal
+                visible={showCreateSheet}
+                familyName={familyName}
+                familyAddress={familyAddress}
+                onChangeFamilyName={setFamilyName}
+                onChangeFamilyAddress={setFamilyAddress}
+                onClose={() => setShowCreateSheet(false)}
+            />
+        </SafeAreaView>
+    );
+
+    const renderFamilyDetail = () => {
+        if (!selectedFamily) return null;
+
         return (
             <SafeAreaView style={styles.container}>
                 <StatusBar
@@ -523,1905 +374,490 @@ export default function FamilyScreen(): React.ReactNode {
                         }
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={styles.inviteHero}
+                        style={styles.detailHero}
                     >
-                        <Pressable style={styles.backBtn} onPress={goBack}>
+                        <Pressable style={styles.backBtn} onPress={handleBack}>
                             <Ionicons
                                 name='chevron-back'
                                 size={14}
                                 color='#fff'
                             />
-                            <Text style={styles.backBtnText}>
-                                {selectedFamily.name}
-                            </Text>
+                            <Text style={styles.backBtnText}>Gia đình</Text>
+                        </Pressable>
+
+                        <View style={styles.detailHeroContent}>
+                            <View style={[styles.davStack, { marginLeft: 6 }]}>
+                                <View
+                                    style={[
+                                        styles.dav,
+                                        styles.davFirst,
+                                        {
+                                            backgroundColor:
+                                                'rgba(255,255,255,0.18)',
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.davText}>
+                                        +
+                                        {Math.max(
+                                            0,
+                                            selectedFamily.memberCount - 3,
+                                        )}
+                                    </Text>
+                                </View>
+                                {selectedFamily.members
+                                    .slice(0, 3)
+                                    .map((member, index) => (
+                                        <LinearGradient
+                                            key={member.id}
+                                            colors={
+                                                member.gradientColors as LinearGradientProps['colors']
+                                            }
+                                            style={[
+                                                styles.dav,
+                                                index === 0
+                                                    ? styles.davFirst
+                                                    : null,
+                                            ]}
+                                        >
+                                            <Text style={styles.davText}>
+                                                {member.initials}
+                                            </Text>
+                                        </LinearGradient>
+                                    ))}
+                            </View>
+                            <View style={styles.detailInfo}>
+                                <Text style={styles.detailName}>
+                                    {selectedFamily.name}
+                                </Text>
+                                <Text style={styles.detailSub}>
+                                    {selectedFamily.memberCount} thành viên ·
+                                    Tạo {selectedFamily.createdDate}
+                                </Text>
+                            </View>
+                            <Pressable style={styles.detailMore}>
+                                <Ionicons
+                                    name='ellipsis-vertical'
+                                    size={16}
+                                    color='#fff'
+                                />
+                            </Pressable>
+                        </View>
+                    </LinearGradient>
+
+                    <SectionLabel title='Thành viên' />
+
+                    <View style={shared.cardBlock}>
+                        {selectedFamily.members.map((member, index) => (
+                            <MemberRow
+                                key={member.id}
+                                member={member}
+                                isLast={
+                                    index === selectedFamily.members.length - 1
+                                }
+                                onPress={() => openMember(member)}
+                            />
+                        ))}
+                        <Pressable
+                            style={[
+                                styles.addMrow,
+                                selectedFamily.members.length === 0
+                                    ? { borderTopWidth: 0 }
+                                    : {
+                                          borderTopWidth: 1,
+                                          borderTopColor: colors.border,
+                                      },
+                            ]}
+                            onPress={() => setScreen('addMember')}
+                        >
+                            <View style={styles.addMic}>
+                                <Ionicons
+                                    name='add'
+                                    size={16}
+                                    color={colors.primary}
+                                />
+                            </View>
+                            <Text style={styles.addMlbl}>Thêm thành viên</Text>
+                        </Pressable>
+                    </View>
+
+                    <SectionLabel title='Thiết lập nhanh' />
+
+                    <View style={shared.cardBlock}>
+                        <ActionRow
+                            icon='link-outline'
+                            color={colors.primary}
+                            bg='#EFF6FF'
+                            title='Tạo link mời liên kết'
+                            subtitle='Dành cho thành viên chưa có tài khoản'
+                        />
+                        <ActionRow
+                            icon='call-outline'
+                            color='#0D9488'
+                            bg='#F0FDFA'
+                            title='Mời bằng số điện thoại'
+                            subtitle='Tìm tài khoản đã có và gửi lời mời'
+                            isLast
+                            onPress={() => setScreen('searchPhone')}
+                        />
+                    </View>
+                </ScrollView>
+            </SafeAreaView>
+        );
+    };
+
+    const renderAddMember = () => {
+        if (!selectedFamily) return null;
+
+        return (
+            <SafeAreaView style={styles.container}>
+                <StatusBar
+                    barStyle='light-content'
+                    backgroundColor='transparent'
+                    translucent
+                />
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        { paddingBottom: verticalScale(36) },
+                    ]}
+                >
+                    <LinearGradient
+                        colors={['#1E3A5F', '#2563EB', '#0D9488']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.inviteHero}
+                    >
+                        <Pressable style={styles.backBtn} onPress={handleBack}>
+                            <Ionicons
+                                name='chevron-back'
+                                size={14}
+                                color='#fff'
+                            />
+                            <Text style={styles.backBtnText}>Gia đình</Text>
                         </Pressable>
                         <View style={styles.inviteHeroInner}>
                             <Text style={styles.inviteTitle}>
                                 Thêm thành viên
                             </Text>
+                            <Text
+                                style={[
+                                    styles.detailSub,
+                                    { color: 'rgba(255,255,255,0.72)' },
+                                ]}
+                            >
+                                {selectedFamily.name}
+                            </Text>
                         </View>
                     </LinearGradient>
 
-                    <SectionHeader title='Đã có tài khoản HomeMedAI' />
-                    <Pressable
-                        style={styles.methodCard}
-                        onPress={() => {
-                            setSearchState('idle');
-                            setSearchPhone('');
-                            setScreen('searchPhone');
-                        }}
-                    >
-                        <View style={styles.methodInner}>
-                            <View
-                                style={[
-                                    styles.methodIc,
-                                    { backgroundColor: colors.primaryBg },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='search-outline'
-                                    size={20}
-                                    color={colors.primary}
-                                />
-                            </View>
-                            <View style={styles.methodBody}>
-                                <Text style={styles.methodTitle}>
-                                    Tìm theo số điện thoại
-                                </Text>
-                                <Text style={styles.methodSub}>
-                                    Nhập SĐT người thân đã có tài khoản
-                                    HomeMedAI
-                                </Text>
-                            </View>
-                            <Ionicons
-                                name='chevron-forward'
-                                size={14}
-                                color={colors.text3}
-                            />
-                        </View>
-                    </Pressable>
+                    <SectionLabel title='Đã có tài khoản CareSync' />
 
-                    <SectionHeader title='Chưa có tài khoản' />
-                    <Pressable
-                        style={styles.methodCard}
-                        onPress={() => setScreen('createProfile')}
-                    >
-                        <View style={styles.methodInner}>
-                            <View
-                                style={[
-                                    styles.methodIc,
-                                    { backgroundColor: '#F0FDFA' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='person-add-outline'
-                                    size={20}
-                                    color='#0D9488'
-                                />
-                            </View>
-                            <View style={styles.methodBody}>
-                                <Text style={styles.methodTitle}>
-                                    Tạo hồ sơ người thân
-                                </Text>
-                                <Text style={styles.methodSub}>
-                                    Dành cho người chưa dùng HomeMedAI, bạn sẽ
-                                    quản lý hộ
-                                </Text>
-                            </View>
-                            <Ionicons
-                                name='chevron-forward'
-                                size={14}
-                                color={colors.text3}
-                            />
-                        </View>
-                    </Pressable>
+                    <MethodCard
+                        icon='call-outline'
+                        iconColor={colors.primary}
+                        iconBg='#EFF6FF'
+                        title='Tìm bằng số điện thoại'
+                        subtitle='Nhập SĐT người thân đã có tài khoản CareSync'
+                        onPress={() => setScreen('searchPhone')}
+                    />
 
-                    <SectionHeader title='Gửi lời mời' />
-                    <View style={styles.linkBox}>
-                        <Text style={styles.linkLabel}>Link mời tham gia</Text>
-                        <View style={styles.linkRow}>
-                            <Text style={styles.linkUrl} numberOfLines={1}>
-                                homemedai.vn/join/phan-family-2025
-                            </Text>
-                            <Pressable style={styles.copyBtn}>
-                                <Text style={styles.copyBtnText}>Sao chép</Text>
-                            </Pressable>
-                        </View>
-                    </View>
+                    <SectionLabel title='Chưa có tài khoản' />
+
+                    <MethodCard
+                        icon='person-add-outline'
+                        iconColor='#0D9488'
+                        iconBg='#F0FDFA'
+                        title='Tạo hồ sơ người thân'
+                        subtitle='Dành cho người chưa dùng CareSync, bạn sẽ quản lý hộ'
+                        onPress={() => setShowRoleSheet(true)}
+                    />
                 </ScrollView>
 
-                {/* Create Family Modal (Keeping this small/simple modal as is, or can be converted later if needed) */}
-                <Modal
-                    visible={showCreateSheet}
-                    transparent
-                    animationType='slide'
-                    onRequestClose={() => setShowCreateSheet(false)}
-                >
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={{ flex: 1 }}
-                    >
-                        <Pressable
-                            style={shared.overlay}
-                            onPress={() => setShowCreateSheet(false)}
-                        >
-                            <Pressable
-                                style={shared.sheetContainer}
-                                onPress={(e) => e.stopPropagation()}
-                            >
-                                <View style={shared.sheetHandle}>
-                                    <View style={shared.sheetBar} />
-                                </View>
-                                <View style={shared.sheetHeader}>
-                                    <Text style={shared.sheetTitle}>
-                                        Tạo gia đình
-                                    </Text>
-                                    <Pressable
-                                        onPress={() =>
-                                            setShowCreateSheet(false)
-                                        }
-                                    >
-                                        <Ionicons
-                                            name='close'
-                                            size={20}
-                                            color={colors.text3}
-                                        />
-                                    </Pressable>
-                                </View>
-                                <View style={shared.sheetBody}>
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>
-                                            Tên gia đình
-                                        </Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            placeholder='VD: Phan Family, Nhà Nguyễn…'
-                                            value={familyName}
-                                            onChangeText={setFamilyName}
-                                        />
-                                    </View>
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>
-                                            Địa chỉ
-                                        </Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            placeholder='Số nhà, đường…'
-                                            value={familyAddress}
-                                            onChangeText={setFamilyAddress}
-                                        />
-                                    </View>
-                                    <LinearGradient
-                                        colors={
-                                            [
-                                                '#7C3AED',
-                                                '#2563EB',
-                                            ] as LinearGradientProps['colors']
-                                        }
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.createBtn}
-                                    >
-                                        <Pressable
-                                            onPress={() =>
-                                                setShowCreateSheet(false)
-                                            }
-                                            style={{
-                                                width: '100%',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <Text style={styles.createBtnText}>
-                                                Tạo gia đình
-                                            </Text>
-                                        </Pressable>
-                                    </LinearGradient>
-                                </View>
-                            </Pressable>
-                        </Pressable>
-                    </KeyboardAvoidingView>
-                </Modal>
+                <RoleSelectionModal
+                    visible={showRoleSheet}
+                    selectedRole={selectedInviteRole}
+                    onSelectRole={setSelectedInviteRole}
+                    onClose={() => setShowRoleSheet(false)}
+                />
             </SafeAreaView>
         );
-    }
+    };
 
-    // ═══════ SCREEN: CREATE PROFILE (FULL SCREEN) ═══════
-    if (screen === 'createProfile') {
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar
-                    barStyle='dark-content'
-                    backgroundColor={colors.bg}
-                />
-                <View style={styles.memberHeader}>
-                    <View style={styles.statusTopSpacer} />
-                    <View style={styles.memberHeaderTop}>
-                        <Pressable
-                            style={styles.memberBackBtn}
-                            onPress={goBack}
-                        >
-                            <Ionicons
-                                name='chevron-back'
-                                size={16}
-                                color={colors.primary}
-                            />
-                            <Text style={styles.memberBackText}>Quay lại</Text>
-                        </Pressable>
-                        <Text style={styles.memberName}>Tạo hồ sơ mới</Text>
-                        <View style={{ width: 40 }} />
-                    </View>
-                </View>
-
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView
-                        style={styles.scroll}
-                        contentContainerStyle={[
-                            styles.scrollContent,
-                            { paddingHorizontal: 20, paddingTop: 20 },
-                        ]}
-                        keyboardShouldPersistTaps='handled'
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <View style={styles.popupAvWrap}>
-                            <LinearGradient
-                                colors={
-                                    [
-                                        '#CCFBF1',
-                                        '#99F6E4',
-                                    ] as LinearGradientProps['colors']
-                                }
-                                style={styles.popupAv}
-                            >
-                                <Ionicons
-                                    name='person-outline'
-                                    size={28}
-                                    color='#0D9488'
-                                />
-                                <View
-                                    style={[
-                                        styles.popupAvCam,
-                                        { backgroundColor: '#0D9488' },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name='camera'
-                                        size={10}
-                                        color='#fff'
-                                    />
-                                </View>
-                            </LinearGradient>
-                            <Text style={styles.popupAvHint}>
-                                Ảnh đại diện (tuỳ chọn)
-                            </Text>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Họ và tên{' '}
-                                <Text style={{ color: colors.cDanger }}>*</Text>
-                            </Text>
-                            <TextInput
-                                style={styles.formInput}
-                                placeholder='Nhập họ tên đầy đủ'
-                                placeholderTextColor={colors.text3}
-                                value={profileName}
-                                onChangeText={setProfileName}
-                            />
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Ngày sinh</Text>
-                            <DateField
-                                value={profileDate}
-                                onChange={setProfileDate}
-                            />
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Quan hệ với bạn
-                            </Text>
-                            <Pressable
-                                style={[
-                                    styles.formInput,
-                                    {
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                    },
-                                ]}
-                                onPress={() => setShowRelationModal(true)}
-                            >
-                                <Text
-                                    style={{
-                                        fontFamily: typography.font.semiBold,
-                                        fontSize: 14,
-                                        color: profileRelation
-                                            ? colors.text
-                                            : colors.text3,
-                                    }}
-                                >
-                                    {profileRelation || 'Chọn quan hệ'}
-                                </Text>
-                                <Ionicons
-                                    name='chevron-down'
-                                    size={18}
-                                    color={colors.text3}
-                                />
-                            </Pressable>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Giới tính</Text>
-                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                                {['Nam', 'Nữ', 'Khác'].map((g) => (
-                                    <Pressable
-                                        key={g}
-                                        style={[
-                                            {
-                                                flex: 1,
-                                                paddingVertical: 12,
-                                                borderRadius: 12,
-                                                borderWidth: 1.5,
-                                                borderColor: colors.border,
-                                                alignItems: 'center',
-                                            },
-                                            profileGender === g && {
-                                                borderColor: '#0D9488',
-                                                backgroundColor: '#F0FDFA',
-                                            },
-                                        ]}
-                                        onPress={() => setProfileGender(g)}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontFamily:
-                                                    typography.font.bold,
-                                                fontSize: 13,
-                                                color:
-                                                    profileGender === g
-                                                        ? '#0D9488'
-                                                        : colors.text2,
-                                            }}
-                                        >
-                                            {g}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </View>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Chiều cao & Cân nặng
-                            </Text>
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                {/* Height Stepper */}
-                                <View style={{ flex: 1 }}>
-                                    <View
-                                        style={[
-                                            styles.stepperContainer,
-                                            focusedField === 'height' &&
-                                                styles.stepperFocused,
-                                        ]}
-                                    >
-                                        <TextInput
-                                            style={styles.stepperInput}
-                                            placeholder='170'
-                                            placeholderTextColor={colors.text3}
-                                            keyboardType='numeric'
-                                            value={profileHeight}
-                                            onChangeText={setProfileHeight}
-                                            onFocus={() =>
-                                                setFocusedField('height')
-                                            }
-                                            onBlur={() => setFocusedField(null)}
-                                        />
-                                        <View style={styles.stepperControls}>
-                                            <Pressable
-                                                style={styles.stepBtn}
-                                                onPress={() => {
-                                                    const val =
-                                                        parseInt(
-                                                            profileHeight ||
-                                                                '170',
-                                                        ) + 5;
-                                                    setProfileHeight(
-                                                        String(val),
-                                                    );
-                                                }}
-                                            >
-                                                <Ionicons
-                                                    name='chevron-up'
-                                                    size={12}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                            <Pressable
-                                                style={styles.stepBtn}
-                                                onPress={() => {
-                                                    const val = Math.max(
-                                                        0,
-                                                        parseInt(
-                                                            profileHeight ||
-                                                                '170',
-                                                        ) - 5,
-                                                    );
-                                                    setProfileHeight(
-                                                        String(val),
-                                                    );
-                                                }}
-                                            >
-                                                <Ionicons
-                                                    name='chevron-down'
-                                                    size={12}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                        </View>
-                                        <Text style={styles.stepperUnit}>
-                                            cm
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Weight Stepper */}
-                                <View style={{ flex: 1 }}>
-                                    <View
-                                        style={[
-                                            styles.stepperContainer,
-                                            focusedField === 'weight' &&
-                                                styles.stepperFocused,
-                                        ]}
-                                    >
-                                        <TextInput
-                                            style={styles.stepperInput}
-                                            placeholder='60'
-                                            placeholderTextColor={colors.text3}
-                                            keyboardType='numeric'
-                                            value={profileWeight}
-                                            onChangeText={setProfileWeight}
-                                            onFocus={() =>
-                                                setFocusedField('weight')
-                                            }
-                                            onBlur={() => setFocusedField(null)}
-                                        />
-                                        <View style={styles.stepperControls}>
-                                            <Pressable
-                                                style={styles.stepBtn}
-                                                onPress={() => {
-                                                    const val =
-                                                        parseInt(
-                                                            profileWeight ||
-                                                                '60',
-                                                        ) + 5;
-                                                    setProfileWeight(
-                                                        String(val),
-                                                    );
-                                                }}
-                                            >
-                                                <Ionicons
-                                                    name='chevron-up'
-                                                    size={12}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                            <Pressable
-                                                style={styles.stepBtn}
-                                                onPress={() => {
-                                                    const val = Math.max(
-                                                        0,
-                                                        parseInt(
-                                                            profileWeight ||
-                                                                '60',
-                                                        ) - 5,
-                                                    );
-                                                    setProfileWeight(
-                                                        String(val),
-                                                    );
-                                                }}
-                                            >
-                                                <Ionicons
-                                                    name='chevron-down'
-                                                    size={12}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                        </View>
-                                        <Text style={styles.stepperUnit}>
-                                            kg
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Địa chỉ</Text>
-                            <TextInput
-                                style={styles.formInput}
-                                placeholder='Số nhà, đường, phường, quận…'
-                                placeholderTextColor={colors.text3}
-                                value={profileAddress}
-                                onChangeText={setProfileAddress}
-                            />
-                        </View>
-
-                        <View style={{ height: 20 }} />
-
-                        <LinearGradient
-                            colors={
-                                [
-                                    '#0D9488',
-                                    '#2563EB',
-                                ] as LinearGradientProps['colors']
-                            }
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.createBtn}
-                        >
-                            <Pressable
-                                onPress={() => setScreen('detail')}
-                                style={{ width: '100%', alignItems: 'center' }}
-                            >
-                                <Text style={styles.createBtnText}>
-                                    Tạo hồ sơ
-                                </Text>
-                            </Pressable>
-                        </LinearGradient>
-                    </ScrollView>
-                </KeyboardAvoidingView>
-
-                {/* Relation Selection Modal */}
-                <Modal
-                    visible={showRelationModal}
-                    transparent
-                    animationType='fade'
-                    onRequestClose={() => setShowRelationModal(false)}
-                >
-                    <Pressable
-                        style={shared.overlay}
-                        onPress={() => setShowRelationModal(false)}
-                    >
-                        <View
-                            style={[
-                                shared.sheetContainer,
-                                { maxHeight: '60%' },
-                            ]}
-                        >
-                            <View style={shared.sheetHandle}>
-                                <View style={shared.sheetBar} />
-                            </View>
-                            <View style={shared.sheetHeader}>
-                                <Text style={shared.sheetTitle}>
-                                    Chọn quan hệ
-                                </Text>
-                                <Pressable
-                                    onPress={() => setShowRelationModal(false)}
-                                >
-                                    <Ionicons
-                                        name='close'
-                                        size={20}
-                                        color={colors.text3}
-                                    />
-                                </Pressable>
-                            </View>
-                            <ScrollView style={{ padding: 10 }}>
-                                {[
-                                    'Vợ',
-                                    'Chồng',
-                                    'Ba',
-                                    'Mẹ',
-                                    'Con',
-                                    'Anh/Em',
-                                    'Chị/Em',
-                                    'Ông',
-                                    'Bà',
-                                    'Khác',
-                                ].map((rel) => (
-                                    <Pressable
-                                        key={rel}
-                                        style={{
-                                            paddingVertical: 15,
-                                            paddingHorizontal: 10,
-                                            borderBottomWidth: 1,
-                                            borderBottomColor: colors.border,
-                                            flexDirection: 'row',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                        }}
-                                        onPress={() => {
-                                            setProfileRelation(rel);
-                                            setShowRelationModal(false);
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontFamily:
-                                                    typography.font.semiBold,
-                                                fontSize: 15,
-                                                color:
-                                                    profileRelation === rel
-                                                        ? colors.primary
-                                                        : colors.text,
-                                            }}
-                                        >
-                                            {rel}
-                                        </Text>
-                                        {profileRelation === rel && (
-                                            <Ionicons
-                                                name='checkmark'
-                                                size={20}
-                                                color={colors.primary}
-                                            />
-                                        )}
-                                    </Pressable>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    </Pressable>
-                </Modal>
-            </SafeAreaView>
-        );
-    }
-
-    // ═══════ SCREEN: MEMBER DETAIL ═══════
-    if (screen === 'memberDetail' && selectedMember && selectedFamily) {
-        const m = selectedMember;
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar
-                    barStyle='dark-content'
-                    backgroundColor={colors.card}
-                />
-                <View style={styles.memberHeader}>
-                    <View style={styles.statusTopSpacer} />
-                    <View style={styles.memberHeaderTop}>
-                        <Pressable
-                            style={styles.memberBackBtn}
-                            onPress={goBack}
-                        >
-                            <Ionicons
-                                name='chevron-back'
-                                size={16}
-                                color={colors.primary}
-                            />
-                            <Text style={styles.memberBackText}>
-                                {selectedFamily.name}
-                            </Text>
-                        </Pressable>
-                    </View>
-                    <View
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 14,
-                        }}
-                    >
-                        <LinearGradient
-                            colors={
-                                m.gradientColors as LinearGradientProps['colors']
-                            }
-                            style={styles.memberAv}
-                        >
-                            <Text style={styles.memberAvText}>
-                                {m.initials}
-                            </Text>
-                        </LinearGradient>
-                        <View>
-                            <Text style={styles.memberName}>{m.name}</Text>
-                            <Text style={styles.memberMeta}>
-                                {m.age} tuổi · {m.gender} · {m.city}
-                            </Text>
-                            <View
-                                style={{
-                                    position: 'absolute',
-                                    bottom: -18,
-                                    left: 52,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        width: 12,
-                                        height: 12,
-                                        borderRadius: 6,
-                                        backgroundColor: '#22C55E',
-                                        borderWidth: 2,
-                                        borderColor: '#fff',
-                                    }}
-                                />
-                            </View>
-                            <Text
-                                style={[
-                                    styles.roleBadge,
-                                    m.isOwner
-                                        ? {
-                                              backgroundColor: '#FFFBEB',
-                                              color: '#D97706',
-                                          }
-                                        : {
-                                              backgroundColor: '#F5F3FF',
-                                              color: '#7C3AED',
-                                          },
-                                ]}
-                            >
-                                {m.isOwner ? '👑 Chủ gia đình' : m.role}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.tabBar}>
-                    <Pressable
-                        style={[
-                            styles.tab,
-                            memberTab === 'info' && styles.tabActive,
-                        ]}
-                        onPress={() => setMemberTab('info')}
-                    >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                memberTab === 'info' && styles.tabTextActive,
-                            ]}
-                        >
-                            Thông tin
-                        </Text>
-                    </Pressable>
-                    <Pressable
-                        style={[
-                            styles.tab,
-                            memberTab === 'health' && styles.tabActive,
-                        ]}
-                        onPress={() => setMemberTab('health')}
-                    >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                memberTab === 'health' && styles.tabTextActive,
-                            ]}
-                        >
-                            Sức khoẻ
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {memberTab === 'info' ? (
-                        <>
-                            <SectionHeader title='Thông tin cá nhân' />
-                            <CardBlock>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#EFF6FF' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='calendar-outline'
-                                            size={18}
-                                            color='#2563EB'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Ngày sinh
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.dob || '—'}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#F5F3FF' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='person-outline'
-                                            size={18}
-                                            color='#7C3AED'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Giới tính
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.gender}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#F0FDFA' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='resize-outline'
-                                            size={18}
-                                            color='#0D9488'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Chiều cao
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.height || '—'} cm
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#F5F3FF' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='speedometer-outline'
-                                            size={18}
-                                            color='#7C3AED'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Cân nặng
-                                        </Text>
-                                        <View
-                                            style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <Text style={styles.prowValue}>
-                                                {m.weight || '—'} kg
-                                            </Text>
-                                            {m.height && m.weight && (
-                                                <Text
-                                                    style={
-                                                        styles.bmiBadgeInline
-                                                    }
-                                                >
-                                                    BMI{' '}
-                                                    {bmiValue(
-                                                        m.height,
-                                                        m.weight,
-                                                    )}
-                                                </Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                </View>
-                                <View style={[styles.prow, styles.prowLast]}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#FFFBEB' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='location-outline'
-                                            size={18}
-                                            color='#D97706'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Địa chỉ
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.address || `${m.city}, TP. HCM`}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </CardBlock>
-                        </>
-                    ) : (
-                        <>
-                            <SectionHeader title='Chỉ số sức khoẻ' />
-                            <CardBlock>
-                                <View style={{ padding: 18 }}>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            gap: 14,
-                                            marginBottom: 12,
-                                        }}
-                                    >
-                                        <View
-                                            style={{
-                                                width: 42,
-                                                height: 42,
-                                                borderRadius: 12,
-                                                backgroundColor: '#EFF6FF',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            <Ionicons
-                                                name='heart'
-                                                size={20}
-                                                color='#2563EB'
-                                            />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text
-                                                style={{
-                                                    fontSize: 11,
-                                                    color: colors.text3,
-                                                    fontWeight: '600',
-                                                    marginBottom: 2,
-                                                }}
-                                            >
-                                                Chỉ số BMI
-                                            </Text>
-                                            <View
-                                                style={{
-                                                    flexDirection: 'row',
-                                                    alignItems: 'baseline',
-                                                    gap: 4,
-                                                }}
-                                            >
-                                                <Text
-                                                    style={{
-                                                        fontSize: 26,
-                                                        fontWeight: '900',
-                                                        color: colors.text,
-                                                    }}
-                                                >
-                                                    {m.height && m.weight
-                                                        ? bmiValue(
-                                                              m.height,
-                                                              m.weight,
-                                                          )
-                                                        : '—'}
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        fontSize: 11,
-                                                        color: colors.text3,
-                                                    }}
-                                                >
-                                                    kg/m²
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        {m.height && m.weight && (
-                                            <View
-                                                style={{
-                                                    paddingHorizontal: 12,
-                                                    paddingVertical: 5,
-                                                    borderRadius: 20,
-                                                    backgroundColor: '#F0FDFA',
-                                                }}
-                                            >
-                                                <Text
-                                                    style={{
-                                                        fontSize: 12,
-                                                        fontWeight: '700',
-                                                        color: getBMIColor(
-                                                            bmiValue(
-                                                                m.height,
-                                                                m.weight,
-                                                            ),
-                                                        ),
-                                                    }}
-                                                >
-                                                    {getBMICategory(
-                                                        bmiValue(
-                                                            m.height,
-                                                            m.weight,
-                                                        ),
-                                                    )}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                    <View
-                                        style={{
-                                            height: 6,
-                                            borderRadius: 8,
-                                            backgroundColor: '#E2E8F0',
-                                            flexDirection: 'row',
-                                            overflow: 'hidden',
-                                        }}
-                                    >
-                                        <View
-                                            style={{
-                                                flex: 1.8,
-                                                backgroundColor: '#60A5FA',
-                                            }}
-                                        />
-                                        <View
-                                            style={{
-                                                flex: 1,
-                                                backgroundColor: '#10B981',
-                                            }}
-                                        />
-                                        <View
-                                            style={{
-                                                flex: 1,
-                                                backgroundColor: '#F59E0B',
-                                            }}
-                                        />
-                                        <View
-                                            style={{
-                                                flex: 1,
-                                                backgroundColor: '#EF4444',
-                                            }}
-                                        />
-                                    </View>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            justifyContent: 'space-between',
-                                            marginTop: 6,
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#60A5FA',
-                                                fontWeight: 'bold',
-                                            }}
-                                        >
-                                            Thiếu
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#10B981',
-                                                fontWeight: 'bold',
-                                            }}
-                                        >
-                                            Bình thường
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#F59E0B',
-                                                fontWeight: 'bold',
-                                            }}
-                                        >
-                                            Thừa
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#EF4444',
-                                                fontWeight: 'bold',
-                                            }}
-                                        >
-                                            Béo phì
-                                        </Text>
-                                    </View>
-                                </View>
-                            </CardBlock>
-
-                            <SectionHeader title='Thông tin sức khoẻ' />
-                            <CardBlock>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#FFF1F2' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='water'
-                                            size={18}
-                                            color='#E11D48'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Nhóm máu
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.prowValue,
-                                                { color: '#E11D48' },
-                                            ]}
-                                        >
-                                            {m.bloodType || '—'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={14}
-                                        color={colors.text3}
-                                    />
-                                </View>
-                                <View style={styles.prow}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#FFFBEB' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='heart-half-outline'
-                                            size={18}
-                                            color='#D97706'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Bệnh nền
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.chronicIllness || 'Không'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={14}
-                                        color={colors.text3}
-                                    />
-                                </View>
-                                <View style={[styles.prow, styles.prowLast]}>
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#F1F5F9' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='alert-circle-outline'
-                                            size={18}
-                                            color={colors.text3}
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Dị ứng
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.prowValue,
-                                                {
-                                                    color:
-                                                        m.allergies &&
-                                                        m.allergies !== 'Không'
-                                                            ? '#D97706'
-                                                            : colors.text3,
-                                                    fontStyle: m.allergies
-                                                        ? 'normal'
-                                                        : 'italic',
-                                                },
-                                            ]}
-                                        >
-                                            {m.allergies || 'Chưa có thông tin'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={14}
-                                        color={colors.text3}
-                                    />
-                                </View>
-                            </CardBlock>
-
-                            <SectionHeader title='Hồ sơ khám bệnh' />
-                            <CardBlock>
-                                <View style={styles.cstrip2}>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.csicon2,
-                                                { backgroundColor: '#EFF6FF' },
-                                            ]}
-                                        >
-                                            <Ionicons
-                                                name='document-text'
-                                                size={16}
-                                                color='#2563EB'
-                                            />
-                                        </View>
-                                        <Text
-                                            style={{
-                                                fontFamily:
-                                                    typography.font.bold,
-                                                fontSize: scaleFont(14),
-                                                color: colors.text,
-                                            }}
-                                        >
-                                            Hồ sơ khám bệnh
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.countPill}>
-                                        {m.recordCount || 0} hồ sơ
-                                    </Text>
-                                </View>
-                                {m.records?.map((rec, i) => (
-                                    <View
-                                        key={i}
-                                        style={[
-                                            styles.rcard,
-                                            i === (m.records?.length || 0) - 1
-                                                ? { borderBottomWidth: 0 }
-                                                : {},
-                                        ]}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.ricon,
-                                                {
-                                                    backgroundColor:
-                                                        rec.tag === 'Xét nghiệm'
-                                                            ? '#F0FDFA'
-                                                            : rec.tag ===
-                                                                'Nội khoa'
-                                                              ? '#FFFBEB'
-                                                              : '#EFF6FF',
-                                                },
-                                            ]}
-                                        >
-                                            <Ionicons
-                                                name={
-                                                    rec.tag === 'Xét nghiệm'
-                                                        ? 'flask'
-                                                        : rec.tag === 'Nội khoa'
-                                                          ? 'shield'
-                                                          : 'heart'
-                                                }
-                                                size={17}
-                                                color={
-                                                    rec.tag === 'Xét nghiệm'
-                                                        ? '#0D9488'
-                                                        : rec.tag === 'Nội khoa'
-                                                          ? '#D97706'
-                                                          : '#2563EB'
-                                                }
-                                            />
-                                        </View>
-                                        <View style={styles.rbody}>
-                                            <Text style={styles.rtitle}>
-                                                {rec.title}
-                                            </Text>
-                                            <Text style={styles.rsub}>
-                                                {rec.desc}
-                                            </Text>
-                                            <Text
-                                                style={[
-                                                    styles.rtag,
-                                                    {
-                                                        backgroundColor:
-                                                            rec.tag ===
-                                                            'Xét nghiệm'
-                                                                ? '#F0FDFA'
-                                                                : rec.tag ===
-                                                                    'Nội khoa'
-                                                                  ? '#FFFBEB'
-                                                                  : '#EFF6FF',
-                                                        color:
-                                                            rec.tag ===
-                                                            'Xét nghiệm'
-                                                                ? '#0D9488'
-                                                                : rec.tag ===
-                                                                    'Nội khoa'
-                                                                  ? '#D97706'
-                                                                  : '#2563EB',
-                                                    },
-                                                ]}
-                                            >
-                                                {rec.tag}
-                                            </Text>
-                                        </View>
-                                        <Text style={styles.rdateChip}>
-                                            {rec.date}
-                                        </Text>
-                                    </View>
-                                ))}
-
-                                <View
-                                    style={[
-                                        styles.prow,
-                                        {
-                                            borderTopWidth: 1,
-                                            borderTopColor: colors.border,
-                                        },
-                                    ]}
-                                >
-                                    <View
-                                        style={[
-                                            styles.prowIc,
-                                            { backgroundColor: '#F0FDFA' },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name='shield-checkmark-outline'
-                                            size={18}
-                                            color='#0D9488'
-                                        />
-                                    </View>
-                                    <View style={styles.prowBody}>
-                                        <Text style={styles.prowLabel}>
-                                            Tiêm chủng
-                                        </Text>
-                                        <Text style={styles.prowValue}>
-                                            {m.vaccineDoseCount || 0} /{' '}
-                                            {m.vaccineTotalCount || 0} mũi
-                                            khuyến nghị (
-                                            {m.vaccineTotalCount
-                                                ? Math.round(
-                                                      ((m.vaccineDoseCount ||
-                                                          0) /
-                                                          m.vaccineTotalCount) *
-                                                          100,
-                                                  )
-                                                : 0}
-                                            %)
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={14}
-                                        color={colors.text3}
-                                    />
-                                </View>
-                            </CardBlock>
-
-                            <SectionHeader title='Đơn thuốc' />
-                            <CardBlock>
-                                <View style={styles.cstrip2}>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.csicon2,
-                                                { backgroundColor: '#F0FDFA' },
-                                            ]}
-                                        >
-                                            <Ionicons
-                                                name='medkit'
-                                                size={16}
-                                                color='#0D9488'
-                                            />
-                                        </View>
-                                        <Text
-                                            style={{
-                                                fontFamily:
-                                                    typography.font.bold,
-                                                fontSize: scaleFont(14),
-                                                color: colors.text,
-                                            }}
-                                        >
-                                            Đơn thuốc
-                                        </Text>
-                                    </View>
-                                    <Text
-                                        style={[
-                                            styles.countPill,
-                                            {
-                                                color: '#0D9488',
-                                                backgroundColor: '#F0FDFA',
-                                                borderColor:
-                                                    'rgba(13,148,136,0.2)',
-                                            },
-                                        ]}
-                                    >
-                                        {m.medications?.length || 0} đang dùng
-                                    </Text>
-                                </View>
-                                {m.medications?.map((med, i) => (
-                                    <View
-                                        key={i}
-                                        style={[
-                                            styles.vrow,
-                                            i === 0
-                                                ? { borderTopWidth: 0 }
-                                                : {},
-                                        ]}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.vic,
-                                                {
-                                                    backgroundColor:
-                                                        med.type === 'blue'
-                                                            ? '#EFF6FF'
-                                                            : med.type ===
-                                                                'teal'
-                                                              ? '#F0FDFA'
-                                                              : '#FFF1F2',
-                                                },
-                                            ]}
-                                        >
-                                            <Ionicons
-                                                name='medical'
-                                                size={16}
-                                                color={
-                                                    med.type === 'blue'
-                                                        ? '#2563EB'
-                                                        : med.type === 'teal'
-                                                          ? '#0D9488'
-                                                          : '#E11D48'
-                                                }
-                                            />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.vname}>
-                                                {med.name}
-                                            </Text>
-                                            <Text style={styles.vsub}>
-                                                {med.desc}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </CardBlock>
-
-                            <SectionHeader title='Gợi ý sức khoẻ' />
-                            <View
-                                style={{
-                                    paddingHorizontal: 20,
-                                    paddingBottom: 20,
-                                }}
-                            >
-                                <View style={styles.tipCard}>
-                                    <Text style={styles.tipEmoji}>🏃</Text>
-                                    <View>
-                                        <Text style={styles.tipTitle}>
-                                            Vận động đều đặn
-                                        </Text>
-                                        <Text style={styles.tipDesc}>
-                                            30 phút/ngày giảm 35% nguy cơ tim
-                                            mạch
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.tipCard}>
-                                    <Text style={styles.tipEmoji}>💧</Text>
-                                    <View>
-                                        <Text style={styles.tipTitle}>
-                                            Uống đủ nước
-                                        </Text>
-                                        <Text style={styles.tipDesc}>
-                                            2–2.5 lít/ngày phù hợp cân nặng
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.tipCard}>
-                                    <Text style={styles.tipEmoji}>😴</Text>
-                                    <View>
-                                        <Text style={styles.tipTitle}>
-                                            Ngủ đủ giấc
-                                        </Text>
-                                        <Text style={styles.tipDesc}>
-                                            7–8 tiếng giúp kiểm soát huyết áp
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.tipCard}>
-                                    <Text style={styles.tipEmoji}>🥗</Text>
-                                    <View>
-                                        <Text style={styles.tipTitle}>
-                                            Chế độ ăn DASH
-                                        </Text>
-                                        <Text style={styles.tipDesc}>
-                                            Phù hợp cho người tăng huyết áp
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </>
-                    )}
-                </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    // ═══════ SCREEN: SEARCH PHONE ═══════
-    if (screen === 'searchPhone') {
-        const handleSearch = () => {
-            if (searchPhone.length < 9) return;
-            setSearchState('loading');
-            setTimeout(() => {
-                if (searchPhone.includes('123')) {
-                    setSearchState('found');
-                } else {
-                    setSearchState('notFound');
-                }
-            }, 1000);
-        };
-
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar
-                    barStyle='dark-content'
-                    backgroundColor={colors.bg}
-                />
-                {/* Header */}
+    const renderPhoneSearch = () => (
+        <SafeAreaView style={styles.container}>
+            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+            <View style={styles.memberHeader}>
                 <View
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: 20,
-                        paddingVertical: 12,
-                        backgroundColor: colors.card,
-                        borderBottomWidth: 1,
-                        borderBottomColor: colors.border,
-                        gap: 12,
-                    }}
+                    style={[
+                        styles.memberHeaderTop,
+                        { justifyContent: 'flex-start', marginBottom: 10 },
+                    ]}
                 >
                     <Pressable
-                        onPress={goBack}
-                        style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 17,
-                            backgroundColor: colors.bg,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
+                        onPress={handleBack}
+                        style={[
+                            shared.iconBtn,
+                            {
+                                width: scale(36),
+                                height: scale(36),
+                                borderRadius: scale(18),
+                                marginRight: scale(12),
+                            },
+                        ]}
                     >
                         <Ionicons
                             name='chevron-back'
-                            size={18}
+                            size={16}
                             color={colors.text2}
                         />
                     </Pressable>
                     <View>
-                        <Text
-                            style={{
-                                fontSize: 18,
-                                fontWeight: '800',
-                                color: colors.text,
-                            }}
-                        >
-                            Tìm thành viên
-                        </Text>
-                        <Text
-                            style={{
-                                fontSize: 11,
-                                color: colors.text3,
-                                marginTop: 1,
-                            }}
-                        >
+                        <Text style={styles.memberName}>Tìm thành viên</Text>
+                        <Text style={styles.memberMeta}>
                             Nhập số điện thoại người thân
                         </Text>
                     </View>
                 </View>
+            </View>
 
-                {/* Search Input Area */}
-                <View
-                    style={{
-                        padding: 20,
-                        backgroundColor: colors.card,
-                        borderBottomWidth: 1,
-                        borderBottomColor: colors.border,
-                    }}
-                >
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    {
+                        paddingHorizontal: scale(20),
+                        paddingTop: verticalScale(18),
+                    },
+                ]}
+            >
+                <View style={{ flexDirection: 'row', gap: scale(10) }}>
                     <View
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 10,
-                        }}
-                    >
-                        {/* Country Code Picker */}
-                        <Pressable
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                backgroundColor: colors.bg,
-                                borderWidth: 1.5,
-                                borderColor: colors.border,
-                                borderRadius: 14,
-                                paddingHorizontal: 12,
-                                paddingVertical: 12,
-                            }}
-                        >
-                            <Text style={{ fontSize: 18 }}>🇻🇳</Text>
-                            <Text
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 'bold',
-                                    color: colors.text,
-                                }}
-                            >
-                                +84
-                            </Text>
-                            <Ionicons
-                                name='chevron-down'
-                                size={12}
-                                color={colors.text3}
-                            />
-                        </Pressable>
-
-                        <View style={{ flex: 1 }}>
-                            <TextInput
-                                style={{
-                                    backgroundColor: colors.bg,
-                                    borderWidth: 1.5,
-                                    borderColor: colors.border,
-                                    borderRadius: 14,
-                                    paddingHorizontal: 16,
-                                    paddingVertical: 12,
-                                    fontSize: 15,
-                                    fontFamily: typography.font.bold,
-                                    color: colors.text,
-                                }}
-                                placeholder='090 123 4567'
-                                value={searchPhone}
-                                onChangeText={(t) => {
-                                    setSearchPhone(t);
-                                    if (t === '') setSearchState('idle');
-                                }}
-                                keyboardType='phone-pad'
-                            />
-                        </View>
-
-                        <Pressable
-                            onPress={handleSearch}
-                            disabled={searchPhone.length < 9}
-                            style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 14,
-                                backgroundColor: colors.primary,
-                                alignItems: 'center',
+                        style={[
+                            styles.stepperContainer,
+                            {
+                                width: scale(108),
+                                flex: 0,
                                 justifyContent: 'center',
-                                opacity: searchPhone.length >= 9 ? 1 : 0.4,
+                                paddingHorizontal: scale(14),
+                                paddingVertical: verticalScale(13),
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={{
+                                fontFamily: typography.font.bold,
+                                fontSize: scaleFont(14),
+                                color: colors.text2,
                             }}
                         >
-                            <Ionicons name='search' size={20} color='#fff' />
-                        </Pressable>
+                            VN
+                        </Text>
+                        <Text
+                            style={{
+                                fontFamily: typography.font.black,
+                                fontSize: scaleFont(14),
+                                color: colors.text,
+                                marginLeft: 6,
+                            }}
+                        >
+                            +84
+                        </Text>
+                        <Ionicons
+                            name='chevron-down'
+                            size={14}
+                            color={colors.text3}
+                            style={{ marginLeft: 'auto' }}
+                        />
                     </View>
-                    <Text
-                        style={{
-                            fontSize: 11,
-                            color: colors.text3,
-                            textAlign: 'center',
-                            marginTop: 12,
-                        }}
+                    <View
+                        style={[
+                            styles.stepperContainer,
+                            { flex: 1, marginBottom: verticalScale(10) },
+                        ]}
                     >
-                        Nhập đúng SĐT đăng ký HomeMedAI · Mã quốc gia +84
-                    </Text>
+                        <TextInput
+                            style={styles.stepperInput}
+                            placeholder='090 123 4567'
+                            keyboardType='phone-pad'
+                            value={formatPhone(searchPhone)}
+                            onChangeText={(value) => {
+                                setSearchPhone(value.replace(/\D/g, ''));
+                                setSearchState('idle');
+                                setSelectedInviteRole(null);
+                            }}
+                            placeholderTextColor={colors.text3}
+                        />
+                    </View>
+                    <Pressable
+                        style={{
+                            width: scale(54),
+                            height: verticalScale(52),
+                            borderRadius: scale(16),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: colors.primary,
+                        }}
+                        onPress={handleSearchPhone}
+                    >
+                        <Ionicons
+                            name='search-outline'
+                            size={22}
+                            color='#fff'
+                        />
+                    </Pressable>
                 </View>
+                <Text style={styles.formHint}>
+                    Nhập đúng SĐT đăng ký CareSync · Mã quốc gia +84
+                </Text>
 
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={{ padding: 20 }}
-                >
-                    {searchState === 'idle' && (
-                        <View>
-                            <View
-                                style={{
-                                    alignItems: 'center',
-                                    marginVertical: 40,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        width: 80,
-                                        height: 80,
-                                        borderRadius: 24,
-                                        backgroundColor: '#EFF6FF',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginBottom: 20,
-                                        borderWidth: 1.5,
-                                        borderColor: '#DBEAFE',
-                                    }}
-                                >
-                                    <Ionicons
-                                        name='call-outline'
-                                        size={36}
-                                        color={colors.primary}
-                                    />
-                                </View>
-                                <Text
-                                    style={{
-                                        fontSize: 16,
-                                        fontWeight: '800',
-                                        color: colors.text,
-                                        marginBottom: 8,
-                                    }}
-                                >
-                                    Tìm người thân
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 13,
-                                        color: colors.text3,
-                                        textAlign: 'center',
-                                        lineHeight: 20,
-                                        paddingHorizontal: 20,
-                                    }}
-                                >
-                                    Nhập số điện thoại đã đăng ký HomeMedAI để
-                                    tìm và thêm vào gia đình.
-                                </Text>
-                            </View>
-
-                            <Text
-                                style={{
-                                    fontSize: 11,
-                                    fontWeight: '900',
-                                    color: colors.text3,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.8,
-                                    marginBottom: 12,
-                                }}
-                            >
-                                Gần đây
-                            </Text>
-                            <View
-                                style={{
-                                    backgroundColor: colors.card,
-                                    borderRadius: 20,
-                                    borderWidth: 1.5,
-                                    borderColor: colors.border,
-                                    overflow: 'hidden',
-                                }}
-                            >
-                                {[
-                                    {
-                                        name: 'Nguyễn Thị Bình',
-                                        phone: '0901 224 567',
-                                        init: 'NB',
-                                        grad: ['#C026D3', '#DB2777'],
-                                    },
-                                    {
-                                        name: 'Nguyễn Văn Ba',
-                                        phone: '0912 345 678',
-                                        init: 'BA',
-                                        grad: ['#0D9488', '#0891B2'],
-                                    },
-                                ].map((c, i, arr) => (
-                                    <Pressable
-                                        key={c.phone}
-                                        onPress={() =>
-                                            setSearchPhone(
-                                                c.phone.replace(/\s/g, ''),
-                                            )
-                                        }
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            padding: 16,
-                                            gap: 12,
-                                            borderBottomWidth:
-                                                i === arr.length - 1 ? 0 : 1,
-                                            borderBottomColor: colors.border,
-                                        }}
-                                    >
-                                        <LinearGradient
-                                            colors={
-                                                c.grad as LinearGradientProps['colors']
-                                            }
-                                            style={{
-                                                width: 40,
-                                                height: 40,
-                                                borderRadius: 20,
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: '#fff',
-                                                    fontSize: 13,
-                                                    fontWeight: '800',
-                                                }}
-                                            >
-                                                {c.init}
-                                            </Text>
-                                        </LinearGradient>
-                                        <View style={{ flex: 1 }}>
-                                            <Text
-                                                style={{
-                                                    fontSize: 14,
-                                                    fontWeight: 'bold',
-                                                    color: colors.text,
-                                                }}
-                                            >
-                                                {c.name}
-                                            </Text>
-                                            <Text
-                                                style={{
-                                                    fontSize: 11,
-                                                    color: colors.text3,
-                                                    marginTop: 1,
-                                                }}
-                                            >
-                                                {c.phone}
-                                            </Text>
-                                        </View>
-                                        <Ionicons
-                                            name='chevron-forward'
-                                            size={14}
-                                            color={colors.text3}
-                                        />
-                                    </Pressable>
-                                ))}
-                            </View>
-                        </View>
-                    )}
-
-                    {searchState === 'loading' && (
+                {searchState === 'idle' ? (
+                    <>
                         <View
                             style={{
                                 alignItems: 'center',
-                                marginTop: 60,
-                                gap: 16,
+                                marginTop: verticalScale(36),
+                                marginBottom: verticalScale(28),
                             }}
                         >
                             <View
                                 style={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: 20,
-                                    borderWidth: 3,
-                                    borderColor: colors.primary,
-                                    borderTopColor: 'transparent',
+                                    width: scale(80),
+                                    height: scale(80),
+                                    borderRadius: scale(24),
+                                    backgroundColor: '#EFF6FF',
+                                    borderWidth: 1.5,
+                                    borderColor: '#DBEAFE',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: verticalScale(18),
                                 }}
-                            />
+                            >
+                                <Ionicons
+                                    name='call-outline'
+                                    size={34}
+                                    color={colors.primary}
+                                />
+                            </View>
                             <Text
                                 style={{
-                                    color: colors.text3,
-                                    fontWeight: 'bold',
+                                    fontFamily: typography.font.black,
+                                    fontSize: scaleFont(16),
+                                    color: colors.text,
+                                    marginBottom: verticalScale(8),
                                 }}
                             >
-                                Đang tìm kiếm...
+                                Tìm người thân
+                            </Text>
+                            <Text
+                                style={{
+                                    textAlign: 'center',
+                                    color: colors.text3,
+                                    fontFamily: typography.font.regular,
+                                    fontSize: scaleFont(13),
+                                    lineHeight: verticalScale(20),
+                                    paddingHorizontal: scale(16),
+                                }}
+                            >
+                                Nhập số điện thoại đã đăng ký để mời tài khoản
+                                hiện có tham gia gia đình.
                             </Text>
                         </View>
-                    )}
 
-                    {searchState === 'found' && (
-                        <View>
-                            <Text style={styles.formLabel}>
-                                Kết quả tìm kiếm
-                            </Text>
-                            <View
-                                style={{
-                                    backgroundColor: colors.card,
-                                    borderRadius: 20,
-                                    borderWidth: 1.5,
+                        <Text style={styles.formLabel}>Gần đây</Text>
+                        <View style={shared.cardBlock}>
+                            {RECENT_CONTACTS.map((contact, index) => (
+                                <Pressable
+                                    key={contact.phone}
+                                    style={[
+                                        styles.mrow,
+                                        index === RECENT_CONTACTS.length - 1
+                                            ? styles.mrowLast
+                                            : null,
+                                    ]}
+                                    onPress={() => {
+                                        setSearchPhone(contact.phone);
+                                        setSearchState('idle');
+                                    }}
+                                >
+                                    <LinearGradient
+                                        colors={
+                                            contact.gradient as LinearGradientProps['colors']
+                                        }
+                                        style={styles.mav}
+                                    >
+                                        <Text style={styles.mavText}>
+                                            {contact.initials}
+                                        </Text>
+                                    </LinearGradient>
+                                    <View style={styles.minfo}>
+                                        <Text style={styles.mname}>
+                                            {contact.name}
+                                        </Text>
+                                        <Text style={styles.mrole}>
+                                            {formatPhone(contact.phone)}
+                                        </Text>
+                                    </View>
+                                    <Ionicons
+                                        name='chevron-forward'
+                                        size={14}
+                                        color={colors.text3}
+                                    />
+                                </Pressable>
+                            ))}
+                        </View>
+                    </>
+                ) : null}
+                {searchState === 'loading' ? (
+                    <View
+                        style={{
+                            alignItems: 'center',
+                            marginTop: verticalScale(56),
+                            gap: verticalScale(12),
+                        }}
+                    >
+                        <View
+                            style={{
+                                width: scale(38),
+                                height: scale(38),
+                                borderRadius: scale(19),
+                                borderWidth: 3,
+                                borderColor: colors.primary,
+                                borderTopColor: 'transparent',
+                            }}
+                        />
+                        <Text
+                            style={{
+                                color: colors.text2,
+                                fontFamily: typography.font.bold,
+                            }}
+                        >
+                            Đang tìm kiếm...
+                        </Text>
+                    </View>
+                ) : null}
+
+                {searchState === 'found' ? (
+                    <>
+                        <Text style={styles.formLabel}>Kết quả tìm kiếm</Text>
+                        <View
+                            style={[
+                                shared.cardBlock,
+                                {
                                     borderColor: colors.primary,
-                                    padding: 16,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 14,
-                                }}
-                            >
+                                    padding: scale(14),
+                                    marginHorizontal: 0,
+                                },
+                            ]}
+                        >
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
                                 <LinearGradient
-                                    colors={
-                                        [
-                                            '#D97706',
-                                            '#F59E0B',
-                                        ] as LinearGradientProps['colors']
-                                    }
+                                    colors={['#F59E0B', '#D97706']}
                                     style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: 28,
+                                        width: scale(56),
+                                        height: scale(56),
+                                        borderRadius: scale(28),
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                     }}
@@ -2429,38 +865,39 @@ export default function FamilyScreen(): React.ReactNode {
                                     <Text
                                         style={{
                                             color: '#fff',
-                                            fontSize: 18,
-                                            fontWeight: '800',
+                                            fontFamily: typography.font.black,
+                                            fontSize: scaleFont(18),
                                         }}
                                     >
-                                        PC
+                                        NB
                                     </Text>
                                 </LinearGradient>
                                 <View style={{ flex: 1 }}>
                                     <Text
                                         style={{
-                                            fontSize: 16,
-                                            fontWeight: '800',
+                                            fontFamily: typography.font.black,
+                                            fontSize: scaleFont(16),
                                             color: colors.text,
                                         }}
                                     >
-                                        Phan Thị Châu
+                                        Nguyễn Thị Bình
                                     </Text>
                                     <Text
                                         style={{
-                                            fontSize: 12,
-                                            color: colors.text3,
                                             marginTop: 2,
+                                            color: colors.text3,
+                                            fontFamily: typography.font.regular,
+                                            fontSize: scaleFont(12),
                                         }}
                                     >
-                                        {searchPhone}
+                                        {formatPhone(searchPhone)}
                                     </Text>
                                     <View
                                         style={{
                                             flexDirection: 'row',
                                             alignItems: 'center',
-                                            gap: 5,
-                                            marginTop: 6,
+                                            gap: 6,
+                                            marginTop: 8,
                                         }}
                                     >
                                         <View
@@ -2473,136 +910,1173 @@ export default function FamilyScreen(): React.ReactNode {
                                         />
                                         <Text
                                             style={{
-                                                fontSize: 11,
-                                                fontWeight: '600',
-                                                color: '#22C55E',
+                                                color: '#16A34A',
+                                                fontFamily:
+                                                    typography.font.semiBold,
+                                                fontSize: scaleFont(11),
                                             }}
                                         >
-                                            Đang hoạt động
+                                            Đã có tài khoản HomeMedAI
                                         </Text>
                                     </View>
                                 </View>
+                                <Pressable
+                                    style={{
+                                        alignSelf: 'center',
+                                        backgroundColor: colors.primary,
+                                        paddingHorizontal: scale(16),
+                                        paddingVertical: verticalScale(12),
+                                        borderRadius: scale(14),
+                                    }}
+                                    onPress={() => setShowRoleSheet(true)}
+                                >
+                                    <Text
+                                        style={{
+                                            color: '#fff',
+                                            fontFamily: typography.font.black,
+                                            fontSize: scaleFont(13),
+                                        }}
+                                    >
+                                        Mời
+                                    </Text>
+                                </Pressable>
                             </View>
-                            <Text style={[styles.formLabel, { marginTop: 24 }]}>
-                                Vai trò trong gia đình
-                            </Text>
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    flexWrap: 'wrap',
-                                    gap: 8,
-                                }}
-                            >
-                                {['Mẹ', 'Vợ', 'Chị', 'Em', 'Bà', 'Khác'].map(
-                                    (r) => (
-                                        <Pressable
-                                            key={r}
-                                            style={{
-                                                paddingHorizontal: 16,
-                                                paddingVertical: 8,
-                                                borderRadius: 12,
-                                                borderWidth: 1.5,
-                                                borderColor: colors.border,
-                                                backgroundColor: colors.card,
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontSize: 13,
-                                                    fontWeight: 'bold',
-                                                    color: colors.text2,
-                                                }}
-                                            >
-                                                {r}
-                                            </Text>
-                                        </Pressable>
-                                    ),
-                                )}
-                            </View>
-                            <Pressable
-                                style={[styles.createBtn, { marginTop: 32 }]}
-                            >
-                                <Text style={styles.createBtnText}>
-                                    Gửi lời mời tham gia
-                                </Text>
-                            </Pressable>
                         </View>
-                    )}
+                    </>
+                ) : null}
 
-                    {searchState === 'notFound' && (
-                        <View style={{ alignItems: 'center', marginTop: 40 }}>
-                            <View
-                                style={{
-                                    width: 72,
-                                    height: 72,
-                                    borderRadius: 22,
-                                    backgroundColor: '#FFF1F2',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: 20,
-                                }}
-                            >
-                                <Ionicons
-                                    name='close-circle-outline'
-                                    size={32}
-                                    color='#E11D48'
-                                />
-                            </View>
-                            <Text
-                                style={{
-                                    fontSize: 16,
-                                    fontWeight: '800',
-                                    color: colors.text,
-                                    marginBottom: 8,
-                                }}
-                            >
-                                Không tìm thấy
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 13,
-                                    color: colors.text3,
-                                    textAlign: 'center',
-                                    lineHeight: 20,
-                                    marginBottom: 24,
-                                }}
-                            >
-                                Số điện thoại này chưa đăng ký tài khoản
-                                HomeMedAI.
-                            </Text>
+                {searchState === 'notFound' ? (
+                    <View
+                        style={{
+                            alignItems: 'center',
+                            marginTop: verticalScale(44),
+                        }}
+                    >
+                        <View
+                            style={{
+                                width: scale(72),
+                                height: scale(72),
+                                borderRadius: scale(22),
+                                backgroundColor: '#FFF1F2',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: verticalScale(18),
+                            }}
+                        >
+                            <Ionicons
+                                name='close-circle-outline'
+                                size={32}
+                                color='#E11D48'
+                            />
+                        </View>
+                        <Text
+                            style={{
+                                fontFamily: typography.font.black,
+                                fontSize: scaleFont(16),
+                                color: colors.text,
+                                marginBottom: verticalScale(8),
+                            }}
+                        >
+                            Không tìm thấy
+                        </Text>
+                        <Text
+                            style={{
+                                textAlign: 'center',
+                                color: colors.text3,
+                                fontFamily: typography.font.regular,
+                                fontSize: scaleFont(13),
+                                lineHeight: verticalScale(20),
+                                marginBottom: verticalScale(20),
+                            }}
+                        >
+                            Số điện thoại này chưa đăng ký tài khoản. Bạn có thể
+                            dùng link mời để họ đăng ký rồi liên kết hồ sơ.
+                        </Text>
+                        <LinearGradient
+                            colors={['#7C3AED', '#2563EB']}
+                            style={[styles.createBtn, { width: '100%' }]}
+                        >
                             <Pressable
-                                style={[styles.createBtn, { width: '100%' }]}
+                                style={{
+                                    width: '100%',
+                                    alignItems: 'center',
+                                }}
                                 onPress={() => setScreen('addMember')}
                             >
                                 <Text style={styles.createBtnText}>
-                                    Gửi link mời thay thế
+                                    Quay lại tạo link mời
                                 </Text>
                             </Pressable>
+                        </LinearGradient>
+                    </View>
+                ) : null}
+            </ScrollView>
+
+            <RoleSelectionModal
+                visible={showRoleSheet}
+                selectedRole={selectedInviteRole}
+                onSelectRole={setSelectedInviteRole}
+                onClose={() => setShowRoleSheet(false)}
+            />
+        </SafeAreaView>
+    );
+
+    const renderMemberDetail = () => {
+        if (!selectedMember) return null;
+
+        const bmi = bmiValue(selectedMember.height, selectedMember.weight);
+
+        return (
+            <SafeAreaView style={styles.container}>
+                <StatusBar
+                    barStyle='dark-content'
+                    backgroundColor={colors.bg}
+                />
+
+                <View style={styles.memberHeader}>
+                    <View style={styles.memberHeaderTop}>
+                        <Pressable
+                            style={styles.memberBackBtn}
+                            onPress={handleBack}
+                        >
+                            <Ionicons
+                                name='chevron-back'
+                                size={16}
+                                color={colors.primary}
+                            />
+                            <Text style={styles.memberBackText}>
+                                Phan Family
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 14 }}>
+                        <LinearGradient
+                            colors={
+                                selectedMember.gradientColors as LinearGradientProps['colors']
+                            }
+                            style={styles.memberAv}
+                        >
+                            <Text style={styles.memberAvText}>
+                                {selectedMember.initials}
+                            </Text>
+                        </LinearGradient>
+
+                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                            <Text style={styles.memberName}>
+                                {selectedMember.name}
+                            </Text>
+                            <Text style={styles.memberMeta}>
+                                {selectedMember.age} tuổi ·{' '}
+                                {selectedMember.gender} · {selectedMember.city}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.roleBadge,
+                                    {
+                                        backgroundColor: '#F5F3FF',
+                                        color: '#7C3AED',
+                                    },
+                                ]}
+                            >
+                                {selectedMember.role}
+                            </Text>
                         </View>
+                    </View>
+                </View>
+
+                <View style={styles.tabBar}>
+                    <Pressable
+                        style={[
+                            styles.tab,
+                            memberTab === 'info' ? styles.tabActive : null,
+                        ]}
+                        onPress={() => setMemberTab('info')}
+                    >
+                        <Text
+                            style={[
+                                styles.tabText,
+                                memberTab === 'info'
+                                    ? styles.tabTextActive
+                                    : null,
+                            ]}
+                        >
+                            Thông tin cá nhân
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={[
+                            styles.tab,
+                            memberTab === 'health' ? styles.tabActive : null,
+                        ]}
+                        onPress={() => setMemberTab('health')}
+                    >
+                        <Text
+                            style={[
+                                styles.tabText,
+                                memberTab === 'health'
+                                    ? styles.tabTextActive
+                                    : null,
+                            ]}
+                        >
+                            Sức khỏe
+                        </Text>
+                    </Pressable>
+                </View>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        { paddingTop: verticalScale(14) },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {memberTab === 'info' ? (
+                        <>
+                            <SectionLabel title='Thông tin cá nhân' />
+                            <View style={shared.cardBlock}>
+                                <ProfileRow
+                                    icon='calendar-outline'
+                                    color={colors.primary}
+                                    bg='#EFF6FF'
+                                    label='Ngày sinh'
+                                    value={selectedMember.dob ?? '--'}
+                                />
+                                <ProfileRow
+                                    icon='person-outline'
+                                    color='#8B5CF6'
+                                    bg='#F5F3FF'
+                                    label='Giới tính'
+                                    value={selectedMember.gender}
+                                />
+                                <ProfileRow
+                                    icon='resize-outline'
+                                    color='#22C55E'
+                                    bg='#F0FDF4'
+                                    label='Chiều cao'
+                                    value={`${selectedMember.height ?? '--'} cm`}
+                                />
+                                <ProfileRow
+                                    icon='barbell-outline'
+                                    color='#0D9488'
+                                    bg='#F0FDFA'
+                                    label='Cân nặng'
+                                    value={`${selectedMember.weight ?? '--'} kg`}
+                                    badge={`BMI ${bmi.toFixed(1)}`}
+                                />
+                                <ProfileRow
+                                    icon='location-outline'
+                                    color='#F59E0B'
+                                    bg='#FFFBEB'
+                                    label='Địa chỉ'
+                                    value={
+                                        selectedMember.address ??
+                                        'Chưa cập nhật'
+                                    }
+                                    isLast
+                                />
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <SectionLabel title='Tổng quan sức khỏe' />
+                            <View style={shared.cardBlock}>
+                                <ProfileRow
+                                    icon='water-outline'
+                                    color='#DC2626'
+                                    bg='#FEF2F2'
+                                    label='Nhóm máu'
+                                    value={
+                                        selectedMember.bloodType ?? 'Chưa có'
+                                    }
+                                />
+                                <ProfileRow
+                                    icon='warning-outline'
+                                    color='#D97706'
+                                    bg='#FFFBEB'
+                                    label='Bệnh nền'
+                                    value={
+                                        selectedMember.chronicIllness ??
+                                        'Chưa ghi nhận'
+                                    }
+                                />
+                                <ProfileRow
+                                    icon='alert-circle-outline'
+                                    color='#E11D48'
+                                    bg='#FFF1F2'
+                                    label='Dị ứng'
+                                    value={
+                                        selectedMember.allergies ??
+                                        'Chưa ghi nhận'
+                                    }
+                                    isLast
+                                />
+                            </View>
+
+                            <SectionLabel title='Hồ sơ y tế' />
+                            <View style={shared.cardBlock}>
+                                <ActionRow
+                                    icon='document-text-outline'
+                                    color={colors.primary}
+                                    bg='#EFF6FF'
+                                    title={`${
+                                        selectedMember.recordCount ?? 0
+                                    } hồ sơ khám`}
+                                    subtitle='Lịch sử khám và kết quả xét nghiệm'
+                                />
+                                <ActionRow
+                                    icon='shield-checkmark-outline'
+                                    color='#16A34A'
+                                    bg='#F0FDF4'
+                                    title={`${
+                                        selectedMember.vaccineDoseCount ?? 0
+                                    }/${
+                                        selectedMember.vaccineTotalCount ?? 0
+                                    } mũi vaccine`}
+                                    subtitle='Tiến độ tiêm chủng hiện tại'
+                                    isLast
+                                />
+                            </View>
+                        </>
                     )}
                 </ScrollView>
             </SafeAreaView>
         );
-    }
+    };
+
+    const renderInviteList = () => (
+        <SafeAreaView style={styles.container}>
+            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+            <View style={styles.memberHeader}>
+                <View style={styles.memberHeaderTop}>
+                    <Pressable
+                        style={styles.memberBackBtn}
+                        onPress={handleBack}
+                    >
+                        <Ionicons
+                            name='chevron-back'
+                            size={16}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.memberBackText}>Gia đình</Text>
+                    </Pressable>
+                </View>
+                <Text
+                    style={[
+                        styles.memberName,
+                        { fontSize: scaleFont(22), marginBottom: 6 },
+                    ]}
+                >
+                    Lời mời tham gia
+                </Text>
+                <Text style={styles.memberMeta}>
+                    {inviteList.length} lời mời đang chờ phản hồi
+                </Text>
+            </View>
+
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    {
+                        paddingHorizontal: scale(20),
+                        paddingTop: verticalScale(18),
+                        gap: verticalScale(12),
+                    },
+                ]}
+            >
+                {inviteList.length === 0 ? (
+                    <View
+                        style={{
+                            backgroundColor: colors.card,
+                            borderWidth: 1.5,
+                            borderColor: colors.border,
+                            borderRadius: 20,
+                            paddingVertical: verticalScale(40),
+                            paddingHorizontal: scale(20),
+                            alignItems: 'center',
+                        }}
+                    >
+                        <View
+                            style={{
+                                width: scale(64),
+                                height: scale(64),
+                                borderRadius: scale(20),
+                                backgroundColor: '#F1F5F9',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: verticalScale(12),
+                            }}
+                        >
+                            <Ionicons
+                                name='notifications-outline'
+                                size={28}
+                                color={colors.text3}
+                            />
+                        </View>
+                        <Text
+                            style={{
+                                fontFamily: typography.font.black,
+                                fontSize: scaleFont(15),
+                                color: colors.text,
+                                marginBottom: verticalScale(6),
+                            }}
+                        >
+                            Không có lời mời
+                        </Text>
+                        <Text
+                            style={{
+                                textAlign: 'center',
+                                color: colors.text3,
+                                fontFamily: typography.font.regular,
+                                fontSize: scaleFont(12),
+                                lineHeight: verticalScale(18),
+                            }}
+                        >
+                            Khi ai đó mời bạn tham gia gia đình, lời mời sẽ xuất
+                            hiện ở đây.
+                        </Text>
+                    </View>
+                ) : (
+                    inviteList.map((invite) => (
+                        <InviteCard
+                            key={invite.id}
+                            invite={invite}
+                            onAccept={() => acceptInvite(invite.id)}
+                            onReject={() => rejectInvite(invite.id)}
+                        />
+                    ))
+                )}
+            </ScrollView>
+        </SafeAreaView>
+    );
+
+    if (screen === 'list') return renderFamilyList();
+    if (screen === 'detail') return renderFamilyDetail();
+    if (screen === 'memberDetail') return renderMemberDetail();
+    if (screen === 'addMember') return renderAddMember();
+    if (screen === 'searchPhone') return renderPhoneSearch();
+    if (screen === 'inviteList') return renderInviteList();
 
     return null;
 }
 
-function bmiValue(h?: number, w?: number): number {
-    if (!h || !w) return 0;
-    return parseFloat((w / (h / 100) ** 2).toFixed(1));
+function SectionLabel({ title }: { title: string }) {
+    return (
+        <View
+            style={{
+                paddingHorizontal: scale(20),
+                paddingTop: verticalScale(18),
+                paddingBottom: verticalScale(10),
+            }}
+        >
+            <Text
+                style={{
+                    fontFamily: typography.font.bold,
+                    fontSize: scaleFont(11),
+                    color: colors.text2,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.9,
+                }}
+            >
+                {title}
+            </Text>
+        </View>
+    );
 }
 
-function getBMICategory(bmi: number): string {
-    if (bmi < 18.5) return 'Thiếu cân';
-    if (bmi < 24.9) return 'Bình thường';
-    if (bmi < 29.9) return 'Tiền béo phì';
-    return 'Béo phì';
+function MemberRow({
+    member,
+    isLast,
+    onPress,
+}: {
+    member: FamilyMember;
+    isLast?: boolean;
+    onPress?: () => void;
+}) {
+    return (
+        <Pressable
+            style={[styles.mrow, isLast ? styles.mrowLast : null]}
+            onPress={onPress}
+        >
+            <LinearGradient
+                colors={member.gradientColors as LinearGradientProps['colors']}
+                style={styles.mav}
+            >
+                <Text style={styles.mavText}>{member.initials}</Text>
+                {member.isOnline ? <View style={styles.mavDot} /> : null}
+            </LinearGradient>
+            <View style={styles.minfo}>
+                <Text style={styles.mname}>{member.name}</Text>
+                <Text style={styles.mrole}>{member.role}</Text>
+            </View>
+            <Ionicons name='chevron-forward' size={14} color={colors.text3} />
+        </Pressable>
+    );
 }
 
-function getBMIColor(bmi: number): string {
-    if (bmi < 18.5) return '#60A5FA';
-    if (bmi < 24.9) return '#10B981';
-    if (bmi < 29.9) return '#F59E0B';
-    return '#EF4444';
+function ProfileRow({
+    icon,
+    color,
+    bg,
+    label,
+    value,
+    badge,
+    isLast,
+}: {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    color: string;
+    bg: string;
+    label: string;
+    value: string;
+    badge?: string;
+    isLast?: boolean;
+}) {
+    return (
+        <View style={[styles.prow, isLast ? styles.prowLast : null]}>
+            <View style={[styles.prowIc, { backgroundColor: bg }]}>
+                <Ionicons name={icon} size={18} color={color} />
+            </View>
+            <View style={styles.prowBody}>
+                <Text style={styles.prowLabel}>{label}</Text>
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                    }}
+                >
+                    <Text style={styles.prowValue}>{value}</Text>
+                    {badge ? (
+                        <Text style={styles.bmiBadgeInline}>{badge}</Text>
+                    ) : null}
+                </View>
+            </View>
+        </View>
+    );
+}
+
+function ActionRow({
+    icon,
+    color,
+    bg,
+    title,
+    subtitle,
+    onPress,
+    isLast,
+}: {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    color: string;
+    bg: string;
+    title: string;
+    subtitle: string;
+    onPress?: () => void;
+    isLast?: boolean;
+}) {
+    return (
+        <Pressable
+            style={[styles.mrow, isLast ? styles.mrowLast : null]}
+            onPress={onPress}
+        >
+            <View
+                style={[
+                    styles.mav,
+                    {
+                        width: scale(40),
+                        height: scale(40),
+                        borderRadius: scale(12),
+                        backgroundColor: bg,
+                    },
+                ]}
+            >
+                <Ionicons name={icon} size={18} color={color} />
+            </View>
+            <View style={styles.minfo}>
+                <Text style={styles.mname}>{title}</Text>
+                <Text style={styles.mrole}>{subtitle}</Text>
+            </View>
+            <Ionicons name='chevron-forward' size={14} color={colors.text3} />
+        </Pressable>
+    );
+}
+
+function MethodCard({
+    icon,
+    iconColor,
+    iconBg,
+    title,
+    subtitle,
+    onPress,
+}: {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    iconColor: string;
+    iconBg: string;
+    title: string;
+    subtitle: string;
+    onPress?: () => void;
+}) {
+    return (
+        <Pressable style={styles.methodCard} onPress={onPress}>
+            <View style={styles.methodInner}>
+                <View style={[styles.methodIc, { backgroundColor: iconBg }]}>
+                    <Ionicons name={icon} size={22} color={iconColor} />
+                </View>
+                <View style={styles.methodBody}>
+                    <Text style={styles.methodTitle}>{title}</Text>
+                    <Text style={styles.methodSub}>{subtitle}</Text>
+                </View>
+                <Ionicons
+                    name='chevron-forward'
+                    size={16}
+                    color={colors.text3}
+                />
+            </View>
+        </Pressable>
+    );
+}
+
+function InviteCard({
+    invite,
+    onAccept,
+    onReject,
+}: {
+    invite: InviteItem;
+    onAccept: () => void;
+    onReject: () => void;
+}) {
+    return (
+        <View
+            style={{
+                backgroundColor: colors.card,
+                borderWidth: 1.5,
+                borderColor: colors.border,
+                borderRadius: 16,
+                overflow: 'hidden',
+                shadowColor: '#0F172A',
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 1 },
+                elevation: 2,
+            }}
+        >
+            <LinearGradient
+                colors={invite.gradient}
+                style={{
+                    paddingHorizontal: scale(14),
+                    paddingVertical: verticalScale(12),
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                }}
+            >
+                <View
+                    style={{
+                        width: scale(36),
+                        height: scale(36),
+                        borderRadius: scale(11),
+                        backgroundColor: 'rgba(255,255,255,0.18)',
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(255,255,255,0.25)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <Ionicons name='home-outline' size={17} color='#fff' />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text
+                        style={{
+                            color: '#fff',
+                            fontFamily: typography.font.black,
+                            fontSize: scaleFont(14),
+                        }}
+                    >
+                        {invite.familyName}
+                    </Text>
+                    <Text
+                        style={{
+                            color: 'rgba(255,255,255,0.65)',
+                            fontFamily: typography.font.semiBold,
+                            fontSize: scaleFont(10),
+                            marginTop: 1,
+                        }}
+                    >
+                        {invite.memberCount} thành viên
+                    </Text>
+                </View>
+                <View
+                    style={{
+                        backgroundColor: 'rgba(255,255,255,0.18)',
+                        borderRadius: 20,
+                        paddingHorizontal: scale(9),
+                        paddingVertical: verticalScale(4),
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: '#fff',
+                            fontFamily: typography.font.bold,
+                            fontSize: scaleFont(10),
+                        }}
+                    >
+                        {invite.roleEmoji} {invite.role}
+                    </Text>
+                </View>
+            </LinearGradient>
+
+            <View style={{ paddingHorizontal: scale(14), paddingVertical: 12 }}>
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: verticalScale(8),
+                    }}
+                >
+                    <View
+                        style={{
+                            width: scale(26),
+                            height: scale(26),
+                            borderRadius: scale(13),
+                            backgroundColor: '#DBEAFE',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: '#1D4ED8',
+                                fontFamily: typography.font.black,
+                                fontSize: scaleFont(11),
+                            }}
+                        >
+                            {invite.inviterName.trim().slice(-1)}
+                        </Text>
+                    </View>
+                    <View>
+                        <Text
+                            style={{
+                                color: colors.text,
+                                fontFamily: typography.font.bold,
+                                fontSize: scaleFont(11),
+                            }}
+                        >
+                            {invite.inviterName}{' '}
+                            <Text
+                                style={{
+                                    color: colors.text3,
+                                    fontFamily: typography.font.medium,
+                                }}
+                            >
+                                · {invite.invitedAt}
+                            </Text>
+                        </Text>
+                        <Text
+                            style={{
+                                color: colors.text3,
+                                fontFamily: typography.font.regular,
+                                fontSize: scaleFont(10),
+                            }}
+                        >
+                            {invite.inviterRole}
+                        </Text>
+                    </View>
+                </View>
+
+                <View
+                    style={{
+                        backgroundColor: colors.bg,
+                        borderRadius: 9,
+                        paddingHorizontal: scale(10),
+                        paddingVertical: verticalScale(7),
+                        marginBottom: verticalScale(10),
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: colors.text2,
+                            fontFamily: typography.font.regular,
+                            fontSize: scaleFont(11),
+                            lineHeight: verticalScale(17),
+                        }}
+                    >
+                        Mời bạn tham gia với vai trò{' '}
+                        <Text
+                            style={{
+                                color: colors.text,
+                                fontFamily: typography.font.bold,
+                            }}
+                        >
+                            {invite.role}
+                        </Text>
+                    </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 7 }}>
+                    <Pressable
+                        style={{
+                            flex: 1,
+                            borderWidth: 1.5,
+                            borderColor: colors.border,
+                            borderRadius: 11,
+                            paddingVertical: verticalScale(9),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                        onPress={onReject}
+                    >
+                        <Text
+                            style={{
+                                color: colors.text2,
+                                fontFamily: typography.font.bold,
+                                fontSize: scaleFont(12),
+                            }}
+                        >
+                            Từ chối
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={{
+                            flex: 2,
+                            backgroundColor: colors.primary,
+                            borderRadius: 11,
+                            paddingVertical: verticalScale(9),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                        onPress={onAccept}
+                    >
+                        <Text
+                            style={{
+                                color: '#fff',
+                                fontFamily: typography.font.bold,
+                                fontSize: scaleFont(12),
+                            }}
+                        >
+                            Chấp nhận
+                        </Text>
+                    </Pressable>
+                </View>
+            </View>
+        </View>
+    );
+}
+
+function CreateFamilyModal({
+    visible,
+    familyName,
+    familyAddress,
+    onChangeFamilyName,
+    onChangeFamilyAddress,
+    onClose,
+}: {
+    visible: boolean;
+    familyName: string;
+    familyAddress: string;
+    onChangeFamilyName: (value: string) => void;
+    onChangeFamilyAddress: (value: string) => void;
+    onClose: () => void;
+}) {
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType='slide'
+            onRequestClose={onClose}
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <Pressable style={shared.overlay} onPress={onClose}>
+                    <Pressable
+                        style={shared.sheetContainer}
+                        onPress={(event) => event.stopPropagation()}
+                    >
+                        <View style={shared.sheetHandle}>
+                            <View style={shared.sheetBar} />
+                        </View>
+                        <View style={shared.sheetHeader}>
+                            <Text style={shared.sheetTitle}>Tạo gia đình</Text>
+                            <Pressable onPress={onClose}>
+                                <Ionicons
+                                    name='close'
+                                    size={18}
+                                    color={colors.text3}
+                                />
+                            </Pressable>
+                        </View>
+                        <View style={shared.sheetBody}>
+                            <View style={styles.popupAvWrap}>
+                                <LinearGradient
+                                    colors={['#DDD6FE', '#C4B5FD']}
+                                    style={styles.popupAv}
+                                >
+                                    <Ionicons
+                                        name='people-outline'
+                                        size={28}
+                                        color='#7C3AED'
+                                    />
+                                    <View style={styles.popupAvCam}>
+                                        <Ionicons
+                                            name='camera-outline'
+                                            size={10}
+                                            color='#fff'
+                                        />
+                                    </View>
+                                </LinearGradient>
+                                <Text style={styles.popupAvHint}>
+                                    Nhấn để chọn ảnh đại diện
+                                </Text>
+                            </View>
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>
+                                    Tên gia đình
+                                </Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    placeholder='VD: Phan Family, Nhà Nguyễn...'
+                                    value={familyName}
+                                    onChangeText={onChangeFamilyName}
+                                    placeholderTextColor={colors.text3}
+                                />
+                                <Text style={styles.formHint}>
+                                    Tên sẽ hiển thị cho tất cả thành viên
+                                </Text>
+                            </View>
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>Địa chỉ</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    placeholder='Số nhà, đường, phường, quận...'
+                                    value={familyAddress}
+                                    onChangeText={onChangeFamilyAddress}
+                                    placeholderTextColor={colors.text3}
+                                />
+                            </View>
+                            <View style={styles.infoBox}>
+                                <Ionicons
+                                    name='information-circle-outline'
+                                    size={18}
+                                    color={colors.primary}
+                                />
+                                <Text style={styles.infoText}>
+                                    Người tạo gia đình sẽ tự động là Chủ gia
+                                    đình. Bạn có thể phân vai trò cho từng thành
+                                    viên sau.
+                                </Text>
+                            </View>
+                            <LinearGradient
+                                colors={['#7C3AED', '#2563EB']}
+                                style={styles.createBtn}
+                            >
+                                <Pressable
+                                    style={{
+                                        width: '100%',
+                                        alignItems: 'center',
+                                    }}
+                                    onPress={onClose}
+                                >
+                                    <Text style={styles.createBtnText}>
+                                        Tạo gia đình
+                                    </Text>
+                                </Pressable>
+                            </LinearGradient>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+}
+
+function RoleSelectionModal({
+    visible,
+    selectedRole,
+    onSelectRole,
+    onClose,
+}: {
+    visible: boolean;
+    selectedRole: string | null;
+    onSelectRole: (value: string) => void;
+    onClose: () => void;
+}) {
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType='slide'
+            onRequestClose={onClose}
+        >
+            <Pressable style={shared.overlay} onPress={onClose}>
+                <Pressable
+                    style={shared.sheetContainer}
+                    onPress={(event) => event.stopPropagation()}
+                >
+                    <View style={shared.sheetHandle}>
+                        <View style={shared.sheetBar} />
+                    </View>
+                    <View style={shared.sheetHeader}>
+                        <Text style={shared.sheetTitle}>Chọn vai trò</Text>
+                        <Pressable onPress={onClose}>
+                            <Ionicons
+                                name='close'
+                                size={18}
+                                color={colors.text3}
+                            />
+                        </Pressable>
+                    </View>
+                    <View style={[shared.sheetBody, { paddingBottom: 24 }]}>
+                        <View
+                            style={[
+                                shared.cardBlock,
+                                {
+                                    marginHorizontal: 0,
+                                    marginBottom: verticalScale(18),
+                                },
+                            ]}
+                        >
+                            <View style={[styles.mrow, styles.mrowLast]}>
+                                <LinearGradient
+                                    colors={['#F5F3FF', '#EEF2FF']}
+                                    style={[
+                                        styles.mav,
+                                        {
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 22,
+                                        },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.mavText,
+                                            { color: '#7C3AED' },
+                                        ]}
+                                    >
+                                        NB
+                                    </Text>
+                                </LinearGradient>
+                                <View style={styles.minfo}>
+                                    <Text style={styles.mname}>
+                                        Nguyễn Thị Bình
+                                    </Text>
+                                    <Text style={styles.mrole}>
+                                        0901 234 567
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <Text
+                            style={{
+                                fontFamily: typography.font.black,
+                                fontSize: scaleFont(15),
+                                color: colors.text,
+                                marginBottom: 4,
+                            }}
+                        >
+                            Chọn vai trò trong gia đình
+                        </Text>
+                        <Text
+                            style={{
+                                fontFamily: typography.font.regular,
+                                fontSize: scaleFont(12),
+                                color: colors.text3,
+                                marginBottom: 18,
+                            }}
+                        >
+                            Vai trò này sẽ hiển thị trên hồ sơ của họ
+                        </Text>
+
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                flexWrap: 'wrap',
+                                gap: 10,
+                                marginBottom: 18,
+                            }}
+                        >
+                            {ROLE_OPTIONS.map((role) => {
+                                const isSelected = selectedRole === role.id;
+                                return (
+                                    <Pressable
+                                        key={role.id}
+                                        onPress={() => onSelectRole(role.id)}
+                                        style={{
+                                            width: '48.5%',
+                                            paddingHorizontal: 14,
+                                            paddingVertical: 14,
+                                            borderRadius: 16,
+                                            borderWidth: 1.5,
+                                            borderColor: isSelected
+                                                ? colors.primary
+                                                : colors.border,
+                                            backgroundColor: isSelected
+                                                ? colors.primaryBg
+                                                : colors.bg,
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{ fontSize: scaleFont(16) }}
+                                        >
+                                            {role.emoji}
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                color: isSelected
+                                                    ? colors.primary
+                                                    : colors.text2,
+                                                fontFamily:
+                                                    typography.font.bold,
+                                                fontSize: scaleFont(12),
+                                            }}
+                                        >
+                                            {role.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <LinearGradient
+                            colors={
+                                selectedRole
+                                    ? ['#2563EB', '#0D9488']
+                                    : ['#CBD5E1', '#CBD5E1']
+                            }
+                            style={styles.createBtn}
+                        >
+                            <Pressable
+                                disabled={!selectedRole}
+                                style={{
+                                    width: '100%',
+                                    alignItems: 'center',
+                                }}
+                                onPress={onClose}
+                            >
+                                <Text style={styles.createBtnText}>
+                                    Gửi lời mời
+                                </Text>
+                            </Pressable>
+                        </LinearGradient>
+                    </View>
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+}
+
+function bmiValue(height?: number, weight?: number): number {
+    if (!height || !weight) return 0;
+    return Number((weight / (height / 100) ** 2).toFixed(1));
+}
+
+function formatPhone(phone: string): string {
+    const digits = phone.replace(/\D/g, '').slice(0, 10);
+    if (digits.length < 10) return phone;
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
 }

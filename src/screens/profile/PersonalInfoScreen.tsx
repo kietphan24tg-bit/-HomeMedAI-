@@ -3,6 +3,7 @@ import DateTimePicker, {
     type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
@@ -10,12 +11,13 @@ import {
     Platform,
     Pressable,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
     View,
 } from 'react-native';
-import { styles as onbdStyles } from './styles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     moderateScale,
     scale,
@@ -40,18 +42,22 @@ function formatDate(d: Date): string {
 }
 
 interface Props {
-    width: number;
-    goMain: () => void;
-    renderDots: () => React.JSX.Element;
+    /** When true, skip SafeAreaView wrapper (used inside onboarding pager) */
+    embedded?: boolean;
+    /** Width override for the onboarding pager layout */
+    width?: number;
+    /** Callback when user finishes; if omitted navigates to /(tabs) */
+    onComplete?: () => void;
 }
 
-export default function PersonalInfoPage({
+export default function PersonalInfoScreen({
+    embedded = false,
     width,
-    goMain,
-    renderDots,
+    onComplete,
 }: Props): React.JSX.Element {
     /* ── form state ── */
     const [dob, setDob] = useState<Date | null>(null);
+    const [fullName, setFullName] = useState('');
     const [dobText, setDobText] = useState('');
     const [showPicker, setShowPicker] = useState(false);
     const [gender, setGender] = useState('');
@@ -60,6 +66,7 @@ export default function PersonalInfoPage({
     const [address, setAddress] = useState('');
 
     /* ── focus state ── */
+    const [focusFullName, setFocusFullName] = useState(false);
     const [focusDob, setFocusDob] = useState(false);
     const [focusHeight, setFocusHeight] = useState(false);
     const [focusWeight, setFocusWeight] = useState(false);
@@ -67,7 +74,7 @@ export default function PersonalInfoPage({
 
     /* ── staggered entrance ── */
     const anims = useRef(
-        Array.from({ length: 6 }, () => new Animated.Value(0)),
+        Array.from({ length: 7 }, () => new Animated.Value(0)),
     ).current;
     useEffect(() => {
         Animated.stagger(
@@ -121,21 +128,34 @@ export default function PersonalInfoPage({
     }, []);
     const closePicker = useCallback(() => setShowPicker(false), []);
 
+    /* ── complete action ── */
+    const handleComplete = () => {
+        if (onComplete) {
+            onComplete();
+        } else {
+            router.replace('/(tabs)');
+        }
+    };
+
     /* ── shorthand styles ── */
     const card = (focused: boolean) => [
         s.inputCard,
         focused && s.inputCardFocus,
     ];
 
+    const Wrapper = embedded ? View : SafeAreaView;
+    const containerStyle = embedded
+        ? [s.page, { width, backgroundColor: PAGE_BG }]
+        : [s.page, { backgroundColor: PAGE_BG }];
+
     return (
-        <View style={[onbdStyles.page, { width, backgroundColor: PAGE_BG }]}>
-            {renderDots()}
+        <Wrapper style={containerStyle}>
+            {!embedded && (
+                <StatusBar barStyle='dark-content' backgroundColor={PAGE_BG} />
+            )}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={[
-                    onbdStyles.sScroll,
-                    { paddingBottom: verticalScale(32) },
-                ]}
+                contentContainerStyle={s.scrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
                 automaticallyAdjustKeyboardInsets={true}
@@ -162,8 +182,30 @@ export default function PersonalInfoPage({
                     </Text>
                 </Animated.View>
 
+                {/* ── HỌ VÀ TÊN ── */}
+                <Animated.View style={[s.inputGroup, anim(1)]}>
+                    <Text style={s.label}>Họ và tên</Text>
+                    <View style={card(focusFullName)}>
+                        <Ionicons
+                            name='person-outline'
+                            size={16}
+                            color={colors.primary}
+                            style={{ marginRight: 10 }}
+                        />
+                        <TextInput
+                            style={[s.inputText, { flex: 1 }]}
+                            value={fullName}
+                            onChangeText={setFullName}
+                            placeholder='Nguyễn Văn An'
+                            placeholderTextColor={colors.text3}
+                            onFocus={() => setFocusFullName(true)}
+                            onBlur={() => setFocusFullName(false)}
+                        />
+                    </View>
+                </Animated.View>
+
                 {/* ── NGÀY SINH ── */}
-                <Animated.View style={[onbdStyles.inputGroup, anim(1)]}>
+                <Animated.View style={[s.inputGroup, anim(2)]}>
                     <Text style={s.label}>Ngày sinh</Text>
                     <Pressable
                         style={card(focusDob)}
@@ -214,7 +256,7 @@ export default function PersonalInfoPage({
                 </Animated.View>
 
                 {/* ── GIỚI TÍNH ── */}
-                <Animated.View style={[onbdStyles.inputGroup, anim(2)]}>
+                <Animated.View style={[s.inputGroup, anim(3)]}>
                     <Text style={s.label}>Giới tính</Text>
                     <View style={s.genderRow}>
                         {GENDERS.map(({ key, label, icon }) => {
@@ -256,7 +298,7 @@ export default function PersonalInfoPage({
                 </Animated.View>
 
                 {/* ── CHIỀU CAO + CÂN NẶNG ── */}
-                <Animated.View style={[s.dualRow, anim(3)]}>
+                <Animated.View style={[s.dualRow, anim(4)]}>
                     <View style={{ flex: 1 }}>
                         <Text style={s.label}>Chiều cao</Text>
                         <View style={card(focusHeight)}>
@@ -294,7 +336,7 @@ export default function PersonalInfoPage({
                 </Animated.View>
 
                 {/* ── ĐỊA CHỈ ── */}
-                <Animated.View style={[onbdStyles.inputGroup, anim(4)]}>
+                <Animated.View style={[s.inputGroup, anim(5)]}>
                     <Text style={s.label}>Địa chỉ</Text>
                     <View style={card(focusAddr)}>
                         <Ionicons
@@ -315,20 +357,11 @@ export default function PersonalInfoPage({
                     </View>
                 </Animated.View>
 
-                {/* ── BUTTON (inside ScrollView — không bị đẩy bởi bàn phím) ── */}
-                <Animated.View
-                    style={[
-                        onbdStyles.sBtn,
-                        {
-                            backgroundColor: 'transparent',
-                            paddingBottom: verticalScale(8),
-                        },
-                        anim(5),
-                    ]}
-                >
+                {/* ── BUTTON ── */}
+                <Animated.View style={[s.btnWrap, anim(6)]}>
                     <Pressable
                         style={({ pressed }) => [pressed && shared.pressed]}
-                        onPress={goMain}
+                        onPress={handleComplete}
                     >
                         <LinearGradient
                             colors={[colors.primary, colors.secondary]}
@@ -353,12 +386,21 @@ export default function PersonalInfoPage({
                     </Pressable>
                 </Animated.View>
             </ScrollView>
-        </View>
+        </Wrapper>
     );
 }
 
 /* ── local styles ── */
 const s = StyleSheet.create({
+    page: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: scale(24),
+        paddingTop: verticalScale(12),
+        paddingBottom: verticalScale(32),
+        flexGrow: 1,
+    },
     header: {
         paddingTop: verticalScale(6),
         paddingBottom: verticalScale(18),
@@ -392,6 +434,9 @@ const s = StyleSheet.create({
         fontSize: scaleFont(13),
         color: colors.text2,
         lineHeight: verticalScale(20),
+    },
+    inputGroup: {
+        marginBottom: verticalScale(12),
     },
     label: {
         fontFamily: typography.font.bold,
@@ -466,6 +511,10 @@ const s = StyleSheet.create({
         color: '#CBD5E1',
         marginLeft: scale(4),
         flexShrink: 0,
+    },
+    btnWrap: {
+        paddingTop: verticalScale(8),
+        paddingBottom: verticalScale(8),
     },
     btn: {
         borderRadius: moderateScale(18),

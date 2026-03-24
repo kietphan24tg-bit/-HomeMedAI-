@@ -109,7 +109,7 @@ export default function WelcomePage({
                             ]}
                         />
                         <LinearGradient
-                            colors={['#0F766E', '#14B8A6']}
+                            colors={['#2563EB', '#14B8A6']}
                             style={styles.illusCenter}
                         >
                             <Feather name='activity' size={44} color='#fff' />
@@ -222,7 +222,7 @@ export default function WelcomePage({
                     ]}
                     onPress={() => {
                         import('expo-router').then(({ router }) => {
-                            router.push('/signin');
+                            router.push('/auth');
                         });
                     }}
                 >

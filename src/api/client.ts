@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
-
-const BASE_URL = process.env.BE_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
+const REFRESH_TOKEN = 'refresh_token';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
@@ -48,7 +49,7 @@ apiClient.interceptors.response.use(
                 useAuthStore.getState().setAccessToken(accessToken);
                 originalRequest.headers['Authorization'] =
                     `Bearer ${accessToken}`;
-                return api(originalRequest);
+                return apiClient(originalRequest);
             } catch (error) {
                 useAuthStore.getState().clearStore();
                 return Promise.reject(error);

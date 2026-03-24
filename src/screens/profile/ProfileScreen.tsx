@@ -379,8 +379,9 @@ export default function ProfileScreen(): React.JSX.Element {
                                                     m - 1,
                                                     d,
                                                 );
-                                                if (!isNaN(date.getTime()))
-                                                    {return date;}
+                                                if (!isNaN(date.getTime())) {
+                                                    return date;
+                                                }
                                             }
                                             return null;
                                         })()}
