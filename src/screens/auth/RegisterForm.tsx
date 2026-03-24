@@ -29,7 +29,6 @@ export default function RegisterForm({
 }: RegisterFormProps): React.JSX.Element {
     return (
         <View>
-            {/* Email */}
             <View style={s.inputGroup}>
                 <Text style={s.inputLabel}>EMAIL</Text>
                 <View style={[s.inputWrap, errors.email && s.inputWrapError]}>
@@ -56,7 +55,6 @@ export default function RegisterForm({
                 )}
             </View>
 
-            {/* Mật khẩu */}
             <View style={s.inputGroup}>
                 <Text style={s.inputLabel}>MẬT KHẨU</Text>
                 <View
@@ -100,7 +98,6 @@ export default function RegisterForm({
                 )}
             </View>
 
-            {/* Nhập lại mật khẩu */}
             <View style={s.inputGroup}>
                 <Text style={s.inputLabel}>NHẬP LẠI MẬT KHẨU</Text>
                 <View
@@ -155,7 +152,6 @@ export default function RegisterForm({
                 )}
             </View>
 
-            {/* Nút Tạo tài khoản */}
             <Pressable
                 style={({ pressed }) => [pressed && shared.pressed]}
                 onPress={handleAction}
@@ -164,34 +160,34 @@ export default function RegisterForm({
                 <LinearGradient
                     colors={
                         loading
-                            ? ['rgba(37,99,235,0.7)', 'rgba(29,78,216,0.7)']
+                            ? ['#5B84F1', '#4D73E8']
                             : ['#2563EB', '#1D4ED8']
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[s.btnPrimary, { marginTop: 4 }]}
+                    style={[
+                        s.btnPrimary,
+                        { marginTop: 4 },
+                        loading && s.btnPrimaryLoading,
+                    ]}
                 >
-                    {loading ? (
-                        <ActivityIndicator
-                            size='small'
-                            color='#fff'
-                            style={{ marginRight: 8 }}
-                        />
-                    ) : null}
-                    <Text style={s.btnPrimaryText}>
-                        {loading ? 'Đang xử lý...' : 'Tạo tài khoản'}
-                    </Text>
+                    <View style={s.btnPrimaryContent}>
+                        {loading ? (
+                            <ActivityIndicator size='small' color='#fff' />
+                        ) : null}
+                        <Text style={s.btnPrimaryText}>
+                            {loading ? 'Đang xử lý...' : 'Tạo tài khoản'}
+                        </Text>
+                    </View>
                 </LinearGradient>
             </Pressable>
 
-            {/* Terms */}
             <Text style={s.termsText}>
                 Bằng cách đăng ký, bạn đồng ý với{'\n'}
                 <Text style={s.termsLink}>Điều khoản dịch vụ</Text> và{' '}
                 <Text style={s.termsLink}>Chính sách bảo mật</Text>
             </Text>
 
-            {/* Trust */}
             <View style={s.trustRow}>
                 <View style={s.trustItem}>
                     <Ionicons

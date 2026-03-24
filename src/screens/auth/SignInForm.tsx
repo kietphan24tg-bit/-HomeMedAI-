@@ -28,7 +28,6 @@ export default function SignInForm({
 }: SignInFormProps): React.JSX.Element {
     return (
         <View>
-            {/* Email */}
             <View style={s.inputGroup}>
                 <Text style={s.inputLabel}>EMAIL</Text>
                 <View style={[s.inputWrap, errors.email && s.inputWrapError]}>
@@ -55,7 +54,6 @@ export default function SignInForm({
                 )}
             </View>
 
-            {/* Mật khẩu */}
             <View style={s.inputGroup}>
                 <Text style={s.inputLabel}>MẬT KHẨU</Text>
                 <View
@@ -99,12 +97,10 @@ export default function SignInForm({
                 )}
             </View>
 
-            {/* Quên mật khẩu */}
             <Pressable style={s.forgotBtn} onPress={onForgotPassword}>
                 <Text style={s.forgotText}>Quên mật khẩu?</Text>
             </Pressable>
 
-            {/* Nút Đăng nhập */}
             <Pressable
                 style={({ pressed }) => [pressed && shared.pressed]}
                 onPress={handleAction}
@@ -113,34 +109,30 @@ export default function SignInForm({
                 <LinearGradient
                     colors={
                         loading
-                            ? ['rgba(37,99,235,0.7)', 'rgba(29,78,216,0.7)']
+                            ? ['#5B84F1', '#4D73E8']
                             : ['#2563EB', '#1D4ED8']
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={s.btnPrimary}
+                    style={[s.btnPrimary, loading && s.btnPrimaryLoading]}
                 >
-                    {loading ? (
-                        <ActivityIndicator
-                            size='small'
-                            color='#fff'
-                            style={{ marginRight: 8 }}
-                        />
-                    ) : null}
-                    <Text style={s.btnPrimaryText}>
-                        {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-                    </Text>
+                    <View style={s.btnPrimaryContent}>
+                        {loading ? (
+                            <ActivityIndicator size='small' color='#fff' />
+                        ) : null}
+                        <Text style={s.btnPrimaryText}>
+                            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+                        </Text>
+                    </View>
                 </LinearGradient>
             </Pressable>
 
-            {/* OR Divider */}
             <View style={s.orRow}>
                 <View style={s.orLine} />
                 <Text style={s.orText}>hoặc tiếp tục với</Text>
                 <View style={s.orLine} />
             </View>
 
-            {/* Google */}
             <Pressable
                 style={({ pressed }) => [
                     s.btnGoogle,
@@ -157,7 +149,6 @@ export default function SignInForm({
                 <Text style={s.btnSocialLabel}>Tiếp tục với Google</Text>
             </Pressable>
 
-            {/* Trust */}
             <View style={s.trustRow}>
                 <View style={s.trustItem}>
                     <Ionicons

@@ -164,17 +164,33 @@ export const authStyles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
+        overflow: 'hidden',
         shadowColor: '#2563EB',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 20,
         elevation: 5,
     },
+    btnPrimaryContent: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+        backgroundColor: 'transparent',
+    },
+    btnPrimaryLoading: {
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
+    },
     btnPrimaryText: {
         color: '#fff',
         fontFamily: typography.font.bold,
         fontSize: scaleFont(15),
         letterSpacing: 0.1,
+        backgroundColor: 'transparent',
+        includeFontPadding: false,
     },
 
     /* ── OR Divider ── */

@@ -1,6 +1,7 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
@@ -14,6 +15,7 @@ import {
 import DeviceInfo from 'react-native-device-info';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { colors } from '@/src/styles/tokens';
@@ -29,6 +31,7 @@ interface Props {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
 export default function AuthScreen({
     initialMode,
@@ -39,22 +42,17 @@ export default function AuthScreen({
     const { signIn, signUp, loading } = useAuthStore();
     const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
     const [view, setView] = useState<'auth' | 'forgot-password'>('auth');
-
-    // Form States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-    // Errors
     const [errors, setErrors] = useState<{
         email?: string;
         password?: string;
         confirmPassword?: string;
     }>({});
 
-    // Animation
     const fadeAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
@@ -68,10 +66,18 @@ export default function AuthScreen({
         });
     }, []);
 
-    /* ── Helpers ── */
-    //change mode animation
+    const clearForm = () => {
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        setErrors({});
+    };
+
     const switchMode = (newMode: 'signin' | 'signup') => {
         if (newMode === mode) return;
+
         Animated.sequence([
             Animated.timing(fadeAnim, {
                 toValue: 0,
@@ -84,6 +90,8 @@ export default function AuthScreen({
                 useNativeDriver: true,
             }),
         ]).start();
+
+        clearForm();
         setTimeout(() => setMode(newMode), 120);
     };
 
@@ -126,6 +134,7 @@ export default function AuthScreen({
             const platform = Platform.OS;
 
             let success = false;
+
             if (mode === 'signin') {
                 success = await signIn({
                     email,
@@ -138,23 +147,33 @@ export default function AuthScreen({
                 success = await signUp({ email, password });
             }
 
-            if (success) {
+            if (!success) {
+                return;
+            }
+
+            if (mode === 'signin') {
+                await SecureStore.setItemAsync(HAS_SEEN_ONBOARDING, 'true');
+
+                clearForm();
                 if (onSuccess) {
                     onSuccess();
                 } else {
                     router.replace('/(tabs)');
                 }
+                return;
             }
+
+            appToast.showSuccess(
+                'Success',
+                'Đăng ký tài khoản thành công. Vui lòng đăng nhập để tiếp tục.',
+            );
+            clearForm();
+            setMode('signin');
         } catch (error: any) {
         } finally {
-            setEmail('');
-            setPassword('');
-            setConfirmPassword('');
-            setErrors({});
+            clearForm();
         }
     };
-
-    /* ── Forgot Password Flow ── */
 
     if (view === 'forgot-password') {
         const forgotContent = (
@@ -163,7 +182,11 @@ export default function AuthScreen({
                 onBackToAuth={() => setView('auth')}
             />
         );
-        if (embedded) return <View style={{ flex: 1 }}>{forgotContent}</View>;
+
+        if (embedded) {
+            return <View style={{ flex: 1 }}>{forgotContent}</View>;
+        }
+
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
                 <StatusBar
@@ -174,8 +197,6 @@ export default function AuthScreen({
             </SafeAreaView>
         );
     }
-
-    /* ── Main Auth Layout ── */
 
     const Wrapper = embedded ? View : SafeAreaView;
 
@@ -193,7 +214,6 @@ export default function AuthScreen({
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
             >
-                {/* ── HEADER: Logo + Title ── */}
                 <View style={s.headerSection}>
                     <View style={s.deco1} />
                     <View style={s.deco2} />
@@ -220,20 +240,22 @@ export default function AuthScreen({
                             />
                         </Svg>
                     </LinearGradient>
+
                     <Text style={s.appName}>HOMEMEDAI</Text>
                     <Text style={s.headerTitle}>
                         Bắt đầu hành trình{'\n'}
                         <Text style={{ color: colors.primary }}>
                             chăm sóc
                         </Text>{' '}
-                        sức khoẻ
+                        sức khỏe
                     </Text>
-                    <Text style={s.headerSub}>
-                        Tạo tài khoản hoặc đăng nhập để tiếp tục
-                    </Text>
+                    {showSubtext && (
+                        <Text style={s.headerSub}>
+                            Tạo tài khoản hoặc đăng nhập để tiếp tục
+                        </Text>
+                    )}
                 </View>
 
-                {/* ── TABS ── */}
                 <View style={s.tabsContainer}>
                     <Pressable
                         style={[s.tab, mode === 'signin' && s.tabActive]}
@@ -263,7 +285,6 @@ export default function AuthScreen({
                     </Pressable>
                 </View>
 
-                {/* ── FORM (renders SignInForm or RegisterForm) ── */}
                 <Animated.View style={{ opacity: fadeAnim }}>
                     {mode === 'signin' ? (
                         <SignInForm

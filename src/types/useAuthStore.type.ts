@@ -44,5 +44,5 @@ export interface AuthStore {
     }: SignInWithGoogleParams) => Promise<void>;
     signOut: () => Promise<void>;
     fetchMe: () => Promise<void>;
-    refresh: () => Promise<void>;
+    refresh: () => Promise<boolean>;
 }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
@@ -44,11 +45,22 @@ apiClient.interceptors.response.use(
         if (error.response.status === 403 && originalRequest._retry < 4) {
             originalRequest._retry += 1;
             try {
-                const res = await authService.refresh();
+                const refreshToken =
+                    await SecureStore.getItemAsync(REFRESH_TOKEN);
+
+                if (!refreshToken) {
+                    throw new Error('No refresh token found');
+                }
+
+                const res = await authService.refresh(refreshToken);
                 const accessToken = res.accessToken;
                 useAuthStore.getState().setAccessToken(accessToken);
                 originalRequest.headers['Authorization'] =
                     `Bearer ${accessToken}`;
+                await SecureStore.setItemAsync(
+                    REFRESH_TOKEN,
+                    res.refresh_token,
+                );
                 return apiClient(originalRequest);
             } catch (error) {
                 useAuthStore.getState().clearStore();
