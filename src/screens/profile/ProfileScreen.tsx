@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 
@@ -128,7 +129,8 @@ export default function ProfileScreen(): React.JSX.Element {
         setSheet(null);
     };
 
-    const handleLogout = (): void => {
+    const handleLogout = async (): Promise<void> => {
+        await useAuthStore.getState().clearStore();
         router.replace('/onboarding');
     };
 

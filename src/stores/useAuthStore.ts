@@ -11,18 +11,75 @@ import type {
 import type { User } from '@/src/types/user';
 
 const REFRESH_TOKEN = 'refresh_token';
+const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
 export const useAuthStore = create<AuthStore>((set, get) => {
     return {
         accessToken: null,
         user: null,
         loading: false,
+        initialized: false,
+        hasSeenOnboarding: false,
         setAccessToken: (token: string | null) => set({ accessToken: token }),
         clearStore: () => {
             SecureStore.deleteItemAsync(REFRESH_TOKEN).catch((error) => {
                 console.log(error);
             });
             set({ user: null, accessToken: null });
+        },
+        bootstrap: async () => {
+            if (get().initialized) {
+                return !!get().accessToken;
+            }
+
+            try {
+                set({ loading: true });
+                const hasSeenOnboarding = Boolean(
+                    await SecureStore.getItemAsync(HAS_SEEN_ONBOARDING),
+                );
+                const refreshToken =
+                    await SecureStore.getItemAsync(REFRESH_TOKEN);
+
+                if (!refreshToken) {
+                    set({ initialized: true, hasSeenOnboarding });
+                    return false;
+                }
+
+                const res = await authService.refresh(refreshToken);
+                const accessToken = res.access_token ?? res.accessToken ?? null;
+
+                if (!accessToken) {
+                    throw new Error('No access token returned');
+                }
+
+                set({ accessToken, hasSeenOnboarding });
+                const profile = await authService.fetchMe();
+                set({ user: profile.user, initialized: true });
+
+                await SecureStore.setItemAsync(
+                    REFRESH_TOKEN,
+                    res.refresh_token,
+                );
+                return true;
+            } catch (error) {
+                console.log(error);
+                await SecureStore.deleteItemAsync(REFRESH_TOKEN).catch(
+                    (deleteError) => {
+                        console.log(deleteError);
+                    },
+                );
+                set({
+                    user: null,
+                    accessToken: null,
+                    initialized: true,
+                    hasSeenOnboarding: Boolean(
+                        await SecureStore.getItemAsync(HAS_SEEN_ONBOARDING),
+                    ),
+                });
+                return false;
+            } finally {
+                set({ loading: false });
+            }
         },
         signUp: async ({
             email,
@@ -65,7 +122,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     REFRESH_TOKEN,
                     res.refresh_token,
                 );
-                set({ accessToken: res.access_token });
+                set({
+                    accessToken: res.access_token,
+                    initialized: true,
+                    hasSeenOnboarding: true,
+                });
                 await get().fetchMe();
                 return true;
             } catch (error) {
@@ -99,7 +160,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     REFRESH_TOKEN,
                     res.refresh_token,
                 );
-                set({ accessToken: res.access_token });
+                set({
+                    accessToken: res.access_token,
+                    initialized: true,
+                    hasSeenOnboarding: true,
+                });
                 await get().fetchMe();
             } catch (error) {
                 console.log(error);
@@ -145,7 +210,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
                 if (refreshToken) {
                     const res = await authService.refresh(refreshToken);
-                    set({ accessToken: res.accessToken });
+                    const accessToken =
+                        res.access_token ?? res.accessToken ?? null;
+
+                    if (!accessToken) {
+                        throw new Error('No access token returned');
+                    }
+
+                    set({ accessToken });
                     if (!get().user) {
                         await get().fetchMe();
                     }

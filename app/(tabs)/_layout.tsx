@@ -1,14 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    Platform,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+import React from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { HapticTab } from '@/src/components/HapticTab';
@@ -18,52 +12,18 @@ import { colors } from '@/src/styles/tokens';
 
 export default function TabLayout() {
     const insets = useSafeAreaInsets();
-
-    // Calculate tab bar height based on safe area bottom inset
-    // Base height 60 + top padding 8 + bottom padding (base 10 + safe area)
     const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 72 + insets.bottom;
     const PADDING_BOTTOM = Platform.OS === 'ios' ? 24 : insets.bottom + 12;
 
-    const [starting, setStarting] = useState(true);
-    const { accessToken, user, loading, refresh, fetchMe } = useAuthStore(
+    const { accessToken, initialized } = useAuthStore(
         useShallow((state) => ({
             accessToken: state.accessToken,
-            user: state.user,
-            loading: state.loading,
-            refresh: state.refresh,
-            fetchMe: state.fetchMe,
+            initialized: state.initialized,
         })),
     );
-    const init = async () => {
-        let token = accessToken;
 
-        if (!token) {
-            const refreshed = await refresh();
-            if (refreshed) {
-                token = useAuthStore.getState().accessToken;
-            }
-        }
-
-        if (token && !useAuthStore.getState().user) {
-            await fetchMe();
-        }
-
-        setStarting(false);
-    };
-
-    useEffect(() => {
-        const initialize = async () => {
-            await init();
-        };
-        initialize();
-    }, []);
-
-    if (loading || starting) {
-        return (
-            <View style={raisedStyles.loadingContainer}>
-                <ActivityIndicator size='large' color={colors.primary} />
-            </View>
-        );
+    if (!initialized) {
+        return null;
     }
 
     if (!accessToken) {
@@ -144,7 +104,7 @@ export default function TabLayout() {
             <Tabs.Screen
                 name='health'
                 options={{
-                    title: 'Sức khoẻ',
+                    title: 'Sức khỏe',
                     tabBarIcon: ({ color }) => (
                         <IconSymbol size={24} name='heart.fill' color={color} />
                     ),
@@ -156,12 +116,6 @@ export default function TabLayout() {
 }
 
 const raisedStyles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.bg,
-    },
     wrap: {
         alignItems: 'center',
         marginTop: -16,

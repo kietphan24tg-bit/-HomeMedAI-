@@ -21,8 +21,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
-//ngăn slash mặc định tắt
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
@@ -31,6 +31,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
+    const bootstrap = useAuthStore((state) => state.bootstrap);
     const [showLaunchScreen, setShowLaunchScreen] = useState(true);
     const [loaded, error] = useFonts({
         Inter_400Regular,
@@ -45,14 +46,24 @@ export default function RootLayout() {
             return;
         }
 
-        //Tắt slash mặc định
-        SplashScreen.hideAsync();
-        const timer = setTimeout(() => {
-            setShowLaunchScreen(false);
-        }, 2000); // 2s
+        let active = true;
 
-        return () => clearTimeout(timer);
-    }, [loaded, error]);
+        const initializeApp = async () => {
+            await SplashScreen.hideAsync();
+            await bootstrap();
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            if (active) {
+                setShowLaunchScreen(false);
+            }
+        };
+
+        initializeApp();
+
+        return () => {
+            active = false;
+        };
+    }, [bootstrap, loaded, error]);
 
     if (!loaded && !error) {
         return null;

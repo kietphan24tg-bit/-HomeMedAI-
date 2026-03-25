@@ -1,36 +1,23 @@
 import { Redirect } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-
-const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
+import { useShallow } from 'zustand/react/shallow';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
 export default function Index() {
-    const [targetRoute, setTargetRoute] = useState<string | null>(null);
+    const { initialized, hasSeenOnboarding, accessToken } = useAuthStore(
+        useShallow((state) => ({
+            initialized: state.initialized,
+            hasSeenOnboarding: state.hasSeenOnboarding,
+            accessToken: state.accessToken,
+        })),
+    );
 
-    useEffect(() => {
-        const loadInitialRoute = async () => {
-            const hasSeenOnboarding =
-                await SecureStore.getItemAsync(HAS_SEEN_ONBOARDING);
-            setTargetRoute(hasSeenOnboarding ? '/(tabs)' : '/onboarding');
-        };
-
-        loadInitialRoute();
-    }, []);
-
-    if (!targetRoute) {
-        return (
-            <View
-                style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-            >
-                <ActivityIndicator size='large' />
-            </View>
-        );
+    if (!initialized) {
+        return null;
     }
 
-    return <Redirect href={targetRoute as '/onboarding' | '/(tabs)'} />;
+    if (!hasSeenOnboarding) {
+        return <Redirect href='/onboarding' />;
+    }
+
+    return <Redirect href={accessToken ? '/(tabs)' : '/auth'} />;
 }

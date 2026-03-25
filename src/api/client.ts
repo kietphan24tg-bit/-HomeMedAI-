@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
                 }
 
                 const res = await authService.refresh(refreshToken);
-                const accessToken = res.accessToken;
+                const accessToken = res.access_token ?? res.accessToken;
                 useAuthStore.getState().setAccessToken(accessToken);
                 originalRequest.headers['Authorization'] =
                     `Bearer ${accessToken}`;

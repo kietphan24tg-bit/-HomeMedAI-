@@ -20,9 +20,12 @@ export interface SignInWithGoogleParams {
 export interface AuthStore {
     user: User | null;
     loading: boolean;
+    initialized: boolean;
+    hasSeenOnboarding: boolean;
     accessToken: string | null;
     setAccessToken: (token: string | null) => void;
     clearStore: () => void;
+    bootstrap: () => Promise<boolean>;
     signUp: ({
         email,
         password,
