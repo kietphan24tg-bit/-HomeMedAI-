@@ -1,4 +1,3 @@
-export { default as FamilyScreen } from './family/FamilyScreen';
 export { default as HealthScreen } from './health/HealthScreen';
 export { default as HomeScreen } from './home/HomeScreen';
 export { default as OnboardingScreen } from './onboarding/OnboardingScreen';

@@ -68,6 +68,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                         console.log(deleteError);
                     },
                 );
+                appToast.showError(
+                    'Error',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
+                );
                 set({
                     user: null,
                     accessToken: null,
@@ -84,10 +88,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         signUp: async ({
             email,
             password,
-        }: Pick<User, 'email' | 'password'>) => {
+            phone_number,
+        }: Pick<User, 'email' | 'password' | 'phone_number'>) => {
             try {
                 set({ loading: true });
-                await authService.signUp({ email, password });
+                await authService.signUp({ email, password, phone_number });
                 return true;
             } catch (error) {
                 console.log(error);

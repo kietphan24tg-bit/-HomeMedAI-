@@ -33,6 +33,31 @@ interface Props {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
+const sanitizeVietnamPhoneInput = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.startsWith('84')) {
+        return `0${digits.slice(2, 11)}`;
+    }
+
+    return digits.slice(0, 10);
+};
+
+const toVietnamE164 = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    const nationalNumber = digits.startsWith('84')
+        ? digits.slice(2)
+        : digits.startsWith('0')
+          ? digits.slice(1)
+          : digits;
+
+    if (nationalNumber.length !== 9) {
+        return null;
+    }
+
+    return `+84${nationalNumber}`;
+};
+
 export default function AuthScreen({
     initialMode,
     onSuccess,
@@ -43,12 +68,14 @@ export default function AuthScreen({
     const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
     const [view, setView] = useState<'auth' | 'forgot-password'>('auth');
     const [email, setEmail] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [errors, setErrors] = useState<{
         email?: string;
+        phoneNumber?: string;
         password?: string;
         confirmPassword?: string;
     }>({});
@@ -68,6 +95,7 @@ export default function AuthScreen({
 
     const clearForm = () => {
         setEmail('');
+        setPhoneNumber('');
         setPassword('');
         setConfirmPassword('');
         setShowPassword(false);
@@ -98,6 +126,7 @@ export default function AuthScreen({
     const handleAction = async () => {
         const newErrors: {
             email?: string;
+            phoneNumber?: string;
             password?: string;
             confirmPassword?: string;
         } = {};
@@ -114,7 +143,17 @@ export default function AuthScreen({
             newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự.';
         }
 
+        const normalizedPhoneNumber =
+            mode === 'signup' ? toVietnamE164(phoneNumber) : null;
+
         if (mode === 'signup') {
+            if (!phoneNumber.trim()) {
+                newErrors.phoneNumber = 'Vui lòng nhập số điện thoại.';
+            } else if (!normalizedPhoneNumber) {
+                newErrors.phoneNumber =
+                    'Số điện thoại phải đúng định dạng Việt Nam.';
+            }
+
             if (!confirmPassword) {
                 newErrors.confirmPassword = 'Vui lòng nhập lại mật khẩu.';
             } else if (password !== confirmPassword) {
@@ -144,7 +183,11 @@ export default function AuthScreen({
                     platform,
                 });
             } else {
-                success = await signUp({ email, password });
+                success = await signUp({
+                    email,
+                    password,
+                    phone_number: normalizedPhoneNumber ?? undefined,
+                });
             }
 
             if (!success) {
@@ -169,7 +212,7 @@ export default function AuthScreen({
             );
             clearForm();
             setMode('signin');
-        } catch (error: any) {
+        } catch {
         } finally {
             clearForm();
         }
@@ -303,6 +346,10 @@ export default function AuthScreen({
                         <RegisterForm
                             email={email}
                             setEmail={setEmail}
+                            phoneNumber={phoneNumber}
+                            setPhoneNumber={(value) =>
+                                setPhoneNumber(sanitizeVietnamPhoneInput(value))
+                            }
                             password={password}
                             setPassword={setPassword}
                             showPassword={showPassword}

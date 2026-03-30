@@ -29,7 +29,8 @@ export interface AuthStore {
     signUp: ({
         email,
         password,
-    }: Pick<User, 'email' | 'password'>) => Promise<boolean>;
+        phone_number,
+    }: Pick<User, 'email' | 'password' | 'phone_number'>) => Promise<boolean>;
     signIn: ({
         email,
         password,

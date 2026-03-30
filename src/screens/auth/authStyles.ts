@@ -134,6 +134,23 @@ export const authStyles = StyleSheet.create({
         paddingHorizontal: scale(14),
         paddingVertical: verticalScale(12),
     },
+    phonePrefix: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(6),
+        paddingRight: scale(10),
+        marginRight: scale(2),
+        borderRightWidth: 1,
+        borderRightColor: colors.border,
+    },
+    phoneFlag: {
+        fontSize: scaleFont(16),
+    },
+    phonePrefixText: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(14),
+        color: colors.text,
+    },
     inputIcon: {
         flexShrink: 0,
     },
@@ -300,6 +317,7 @@ export interface AuthFormProps {
     handleAction: () => void;
     errors: {
         email?: string;
+        phoneNumber?: string;
         password?: string;
         confirmPassword?: string;
     };
@@ -310,6 +328,8 @@ export interface SignInFormProps extends AuthFormProps {
 }
 
 export interface RegisterFormProps extends AuthFormProps {
+    phoneNumber: string;
+    setPhoneNumber: (v: string) => void;
     confirmPassword: string;
     setConfirmPassword: (v: string) => void;
     showConfirmPassword: boolean;

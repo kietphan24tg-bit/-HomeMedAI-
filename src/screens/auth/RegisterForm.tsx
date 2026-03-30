@@ -15,6 +15,8 @@ import { authStyles as s, type RegisterFormProps } from './authStyles';
 export default function RegisterForm({
     email,
     setEmail,
+    phoneNumber,
+    setPhoneNumber,
     password,
     setPassword,
     showPassword,
@@ -52,6 +54,34 @@ export default function RegisterForm({
                 </View>
                 {errors.email && (
                     <Text style={s.errorText}>{errors.email}</Text>
+                )}
+            </View>
+
+            <View style={s.inputGroup}>
+                <Text style={s.inputLabel}>SỐ ĐIỆN THOẠI</Text>
+                <View
+                    style={[
+                        s.inputWrap,
+                        errors.phoneNumber && s.inputWrapError,
+                    ]}
+                >
+                    <View style={s.phonePrefix}>
+                        <Text style={s.phoneFlag}>🇻🇳</Text>
+                        <Text style={s.phonePrefixText}>+84</Text>
+                    </View>
+                    <TextInput
+                        style={s.textInput}
+                        placeholder='0901234567'
+                        placeholderTextColor={colors.text3}
+                        value={phoneNumber}
+                        onChangeText={setPhoneNumber}
+                        keyboardType='phone-pad'
+                        editable={!loading}
+                        maxLength={12}
+                    />
+                </View>
+                {errors.phoneNumber && (
+                    <Text style={s.errorText}>{errors.phoneNumber}</Text>
                 )}
             </View>
 
