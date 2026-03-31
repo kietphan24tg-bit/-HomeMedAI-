@@ -8,7 +8,7 @@ import { useShallow } from 'zustand/shallow';
 import { HapticTab } from '@/src/components/HapticTab';
 import { IconSymbol } from '@/src/components/ui/IconSymbol';
 import { useAuthStore } from '@/src/stores/useAuthStore';
-import { colors } from '@/src/styles/tokens';
+import { colors, gradients } from '@/src/styles/tokens';
 export default function TabLayout() {
     const insets = useSafeAreaInsets();
     const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 72 + insets.bottom;
@@ -75,7 +75,7 @@ export default function TabLayout() {
                     tabBarIcon: () => (
                         <View style={raisedStyles.wrap}>
                             <LinearGradient
-                                colors={['#2563EB', '#14B8A6']}
+                                colors={gradients.brandDuo}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={raisedStyles.btn}

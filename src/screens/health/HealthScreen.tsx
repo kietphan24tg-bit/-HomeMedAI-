@@ -28,7 +28,7 @@ import {
 } from '../../components/ui';
 import { HEALTH_INFO, MED_ROWS, TIPS, VISITS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 
 type SubScreen =
     | 'main'
@@ -163,7 +163,7 @@ export default function HealthScreen(): React.JSX.Element {
                 {/* MEMBER */}
                 <Pressable style={styles.member}>
                     <LinearGradient
-                        colors={['#BFDBFE', '#99F6E4']}
+                        colors={gradients.healthSoft}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.mAvatar}

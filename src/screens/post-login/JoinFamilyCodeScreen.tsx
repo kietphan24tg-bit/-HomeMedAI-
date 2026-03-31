@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -111,11 +110,11 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                         onPress={handlePreview}
                         disabled={previewState === 'loading'}
                     >
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={shared.btnFilled}
+                        <View
+                            style={[
+                                shared.btnFilled,
+                                { backgroundColor: colors.primary },
+                            ]}
                         >
                             {previewState === 'loading' ? (
                                 <ActivityIndicator
@@ -127,7 +126,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             <Text style={shared.btnFilledText}>
                                 Kiểm tra mã
                             </Text>
-                        </LinearGradient>
+                        </View>
                     </Pressable>
                 </View>
 
@@ -255,7 +254,7 @@ const styles = StyleSheet.create({
         marginTop: verticalScale(14),
     },
     previewCard: {
-        backgroundColor: '#F0FDFA',
+        backgroundColor: colors.secondaryBg,
         borderWidth: 1.5,
         borderColor: '#99F6E4',
         borderRadius: scale(20),

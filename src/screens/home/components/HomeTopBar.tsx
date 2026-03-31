@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { shared } from '@/src/styles/shared';
-import { colors } from '@/src/styles/tokens';
+import { colors, gradients } from '@/src/styles/tokens';
 import { styles } from '../styles';
 
 export default function HomeTopBar({
@@ -15,7 +15,7 @@ export default function HomeTopBar({
         <View style={styles.topbar}>
             <Pressable style={styles.avatarWrap}>
                 <LinearGradient
-                    colors={['#2563EB', '#14B8A6']}
+                    colors={gradients.brandDuo}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.avatar}

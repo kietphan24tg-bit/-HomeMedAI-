@@ -1,8 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+    Alert,
     Animated,
     Pressable,
     ScrollView,
@@ -19,15 +21,14 @@ import Svg, {
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
 import StatePanel from '@/src/components/state/StatePanel';
-import { useMyFamiliesQuery } from '@/src/features/family/queries';
+import {
+    useFamilyInvitesQuery,
+    useMyFamiliesQuery,
+} from '@/src/features/family/queries';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
 import { colors, shadows, typography } from '@/src/styles/tokens';
-import {
-    CreateFamilyModal,
-    INITIAL_INVITES,
-    SectionLabel,
-} from './familyShared';
+import { CreateFamilyModal, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
 const AnimatedView = Animated.View;
@@ -211,14 +212,48 @@ export default function FamilyListScreen(): React.JSX.Element {
     const [showCreateSheet, setShowCreateSheet] = useState(false);
     const [familyName, setFamilyName] = useState('');
     const [familyAddress, setFamilyAddress] = useState('');
+    const [familyAvatarUri, setFamilyAvatarUri] = useState<string | null>(null);
     const {
         data: families = [],
         isLoading,
         isError,
         refetch,
     } = useMyFamiliesQuery();
+    const { data: pendingInvites = [] } = useFamilyInvitesQuery({
+        status: 'pending',
+        page: 1,
+        limit: 20,
+    });
 
     const isEmpty = !isLoading && !isError && families.length === 0;
+
+    const handlePickFamilyAvatar = async () => {
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permission.granted) {
+            Alert.alert(
+                'Chưa có quyền truy cập ảnh',
+                'Hãy cho phép ứng dụng truy cập thư viện ảnh để chọn ảnh đại diện gia đình.',
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]?.uri) {
+            setFamilyAvatarUri(result.assets[0].uri);
+        }
+    };
+
+    const handleCloseCreateSheet = () => {
+        setShowCreateSheet(false);
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -254,10 +289,10 @@ export default function FamilyListScreen(): React.JSX.Element {
                                     size={16}
                                     color={colors.text2}
                                 />
-                                {INITIAL_INVITES.length > 0 ? (
+                                {pendingInvites.length > 0 ? (
                                     <View style={localStyles.badge}>
                                         <Text style={localStyles.badgeText}>
-                                            {INITIAL_INVITES.length}
+                                            {pendingInvites.length}
                                         </Text>
                                     </View>
                                 ) : null}
@@ -311,12 +346,7 @@ export default function FamilyListScreen(): React.JSX.Element {
                             style={localStyles.primaryCard}
                             onPress={() => setShowCreateSheet(true)}
                         >
-                            <LinearGradient
-                                colors={['#1E3A8A', '#2563EB', '#0D9488']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={localStyles.primaryCardBg}
-                            >
+                            <View style={localStyles.primaryCardBg}>
                                 <View style={localStyles.primaryGlowLg} />
                                 <View style={localStyles.primaryGlowSm} />
 
@@ -344,7 +374,7 @@ export default function FamilyListScreen(): React.JSX.Element {
                                         color='#fff'
                                     />
                                 </View>
-                            </LinearGradient>
+                            </View>
                         </Pressable>
 
                         <Pressable
@@ -541,9 +571,12 @@ export default function FamilyListScreen(): React.JSX.Element {
                 visible={showCreateSheet}
                 familyName={familyName}
                 familyAddress={familyAddress}
+                familyAvatarUri={familyAvatarUri}
                 onChangeFamilyName={setFamilyName}
                 onChangeFamilyAddress={setFamilyAddress}
-                onClose={() => setShowCreateSheet(false)}
+                onPickFamilyAvatar={handlePickFamilyAvatar}
+                onSubmit={handleCloseCreateSheet}
+                onClose={handleCloseCreateSheet}
             />
         </SafeAreaView>
     );
@@ -704,6 +737,7 @@ const localStyles = StyleSheet.create({
         gap: scale(14),
         paddingHorizontal: scale(18),
         paddingVertical: verticalScale(18),
+        backgroundColor: colors.primary,
     },
     primaryGlowLg: {
         position: 'absolute',

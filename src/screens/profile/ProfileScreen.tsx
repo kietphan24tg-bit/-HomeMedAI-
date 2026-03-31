@@ -21,7 +21,7 @@ import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 
 type SheetType = 'simple' | 'select' | 'date' | null;
 interface SheetState {
@@ -171,7 +171,7 @@ export default function ProfileScreen(): React.JSX.Element {
                 {/* HERO CARD */}
                 <View style={styles.heroCard}>
                     <LinearGradient
-                        colors={['#EFF6FF', '#F0FDFA']}
+                        colors={gradients.brandSoft}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.heroStrip}
@@ -189,7 +189,7 @@ export default function ProfileScreen(): React.JSX.Element {
                         <View style={styles.avRow}>
                             <View style={styles.avWrap}>
                                 <LinearGradient
-                                    colors={['#BFDBFE', '#99F6E4']}
+                                    colors={gradients.healthSoft}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.avCircle}
@@ -297,8 +297,8 @@ export default function ProfileScreen(): React.JSX.Element {
                             label='Địa chỉ'
                             value={fields.address}
                             iconName='location'
-                            iconColor='#64748B'
-                            iconBg='#F1F5F9'
+                            iconColor={colors.text2}
+                            iconBg={colors.bgHealth}
                             isLast
                             onPress={() =>
                                 openSimple('address', 'Địa chỉ', 'location')

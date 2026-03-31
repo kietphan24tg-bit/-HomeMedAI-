@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StatusBar, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/src/styles/tokens';
+import { colors, gradients } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
 import { MethodCard, RoleSelectionModal, SectionLabel } from './familyShared';
 import { styles } from './styles';
@@ -34,7 +34,7 @@ export default function FamilyAddMemberScreen({
                 ]}
             >
                 <LinearGradient
-                    colors={['#1E3A5F', '#2563EB', '#0D9488']}
+                    colors={gradients.family}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.inviteHero}
@@ -62,7 +62,7 @@ export default function FamilyAddMemberScreen({
                 <MethodCard
                     icon='call-outline'
                     iconColor={colors.primary}
-                    iconBg='#EFF6FF'
+                    iconBg={colors.primaryBg}
                     title='Tìm bằng số điện thoại'
                     subtitle='Nhập SĐT người thân đã có tài khoản CareSync'
                     onPress={() =>
@@ -74,8 +74,8 @@ export default function FamilyAddMemberScreen({
 
                 <MethodCard
                     icon='person-add-outline'
-                    iconColor='#0D9488'
-                    iconBg='#F0FDFA'
+                    iconColor={colors.cFamily}
+                    iconBg={colors.secondaryBg}
                     title='Tạo hồ sơ người thân'
                     subtitle='Dành cho người chưa dùng CareSync, bạn sẽ quản lý hộ'
                     onPress={() => setShowRoleSheet(true)}

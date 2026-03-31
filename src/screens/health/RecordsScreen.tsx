@@ -15,7 +15,7 @@ import { styles } from './styles';
 import { DateField } from '../../components/ui';
 import { RECORDS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 import type { RecordItem } from '../../types';
 
 const FILTERS = ['Tất cả', 'Tổng quát', 'Nội khoa', 'Khác'] as const;
@@ -701,7 +701,7 @@ function RecordDetail({
 
             {/* HERO */}
             <LinearGradient
-                colors={['#1E3A5F', '#2563EB']}
+                colors={gradients.familyDuo}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.rdHero}

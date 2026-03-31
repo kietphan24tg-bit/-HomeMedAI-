@@ -8,7 +8,7 @@ import {
     type VaccineDetailItem,
     type VaccineItem,
     type VisitItem,
-} from '../types';
+} from '../types/health';
 import { getCategoryColor, recordColors } from '../utils/color-palette';
 
 export const HEALTH_INFO: HealthInfoItem[] = [

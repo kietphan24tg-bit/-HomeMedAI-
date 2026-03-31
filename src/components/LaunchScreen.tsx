@@ -11,7 +11,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import { typography } from '@/src/styles/tokens';
+import { colors, gradients, typography } from '@/src/styles/tokens';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -98,7 +98,7 @@ export default function LaunchScreen() {
 
     return (
         <LinearGradient
-            colors={['#1E3A8A', '#2563EB', '#0D9488']}
+            colors={gradients.brand}
             locations={[0, 0.5, 1]}
             style={styles.container}
         >
@@ -108,9 +108,6 @@ export default function LaunchScreen() {
 
             {/* Logo Section */}
             <View style={styles.logoContainer}>
-                {/* Soft Outer Glow (matches the screenshot's faint large box) */}
-                <View style={styles.outerGlow} />
-
                 {/* Pulsing Ring */}
                 <Animated.View style={[styles.csRing, ringStyle]} />
 
@@ -158,7 +155,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#1E3A8A',
+        backgroundColor: gradients.brand[0],
     },
     deco1: {
         position: 'absolute',
@@ -188,15 +185,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 20,
     },
-    outerGlow: {
-        position: 'absolute',
-        width: 120,
-        height: 120,
-        borderRadius: 40,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
     csRing: {
         position: 'absolute',
         width: 90,
@@ -209,13 +197,13 @@ const styles = StyleSheet.create({
         width: 84,
         height: 84,
         borderRadius: 26,
-        backgroundColor: 'rgba(255,255,255,0.18)',
+        backgroundColor: 'rgba(255,255,255,0.16)',
         borderWidth: 1.5,
         borderColor: 'rgba(255,255,255,0.3)',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1,
-        shadowColor: '#fff',
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.15,
         shadowRadius: 15,

@@ -97,7 +97,7 @@ export const styles = StyleSheet.create({
         height: moderateScale(78),
         borderRadius: moderateScale(39),
         borderWidth: 3,
-        borderColor: '#fff',
+        borderColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: colors.primary,
@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
         borderRadius: moderateScale(11),
         backgroundColor: colors.primary,
         borderWidth: 2,
-        borderColor: '#fff',
+        borderColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: colors.primary,
@@ -139,7 +139,7 @@ export const styles = StyleSheet.create({
         borderRadius: moderateScale(6),
         backgroundColor: colors.cHealth,
         borderWidth: 2,
-        borderColor: '#fff',
+        borderColor: colors.card,
     },
     heroMeta: {
         flex: 1,
@@ -320,7 +320,7 @@ export const styles = StyleSheet.create({
     },
     btnSaveText: {
         fontFamily: typography.font.bold,
-        color: '#fff',
+        color: colors.card,
         fontSize: scaleFont(15),
     },
     btnLogout: {
@@ -429,7 +429,7 @@ export const styles = StyleSheet.create({
         color: colors.text3,
     },
     calDayTextSel: {
-        color: '#fff',
+        color: colors.card,
         fontFamily: typography.font.bold,
     },
     calDayTextToday: {

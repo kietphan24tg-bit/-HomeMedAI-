@@ -67,6 +67,25 @@ export const styles = StyleSheet.create({
     heroGradient: {
         padding: scale(20),
         position: 'relative',
+        backgroundColor: colors.primary,
+    },
+    heroGlowLg: {
+        position: 'absolute',
+        right: -scale(28),
+        top: -verticalScale(28),
+        width: moderateScale(148),
+        height: moderateScale(148),
+        borderRadius: moderateScale(74),
+        backgroundColor: 'rgba(45, 212, 191, 0.28)',
+    },
+    heroGlowSm: {
+        position: 'absolute',
+        right: scale(72),
+        bottom: -verticalScale(44),
+        width: moderateScale(124),
+        height: moderateScale(124),
+        borderRadius: moderateScale(62),
+        backgroundColor: 'rgba(14, 165, 233, 0.18)',
     },
     heroDeco: {
         position: 'absolute',

@@ -9,7 +9,7 @@ import {
     View,
 } from 'react-native';
 import { shared } from '@/src/styles/shared';
-import { colors } from '@/src/styles/tokens';
+import { colors, gradients } from '@/src/styles/tokens';
 import { authStyles as s, type RegisterFormProps } from './authStyles';
 
 export default function RegisterForm({
@@ -188,11 +188,7 @@ export default function RegisterForm({
                 disabled={loading}
             >
                 <LinearGradient
-                    colors={
-                        loading
-                            ? ['#5B84F1', '#4D73E8']
-                            : ['#2563EB', '#1D4ED8']
-                    }
+                    colors={loading ? gradients.brandDuo : gradients.brandDuo}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[

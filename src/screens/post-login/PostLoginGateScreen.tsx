@@ -10,7 +10,7 @@ const OPTIONS = [
     {
         key: 'has-family',
         emoji: '🏠',
-        iconBg: '#EFF6FF',
+        iconBg: colors.primaryBg,
         title: 'Tôi đã có gia đình',
         description: 'Nhập mã mời để tìm và liên kết với hồ sơ đã có sẵn.',
         onPress: () => router.push('/join-family-code'),
@@ -18,7 +18,7 @@ const OPTIONS = [
     {
         key: 'no-family',
         emoji: '👤',
-        iconBg: '#F0FDFA',
+        iconBg: colors.secondaryBg,
         title: 'Tôi chưa có gia đình',
         description:
             'Tạo hồ sơ cá nhân trước để bắt đầu sử dụng app ở chế độ riêng.',

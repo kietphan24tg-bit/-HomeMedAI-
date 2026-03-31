@@ -19,7 +19,7 @@ import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
 import { userService } from '@/src/services/user.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
-import { colors } from '@/src/styles/tokens';
+import { colors, gradients } from '@/src/styles/tokens';
 import { sanitizeVietnamPhoneInput, toVietnamE164 } from '@/src/utils/phone';
 import { authStyles as s } from './authStyles';
 import RegisterForm from './RegisterForm';
@@ -253,7 +253,7 @@ export default function AuthScreen({
                     <View style={s.deco2} />
 
                     <LinearGradient
-                        colors={['#2563EB', '#14B8A6']}
+                        colors={gradients.brandDuo}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={s.logoBox}

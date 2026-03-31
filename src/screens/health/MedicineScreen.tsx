@@ -16,7 +16,7 @@ import { styles } from './styles';
 import { DateField } from '../../components/ui';
 import { MEDICINES } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 import type { MedicineItem } from '../../types';
 
 /* ── Simulated today state ── */
@@ -60,9 +60,9 @@ function urgencyColors(daysLeft: number) {
 }
 
 function pillBarColors(remaining: number): [string, string] {
-    if (remaining <= 7) return ['#E11D48', '#F43F5E'];
-    if (remaining <= 14) return ['#D97706', '#F59E0B'];
-    return ['#0D9488', '#14B8A6'];
+    if (remaining <= 7) return [...gradients.danger] as [string, string];
+    if (remaining <= 14) return [...gradients.warning] as [string, string];
+    return [...gradients.health] as [string, string];
 }
 
 type MedView = 'list' | 'detail';
@@ -94,13 +94,6 @@ export default function MedicineScreen({ onClose }: Props): React.JSX.Element {
     const todayRemain = todayTotal - todayDone;
 
     // Dynamic today card gradient
-    const todayGradient: [string, string, string] =
-        todayRemain === 0
-            ? ['#14532D', '#16A34A', '#15803D']
-            : todayRemain >= 2
-              ? ['#78350F', '#B45309', '#92400E']
-              : ['#0F766E', '#0D9488', '#0E7490'];
-
     // Warning text
     const lowSupply = active.filter((m) => m.daysLeft <= 3);
     const warnText =
@@ -168,11 +161,18 @@ export default function MedicineScreen({ onClose }: Props): React.JSX.Element {
                 showsVerticalScrollIndicator={false}
             >
                 {/* TODAY CARD */}
-                <LinearGradient
-                    colors={todayGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.medTodayCard}
+                <View
+                    style={[
+                        styles.medTodayCard,
+                        {
+                            backgroundColor:
+                                todayRemain === 0
+                                    ? '#16A34A'
+                                    : todayRemain >= 2
+                                      ? '#F59E0B'
+                                      : '#0D9488',
+                        },
+                    ]}
                 >
                     <Text style={styles.medTodaySup}>HÔM NAY</Text>
                     <View style={styles.medTodayRow}>
@@ -270,7 +270,7 @@ export default function MedicineScreen({ onClose }: Props): React.JSX.Element {
                             ]}
                         />
                     </View>
-                </LinearGradient>
+                </View>
 
                 {/* ĐANG DÙNG */}
                 {active.length > 0 && (
@@ -925,16 +925,16 @@ function MedDetail({
                         </View>
                         {/* Save */}
                         <Pressable style={styles.mdSaveBtn}>
-                            <LinearGradient
-                                colors={['#0F766E', '#0D9488']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.mdSaveBtnInner}
+                            <View
+                                style={[
+                                    styles.mdSaveBtnInner,
+                                    { backgroundColor: colors.secondary },
+                                ]}
                             >
                                 <Text style={styles.mdSaveBtnText}>
                                     Lưu thay đổi
                                 </Text>
-                            </LinearGradient>
+                            </View>
                         </Pressable>
                     </View>
                 )}
@@ -1252,14 +1252,14 @@ function AddMedSheet({
                 </View>
                 {/* Save */}
                 <Pressable style={styles.mdSaveBtn}>
-                    <LinearGradient
-                        colors={['#0F766E', '#0D9488']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.mdSaveBtnInner}
+                    <View
+                        style={[
+                            styles.mdSaveBtnInner,
+                            { backgroundColor: colors.secondary },
+                        ]}
                     >
                         <Text style={styles.mdSaveBtnText}>Lưu toa thuốc</Text>
-                    </LinearGradient>
+                    </View>
                 </Pressable>
             </View>
         </ScrollView>

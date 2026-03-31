@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -173,12 +172,7 @@ export default function AuthForm({
                 <View style={s.deco1} />
                 <View style={s.deco2} />
 
-                <LinearGradient
-                    colors={['#2563EB', '#14B8A6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={s.logoBox}
-                >
+                <View style={[s.logoBox, { backgroundColor: colors.primary }]}>
                     <Svg width={28} height={28} viewBox='0 0 24 24' fill='none'>
                         <Path
                             d='M22 12h-4l-3 9L9 3l-3 9H2'
@@ -189,7 +183,7 @@ export default function AuthForm({
                             fill='none'
                         />
                     </Svg>
-                </LinearGradient>
+                </View>
                 <Text style={s.appName}>HOMEMEDAI</Text>
                 <Text style={s.headerTitle}>
                     Bắt đầu hành trình{'\n'}
@@ -313,18 +307,15 @@ export default function AuthForm({
                             onPress={handleAction}
                             disabled={loading}
                         >
-                            <LinearGradient
-                                colors={
-                                    loading
-                                        ? [
-                                              'rgba(37,99,235,0.7)',
-                                              'rgba(29,78,216,0.7)',
-                                          ]
-                                        : ['#2563EB', '#1D4ED8']
-                                }
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={s.btnPrimary}
+                            <View
+                                style={[
+                                    s.btnPrimary,
+                                    {
+                                        backgroundColor: loading
+                                            ? 'rgba(37,99,235,0.7)'
+                                            : colors.primary,
+                                    },
+                                ]}
                             >
                                 {loading ? (
                                     <ActivityIndicator
@@ -336,7 +327,7 @@ export default function AuthForm({
                                 <Text style={s.btnPrimaryText}>
                                     {loading ? 'Đang xử lý...' : 'Đăng nhập'}
                                 </Text>
-                            </LinearGradient>
+                            </View>
                         </Pressable>
 
                         {/* OR Divider */}
@@ -521,18 +512,16 @@ export default function AuthForm({
                             onPress={handleAction}
                             disabled={loading}
                         >
-                            <LinearGradient
-                                colors={
-                                    loading
-                                        ? [
-                                              'rgba(37,99,235,0.7)',
-                                              'rgba(29,78,216,0.7)',
-                                          ]
-                                        : ['#2563EB', '#1D4ED8']
-                                }
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={[s.btnPrimary, { marginTop: 4 }]}
+                            <View
+                                style={[
+                                    s.btnPrimary,
+                                    {
+                                        marginTop: 4,
+                                        backgroundColor: loading
+                                            ? 'rgba(37,99,235,0.7)'
+                                            : colors.primary,
+                                    },
+                                ]}
                             >
                                 {loading ? (
                                     <ActivityIndicator
@@ -546,7 +535,7 @@ export default function AuthForm({
                                         ? 'Đang xử lý...'
                                         : 'Tạo tài khoản'}
                                 </Text>
-                            </LinearGradient>
+                            </View>
                         </Pressable>
 
                         {/* Terms */}

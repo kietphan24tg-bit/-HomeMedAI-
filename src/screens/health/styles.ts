@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
         fontFamily: typography.font.semiBold,
         fontSize: scaleFont(10),
         color: colors.text2,
-        backgroundColor: '#F1F5F9',
+        backgroundColor: colors.bgHealth,
         paddingHorizontal: scale(8),
         paddingVertical: verticalScale(3),
         borderRadius: moderateScale(8),
@@ -274,7 +274,7 @@ export const styles = StyleSheet.create({
     donutPercent: {
         fontFamily: typography.font.black,
         fontSize: scaleFont(13),
-        color: '#D97706',
+        color: colors.cReminder,
     },
     vpctTitle: {
         fontFamily: typography.font.black,
@@ -366,7 +366,7 @@ export const styles = StyleSheet.create({
     },
     btOptSel: {
         borderColor: '#E11D48',
-        backgroundColor: '#FFF1F2',
+        backgroundColor: colors.cDangerBg,
     },
     btOptText: {
         fontFamily: typography.font.black,
@@ -374,7 +374,7 @@ export const styles = StyleSheet.create({
         color: colors.text2,
     },
     btOptTextSel: {
-        color: '#E11D48',
+        color: colors.cDanger,
     },
 
     // ── Bottom Sheet: Tag Input ──
@@ -394,7 +394,7 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: scale(4),
-        backgroundColor: '#FFFBEB',
+        backgroundColor: colors.cReminderBg,
         paddingVertical: verticalScale(3),
         paddingLeft: scale(10),
         paddingRight: scale(8),
@@ -403,11 +403,11 @@ export const styles = StyleSheet.create({
     tagChipText: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(12),
-        color: '#D97706',
+        color: colors.cReminder,
     },
     tagChipX: {
         fontSize: scaleFont(14),
-        color: '#D97706',
+        color: colors.cReminder,
         opacity: 0.6,
         paddingHorizontal: scale(2),
     },
@@ -467,7 +467,7 @@ export const styles = StyleSheet.create({
     subAddBtnText: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(12),
-        color: '#fff',
+        color: colors.card,
     },
 
     // ═══════════════════════════════════
@@ -682,7 +682,7 @@ export const styles = StyleSheet.create({
         borderRadius: moderateScale(22),
         backgroundColor: colors.primaryBg,
         borderWidth: 2,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: verticalScale(16),
@@ -738,7 +738,7 @@ export const styles = StyleSheet.create({
     vaxDonutText: {
         fontFamily: typography.font.black,
         fontSize: 14,
-        color: '#fff',
+        color: colors.card,
     },
     vaxHeroSup: {
         fontFamily: typography.font.semiBold,
@@ -749,7 +749,7 @@ export const styles = StyleSheet.create({
     vaxHeroNum: {
         fontFamily: typography.font.black,
         fontSize: 22,
-        color: '#fff',
+        color: colors.card,
         lineHeight: 26,
         letterSpacing: -0.5,
     },
@@ -774,7 +774,7 @@ export const styles = StyleSheet.create({
     },
     vaxProgressFill: {
         height: '100%',
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 99,
     },
 
@@ -866,24 +866,24 @@ export const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     vaxChipDone: {
-        backgroundColor: '#F0FDF4',
-        color: '#16A34A',
+        backgroundColor: colors.cHealthBg,
+        color: colors.cHealth,
         borderColor: '#BBF7D0',
     },
     vaxChipSoon: {
-        backgroundColor: '#FFFBEB',
-        color: '#D97706',
+        backgroundColor: colors.cReminderBg,
+        color: colors.cReminder,
         borderColor: '#FDE68A',
     },
     vaxChipPending: {
-        backgroundColor: '#FFF1F2',
-        color: '#E11D48',
+        backgroundColor: colors.cDangerBg,
+        color: colors.cDanger,
         borderColor: '#FECDD3',
     },
     vaxChipScheduled: {
         backgroundColor: colors.primaryBg,
         color: colors.primary,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
     },
     vaxChipLabel: {
         fontSize: scaleFont(10),
@@ -916,7 +916,7 @@ export const styles = StyleSheet.create({
         paddingVertical: verticalScale(11),
         backgroundColor: colors.primaryBg,
         borderWidth: 1.5,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
         borderRadius: moderateScale(12),
         marginTop: verticalScale(12),
     },
@@ -954,7 +954,7 @@ export const styles = StyleSheet.create({
     medTodayNum: {
         fontSize: scaleFont(22),
         fontWeight: '800',
-        color: '#fff',
+        color: colors.card,
         lineHeight: verticalScale(26),
         letterSpacing: -0.4,
     },
@@ -976,7 +976,7 @@ export const styles = StyleSheet.create({
     },
     medProgressFill: {
         height: '100%',
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 99,
     },
     medSecRow: {
@@ -1032,7 +1032,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: scale(8),
         paddingVertical: verticalScale(3),
         borderRadius: moderateScale(20),
-        backgroundColor: '#FFFBEB',
+        backgroundColor: colors.cReminderBg,
         borderWidth: 1,
         borderColor: '#FDE68A',
         marginRight: scale(4),
@@ -1040,7 +1040,7 @@ export const styles = StyleSheet.create({
     medDaysLeftText: {
         fontSize: scaleFont(10),
         fontWeight: '700',
-        color: '#D97706',
+        color: colors.cReminder,
     },
     medNote: {
         flexDirection: 'row',
@@ -1048,7 +1048,7 @@ export const styles = StyleSheet.create({
         gap: scale(9),
         paddingHorizontal: scale(13),
         paddingVertical: verticalScale(11),
-        backgroundColor: '#FFFBEB',
+        backgroundColor: colors.cReminderBg,
         borderWidth: 1.5,
         borderColor: '#FDE68A',
         borderRadius: moderateScale(12),
@@ -1125,7 +1125,7 @@ export const styles = StyleSheet.create({
     medPillNum: {
         fontSize: scaleFont(26),
         fontWeight: '800',
-        color: '#0D9488',
+        color: colors.cFamily,
         lineHeight: verticalScale(30),
     },
     medPillTotal: {
@@ -1135,7 +1135,7 @@ export const styles = StyleSheet.create({
     },
     medPillTrack: {
         height: verticalScale(7),
-        backgroundColor: '#E4EAF2',
+        backgroundColor: colors.border,
         borderRadius: 99,
         overflow: 'hidden',
     },
@@ -1287,8 +1287,8 @@ export const styles = StyleSheet.create({
         backgroundColor: colors.bg,
     },
     mdFreqChipActive: {
-        borderColor: '#0D9488',
-        backgroundColor: '#F0FDFA',
+        borderColor: colors.cFamily,
+        backgroundColor: colors.secondaryBg,
     },
     mdFreqChipText: {
         fontSize: scaleFont(12),
@@ -1296,7 +1296,7 @@ export const styles = StyleSheet.create({
         color: colors.text2,
     },
     mdFreqChipTextActive: {
-        color: '#0D9488',
+        color: colors.cFamily,
     },
     mdMealChip: {
         paddingHorizontal: scale(10),
@@ -1325,8 +1325,8 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     mdSlotChipActive: {
-        borderColor: '#0D9488',
-        backgroundColor: '#F0FDFA',
+        borderColor: colors.cFamily,
+        backgroundColor: colors.secondaryBg,
     },
     mdSlotChipText: {
         fontSize: scaleFont(12),
@@ -1334,7 +1334,7 @@ export const styles = StyleSheet.create({
         color: colors.text3,
     },
     mdSlotChipTextActive: {
-        color: '#0D9488',
+        color: colors.cFamily,
     },
     mdSlotTime: {
         flex: 1,
@@ -1349,7 +1349,7 @@ export const styles = StyleSheet.create({
         color: colors.text3,
     },
     mdSlotTimeActive: {
-        borderColor: '#99F6E4',
+        borderColor: colors.secondary,
         color: colors.text,
     },
 
@@ -1366,7 +1366,7 @@ export const styles = StyleSheet.create({
     mdSaveBtnText: {
         fontSize: scaleFont(14),
         fontWeight: '800',
-        color: '#fff',
+        color: colors.card,
     },
     mdDeleteBtn: {
         flexDirection: 'row',
@@ -1377,12 +1377,12 @@ export const styles = StyleSheet.create({
         borderRadius: moderateScale(14),
         borderWidth: 1.5,
         borderColor: '#FECDD3',
-        backgroundColor: '#FFF1F2',
+        backgroundColor: colors.cDangerBg,
     },
     mdDeleteText: {
         fontSize: scaleFont(13),
         fontWeight: '700',
-        color: '#E11D48',
+        color: colors.cDanger,
     },
 
     // Choose sheet
@@ -1416,14 +1416,14 @@ export const styles = StyleSheet.create({
         paddingHorizontal: scale(7),
         paddingVertical: verticalScale(2),
         borderRadius: moderateScale(20),
-        backgroundColor: '#EFF6FF',
+        backgroundColor: colors.primaryBg,
         borderWidth: 1,
-        borderColor: '#93C5FD',
+        borderColor: colors.primaryLight,
     },
     mdAiBadgeText: {
         fontSize: scaleFont(9),
         fontWeight: '800',
-        color: '#2563EB',
+        color: colors.primary,
     },
 
     // Add sheet header
@@ -1505,7 +1505,7 @@ export const styles = StyleSheet.create({
     ctxItemDelText: {
         fontSize: scaleFont(13),
         fontWeight: '600',
-        color: '#E11D48',
+        color: colors.cDanger,
     },
 
     // ═══════════════════════════════════
@@ -1573,7 +1573,7 @@ export const styles = StyleSheet.create({
         gap: scale(10),
         paddingHorizontal: scale(14),
         paddingVertical: verticalScale(12),
-        backgroundColor: '#FFFBEB',
+        backgroundColor: colors.cReminderBg,
         borderWidth: 1.5,
         borderColor: '#FDE68A',
         borderRadius: moderateScale(14),
@@ -1593,7 +1593,7 @@ export const styles = StyleSheet.create({
     vaxNextShotLabel: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(10),
-        color: '#D97706',
+        color: colors.cReminder,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
@@ -1606,7 +1606,7 @@ export const styles = StyleSheet.create({
     vaxNextShotDate: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(11),
-        color: '#D97706',
+        color: colors.cReminder,
     },
 
     // ═══════════════════════════════════
@@ -1769,14 +1769,14 @@ export const styles = StyleSheet.create({
         marginTop: verticalScale(2),
     } as const,
     vdDoseDotDone: {
-        backgroundColor: '#F0FDF4',
+        backgroundColor: colors.cHealthBg,
         borderWidth: 1.5,
         borderColor: '#BBF7D0',
     },
     vdDoseDotScheduled: {
-        backgroundColor: '#EFF6FF',
+        backgroundColor: colors.primaryBg,
         borderWidth: 1.5,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
     },
     vdDoseDotEmpty: {
         backgroundColor: colors.bg,
@@ -1814,14 +1814,14 @@ export const styles = StyleSheet.create({
         marginTop: verticalScale(4),
     } as const,
     vdDoseTagDone: {
-        backgroundColor: '#F0FDF4',
-        color: '#16A34A',
+        backgroundColor: colors.cHealthBg,
+        color: colors.cHealth,
         borderColor: '#BBF7D0',
     },
     vdDoseTagScheduled: {
         backgroundColor: colors.primaryBg,
         color: colors.primary,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
     },
 
     // Schedule button (blue bg)
@@ -1832,7 +1832,7 @@ export const styles = StyleSheet.create({
         gap: scale(8),
         padding: scale(13),
         borderWidth: 1.5,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
         borderRadius: moderateScale(14),
         backgroundColor: colors.primaryBg,
     } as const,
@@ -1898,7 +1898,7 @@ export const styles = StyleSheet.create({
     vdSaveBtnText: {
         fontFamily: typography.font.black,
         fontSize: scaleFont(14),
-        color: '#fff',
+        color: colors.card,
     },
 
     // Remind chips
@@ -2005,7 +2005,7 @@ export const styles = StyleSheet.create({
     rdHeroTitle: {
         fontFamily: typography.font.black,
         fontSize: scaleFont(19),
-        color: '#fff',
+        color: colors.card,
         letterSpacing: -0.2,
         flex: 1,
     },
@@ -2035,7 +2035,7 @@ export const styles = StyleSheet.create({
     rdMetaValue: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(13),
-        color: '#fff',
+        color: colors.card,
     },
     rdMetaDivider: {
         width: 1,
@@ -2181,7 +2181,7 @@ export const styles = StyleSheet.create({
         gap: scale(5),
         backgroundColor: colors.primaryBg,
         borderWidth: 1.5,
-        borderColor: '#BFDBFE',
+        borderColor: colors.primaryLight,
         borderRadius: moderateScale(10),
         paddingHorizontal: scale(12),
         paddingVertical: verticalScale(7),
@@ -2273,7 +2273,7 @@ export const styles = StyleSheet.create({
     fuSaveText: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(13),
-        color: '#fff',
+        color: colors.card,
     },
     // Saved follow-up item
     fuItem: {
@@ -2434,14 +2434,14 @@ export const styles = StyleSheet.create({
         paddingHorizontal: scale(12),
         paddingVertical: verticalScale(6),
         borderRadius: moderateScale(20),
-        backgroundColor: '#F0FDFA',
+        backgroundColor: colors.secondaryBg,
         borderWidth: 1,
-        borderColor: '#99F6E4',
+        borderColor: colors.secondary,
     },
     notiMarkAllText: {
         fontSize: scaleFont(11),
         fontWeight: '700',
-        color: '#0D9488',
+        color: colors.cFamily,
     },
     notiGroupLabel: {
         fontSize: scaleFont(10),
@@ -2463,11 +2463,11 @@ export const styles = StyleSheet.create({
         marginBottom: verticalScale(3),
     },
     notiItemUnread: {
-        backgroundColor: '#F8FAFF',
+        backgroundColor: colors.primaryBg,
         borderWidth: 1,
-        borderColor: '#E8EFFE',
+        borderColor: colors.primaryLight,
         borderLeftWidth: 3,
-        borderLeftColor: '#2563EB',
+        borderLeftColor: colors.primary,
     },
     notiItemRead: {
         backgroundColor: 'transparent',

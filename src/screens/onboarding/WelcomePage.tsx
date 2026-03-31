@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { styles } from './styles';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 
 interface Props {
     width: number;
@@ -109,7 +109,7 @@ export default function WelcomePage({
                             ]}
                         />
                         <LinearGradient
-                            colors={['#2563EB', '#14B8A6']}
+                            colors={gradients.brandDuo}
                             style={styles.illusCenter}
                         >
                             <Feather name='activity' size={44} color='#fff' />

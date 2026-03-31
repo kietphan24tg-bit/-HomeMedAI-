@@ -29,7 +29,7 @@ import {
 import { shared } from '../../styles/shared';
 import { colors, typography } from '../../styles/tokens';
 
-const PAGE_BG = '#F0F4FF';
+const PAGE_BG = colors.bg;
 
 const GENDERS = [
     { key: 'male', label: 'Nam', icon: 'male-outline' as const },
@@ -531,8 +531,8 @@ const styles = StyleSheet.create({
         minHeight: verticalScale(48),
         borderRadius: moderateScale(16),
         borderWidth: 1.5,
-        borderColor: '#D9E4F7',
-        backgroundColor: '#FFFFFF',
+        borderColor: colors.border,
+        backgroundColor: colors.card,
         paddingHorizontal: scale(12),
         flexDirection: 'row',
         alignItems: 'center',
@@ -555,17 +555,17 @@ const styles = StyleSheet.create({
     iosWrap: {
         marginTop: verticalScale(10),
         borderRadius: moderateScale(16),
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.card,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#D9E4F7',
+        borderColor: colors.border,
     },
     iosBar: {
         paddingHorizontal: scale(16),
         paddingVertical: verticalScale(10),
         alignItems: 'flex-end',
         borderBottomWidth: 1,
-        borderBottomColor: '#EDF2FF',
+        borderBottomColor: colors.border,
     },
     iosDone: {
         color: colors.primary,
@@ -579,16 +579,16 @@ const styles = StyleSheet.create({
     genderBtn: {
         flex: 1,
         borderWidth: 1.5,
-        borderColor: '#D9E4F7',
+        borderColor: colors.border,
         borderRadius: moderateScale(16),
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: verticalScale(12),
     },
     genderBtnActive: {
         borderColor: colors.primary,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: colors.primaryBg,
     },
     genderIcon: {
         marginBottom: verticalScale(4),

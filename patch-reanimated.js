@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const root = __dirname;
+const root = process.cwd();
 
 function removeIfExists(targetPath) {
   if (!fs.existsSync(targetPath)) {

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
 import React from 'react';
 import {
+    Image,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -13,7 +14,7 @@ import {
 import { FAMILIES } from '@/src/data/family-data';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
+import { colors, gradients, typography } from '@/src/styles/tokens';
 import type { FamilyGroup, FamilyMember } from '@/src/types/family';
 import { styles } from './styles';
 
@@ -36,13 +37,13 @@ export const RECENT_CONTACTS = [
         name: 'Nguyễn Thị Bình',
         phone: '0901224567',
         initials: 'NB',
-        gradient: ['#7C3AED', '#A855F7'] as [string, string],
+        gradient: gradients.brandDuo as [string, string],
     },
     {
         name: 'Nguyễn Văn Ba',
         phone: '0912345678',
         initials: 'BA',
-        gradient: ['#0D9488', '#2563EB'] as [string, string],
+        gradient: gradients.brandDuo as [string, string],
     },
 ];
 
@@ -71,7 +72,7 @@ export const INITIAL_INVITES: InviteItem[] = [
         role: 'Cháu',
         roleEmoji: '🧒',
         invitedAt: '2 giờ trước',
-        gradient: ['#064E3B', '#059669'],
+        gradient: [...gradients.health] as [string, string],
     },
     {
         id: 'inv-2',
@@ -82,7 +83,7 @@ export const INITIAL_INVITES: InviteItem[] = [
         role: 'Con dâu',
         roleEmoji: '👩',
         invitedAt: '1 ngày trước',
-        gradient: ['#1E1B4B', '#4F46E5'],
+        gradient: [...gradients.familyDuo] as [string, string],
     },
 ];
 
@@ -515,15 +516,21 @@ export function CreateFamilyModal({
     visible,
     familyName,
     familyAddress,
+    familyAvatarUri,
     onChangeFamilyName,
     onChangeFamilyAddress,
+    onPickFamilyAvatar,
+    onSubmit,
     onClose,
 }: {
     visible: boolean;
     familyName: string;
     familyAddress: string;
+    familyAvatarUri: string | null;
     onChangeFamilyName: (value: string) => void;
     onChangeFamilyAddress: (value: string) => void;
+    onPickFamilyAvatar: () => void;
+    onSubmit: () => void;
     onClose: () => void;
 }) {
     return (
@@ -557,23 +564,44 @@ export function CreateFamilyModal({
                         </View>
                         <View style={shared.sheetBody}>
                             <View style={styles.popupAvWrap}>
-                                <LinearGradient
-                                    colors={['#DDD6FE', '#C4B5FD']}
-                                    style={styles.popupAv}
+                                <Pressable
+                                    style={styles.popupAvPressable}
+                                    onPress={onPickFamilyAvatar}
                                 >
-                                    <Ionicons
-                                        name='people-outline'
-                                        size={28}
-                                        color='#7C3AED'
-                                    />
-                                    <View style={styles.popupAvCam}>
-                                        <Ionicons
-                                            name='camera-outline'
-                                            size={10}
-                                            color='#fff'
-                                        />
+                                    <View style={styles.popupAv}>
+                                        {familyAvatarUri ? (
+                                            <Image
+                                                source={{
+                                                    uri: familyAvatarUri,
+                                                }}
+                                                style={styles.popupAvImage}
+                                            />
+                                        ) : (
+                                            <View
+                                                style={[
+                                                    styles.popupAvPlaceholder,
+                                                    {
+                                                        backgroundColor:
+                                                            colors.primaryBg,
+                                                    },
+                                                ]}
+                                            >
+                                                <Ionicons
+                                                    name='image-outline'
+                                                    size={28}
+                                                    color={colors.primary}
+                                                />
+                                            </View>
+                                        )}
+                                        <View style={styles.popupAvCam}>
+                                            <Ionicons
+                                                name='camera-outline'
+                                                size={10}
+                                                color={colors.card}
+                                            />
+                                        </View>
                                     </View>
-                                </LinearGradient>
+                                </Pressable>
                                 <Text style={styles.popupAvHint}>
                                     Nhấn để chọn ảnh đại diện
                                 </Text>
@@ -615,22 +643,24 @@ export function CreateFamilyModal({
                                     viên sau.
                                 </Text>
                             </View>
-                            <LinearGradient
-                                colors={['#7C3AED', '#2563EB']}
-                                style={styles.createBtn}
+                            <View
+                                style={[
+                                    styles.createBtn,
+                                    { backgroundColor: colors.primary },
+                                ]}
                             >
                                 <Pressable
                                     style={{
                                         width: '100%',
                                         alignItems: 'center',
                                     }}
-                                    onPress={onClose}
+                                    onPress={onSubmit}
                                 >
                                     <Text style={styles.createBtnText}>
                                         Tạo gia đình
                                     </Text>
                                 </Pressable>
-                            </LinearGradient>
+                            </View>
                         </View>
                     </Pressable>
                 </Pressable>
@@ -687,7 +717,7 @@ export function RoleSelectionModal({
                         >
                             <View style={[styles.mrow, styles.mrowLast]}>
                                 <LinearGradient
-                                    colors={['#F5F3FF', '#EEF2FF']}
+                                    colors={gradients.brandSoft}
                                     style={[
                                         styles.mav,
                                         {
@@ -794,8 +824,8 @@ export function RoleSelectionModal({
                         <LinearGradient
                             colors={
                                 selectedRole
-                                    ? ['#2563EB', '#0D9488']
-                                    : ['#CBD5E1', '#CBD5E1']
+                                    ? gradients.brandDuo
+                                    : gradients.neutral
                             }
                             style={styles.createBtn}
                         >

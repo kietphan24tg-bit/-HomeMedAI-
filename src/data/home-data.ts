@@ -1,11 +1,11 @@
-import { colors } from '../styles/tokens';
-import {
-    type ArticleItem,
-    type FamilyMember,
-    type MedItem,
-    type ScheduleItem,
-    type StatCard,
-} from '../types';
+import { colors, gradients } from '../styles/tokens';
+import type {
+    ArticleItem,
+    FamilyMember,
+    MedItem,
+    ScheduleItem,
+    StatCard,
+} from '../types/home';
 import { getAvatarGradient, getCategoryColor } from '../utils/color-palette';
 
 export const STAT_CARDS: StatCard[] = [
@@ -105,7 +105,7 @@ export const SCHEDULE: ScheduleItem[] = [
         id: 1,
         initials: 'LAN',
         bg: '#EF4444',
-        gradient: ['#EF4444', '#DC2626'],
+        gradient: [...gradients.danger] as [string, string],
         title: 'Tái khám huyết áp',
         meta: 'BV Chợ Rẫy · Phòng 305',
         time: '14:30',

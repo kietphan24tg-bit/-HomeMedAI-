@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
+import { colors, gradients, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
 import type { SearchState } from './familyShared';
 import {
@@ -192,9 +192,9 @@ export default function FamilySearchPhoneScreen({
                                     width: scale(80),
                                     height: scale(80),
                                     borderRadius: scale(24),
-                                    backgroundColor: '#EFF6FF',
+                                    backgroundColor: colors.primaryBg,
                                     borderWidth: 1.5,
-                                    borderColor: '#DBEAFE',
+                                    borderColor: colors.primaryLight,
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     marginBottom: verticalScale(18),
@@ -320,7 +320,7 @@ export default function FamilySearchPhoneScreen({
                         >
                             <View style={{ flexDirection: 'row', gap: 12 }}>
                                 <LinearGradient
-                                    colors={['#F59E0B', '#D97706']}
+                                    colors={gradients.warning}
                                     style={{
                                         width: scale(56),
                                         height: scale(56),
@@ -460,7 +460,7 @@ export default function FamilySearchPhoneScreen({
                             dùng link mời để họ đăng ký rồi liên kết hồ sơ.
                         </Text>
                         <LinearGradient
-                            colors={['#7C3AED', '#2563EB']}
+                            colors={gradients.brandDuo}
                             style={[styles.createBtn, { width: '100%' }]}
                         >
                             <Pressable

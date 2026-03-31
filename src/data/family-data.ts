@@ -1,4 +1,5 @@
 // src/data/family-data.ts
+import { gradients } from '../styles/tokens';
 import type { FamilyGroup } from '../types/family';
 import { getAvatarGradient } from '../utils/color-palette';
 
@@ -9,7 +10,7 @@ export const FAMILIES: FamilyGroup[] = [
         memberCount: 5,
         role: 'Chủ gia đình',
         roleEmoji: '👑',
-        gradientColors: ['#1E3A5F', '#2563EB', '#0D9488'],
+        gradientColors: [...gradients.family] as [string, string, string],
         iconName: 'home-outline',
         createdDate: '03/2024',
         members: [
@@ -141,7 +142,7 @@ export const FAMILIES: FamilyGroup[] = [
         memberCount: 3,
         role: 'Cháu',
         roleEmoji: '👦',
-        gradientColors: ['#064E3B', '#0D9488', '#2563EB'],
+        gradientColors: [...gradients.family] as [string, string, string],
         iconName: 'people-outline',
         createdDate: '06/2024',
         members: [],

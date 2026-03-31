@@ -15,7 +15,7 @@ import { styles } from './styles';
 import { DateField } from '../../components/ui';
 import { VACCINE_DETAILS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 import type { VaccineDetailItem } from '../../types';
 
 interface Props {
@@ -93,7 +93,7 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
             >
                 {/* PROGRESS HERO */}
                 <LinearGradient
-                    colors={['#1E3A8A', '#2563EB', '#0D9488']}
+                    colors={gradients.family}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.vaxHero}
@@ -807,7 +807,7 @@ function AddDoseSheet({
                             </Pressable>
                             <Pressable style={styles.vdSaveBtn}>
                                 <LinearGradient
-                                    colors={['#2563EB', '#0D9488']}
+                                    colors={gradients.brandDuo}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.vdSaveBtnGrad}
@@ -912,7 +912,7 @@ function ScheduleDoseSheet({
                             </View>
                             <Pressable style={styles.vdSaveBtn}>
                                 <LinearGradient
-                                    colors={['#2563EB', '#0D9488']}
+                                    colors={gradients.brandDuo}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.vdSaveBtnGrad}
@@ -990,7 +990,7 @@ function AddVaxSheet({
                             </View>
                             <Pressable style={styles.vdSaveBtn}>
                                 <LinearGradient
-                                    colors={['#2563EB', '#0D9488']}
+                                    colors={gradients.brandDuo}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.vdSaveBtnGrad}

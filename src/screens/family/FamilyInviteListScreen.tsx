@@ -1,22 +1,35 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatePanel from '@/src/components/state/StatePanel';
+import {
+    useAcceptFamilyInviteMutation,
+    useRejectFamilyInviteMutation,
+} from '@/src/features/family/mutations';
+import { useFamilyInvitesQuery } from '@/src/features/family/queries';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { colors, typography } from '@/src/styles/tokens';
-import { INITIAL_INVITES, InviteCard, type InviteItem } from './familyShared';
+import { InviteCard } from './familyShared';
 import { styles } from './styles';
 
 export default function FamilyInviteListScreen(): React.JSX.Element {
-    const [inviteList, setInviteList] = useState<InviteItem[]>(INITIAL_INVITES);
+    const {
+        data: inviteList = [],
+        isLoading,
+        isError,
+        refetch,
+    } = useFamilyInvitesQuery({ status: 'pending', page: 1, limit: 20 });
+    const acceptInviteMutation = useAcceptFamilyInviteMutation();
+    const rejectInviteMutation = useRejectFamilyInviteMutation();
 
-    const acceptInvite = (id: string) => {
-        setInviteList((prev) => prev.filter((item) => item.id !== id));
+    const acceptInvite = (inviteId: string, fullName: string | null) => {
+        acceptInviteMutation.mutate({ inviteId, fullName });
     };
 
-    const rejectInvite = (id: string) => {
-        setInviteList((prev) => prev.filter((item) => item.id !== id));
+    const rejectInvite = (inviteId: string) => {
+        rejectInviteMutation.mutate({ inviteId });
     };
 
     return (
@@ -33,7 +46,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                             size={16}
                             color={colors.primary}
                         />
-                        <Text style={styles.memberBackText}>Gia đình</Text>
+                        <Text style={styles.memberBackText}>Gia d�nh</Text>
                     </Pressable>
                 </View>
                 <Text
@@ -42,10 +55,10 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                         { fontSize: scaleFont(22), marginBottom: 6 },
                     ]}
                 >
-                    Lời mời tham gia
+                    L?i m?i tham gia
                 </Text>
                 <Text style={styles.memberMeta}>
-                    {inviteList.length} lời mời đang chờ phản hồi
+                    {inviteList.length} l?i m?i dang ch? ph?n h?i
                 </Text>
             </View>
 
@@ -60,7 +73,27 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                     },
                 ]}
             >
-                {inviteList.length === 0 ? (
+                {isLoading ? (
+                    <StatePanel
+                        variant='loading'
+                        title='�ang t?i l?i m?i gia d�nh'
+                        message='Vui l�ng ch? trong gi�y l�t d? d?ng b? l?i m?i m?i nh?t.'
+                    />
+                ) : null}
+
+                {isError ? (
+                    <StatePanel
+                        variant='error'
+                        title='Kh�ng t?i du?c l?i m?i'
+                        message='�� c� l?i khi l?y danh s�ch l?i m?i. Vui l�ng th? l?i.'
+                        actionLabel='Th? l?i'
+                        onAction={() => {
+                            refetch();
+                        }}
+                    />
+                ) : null}
+
+                {!isLoading && !isError && inviteList.length === 0 ? (
                     <View
                         style={{
                             backgroundColor: colors.card,
@@ -77,7 +110,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 width: scale(64),
                                 height: scale(64),
                                 borderRadius: scale(20),
-                                backgroundColor: '#F1F5F9',
+                                backgroundColor: colors.bgHealth,
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: verticalScale(12),
@@ -97,7 +130,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 marginBottom: verticalScale(6),
                             }}
                         >
-                            Không có lời mời
+                            Kh�ng c� l?i m?i
                         </Text>
                         <Text
                             style={{
@@ -108,20 +141,24 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 lineHeight: verticalScale(18),
                             }}
                         >
-                            Khi ai đó mời bạn tham gia gia đình, lời mời sẽ xuất
-                            hiện ở đây.
+                            Khi ai d� m?i b?n tham gia gia d�nh, l?i m?i s? xu?t
+                            hi?n ? d�y.
                         </Text>
                     </View>
-                ) : (
-                    inviteList.map((invite) => (
-                        <InviteCard
-                            key={invite.id}
-                            invite={invite}
-                            onAccept={() => acceptInvite(invite.id)}
-                            onReject={() => rejectInvite(invite.id)}
-                        />
-                    ))
-                )}
+                ) : null}
+
+                {!isLoading && !isError
+                    ? inviteList.map((invite) => (
+                          <InviteCard
+                              key={invite.id}
+                              invite={invite}
+                              onAccept={() =>
+                                  acceptInvite(invite.id, invite.fullName)
+                              }
+                              onReject={() => rejectInvite(invite.id)}
+                          />
+                      ))
+                    : null}
             </ScrollView>
         </SafeAreaView>
     );

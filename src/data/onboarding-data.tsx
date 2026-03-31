@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { colors } from '../styles/tokens';
-import { type FeatureItem, type PermItem } from '../types';
+import type { FeatureItem, PermItem } from '../types/onboarding';
 
 export const FEATURES: FeatureItem[] = [
     {

@@ -23,7 +23,7 @@ import {
     scaleFont,
     verticalScale,
 } from '@/src/styles/responsive';
-import { shadows, typography } from '@/src/styles/tokens';
+import { colors, gradients, shadows, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
 
 type MedicineStatus = 'expiring' | 'low' | 'ok';
@@ -51,12 +51,12 @@ function getStatusConfig(status: MedicineStatus) {
     if (status === 'expiring') {
         return {
             title: 'Sắp hết hạn',
-            accent: '#E11D48',
-            dot: '#FCA5A5',
-            cardBg: '#FFF1F2',
-            cardBorder: '#FECDD3',
+            accent: colors.cDanger,
+            dot: '#FDA4AF',
+            cardBg: colors.cDangerBg,
+            cardBorder: '#FDA4AF',
             iconBg: '#FFE4E6',
-            icon: '#E11D48',
+            icon: colors.cDanger,
             emoji: '⚠️',
         };
     }
@@ -64,24 +64,24 @@ function getStatusConfig(status: MedicineStatus) {
     if (status === 'low') {
         return {
             title: 'Sắp hết',
-            accent: '#D97706',
+            accent: colors.cReminder,
             dot: '#FCD34D',
-            cardBg: '#FFFBEB',
+            cardBg: colors.cReminderBg,
             cardBorder: '#FDE68A',
             iconBg: '#FEF3C7',
-            icon: '#D97706',
+            icon: colors.cReminder,
             emoji: '📉',
         };
     }
 
     return {
         title: 'Còn đủ',
-        accent: '#0D9488',
+        accent: colors.cFamily,
         dot: '#E5E7EB',
-        cardBg: '#FFFFFF',
-        cardBorder: '#E4EAF2',
-        iconBg: '#F0FDFA',
-        icon: '#0D9488',
+        cardBg: colors.card,
+        cardBorder: colors.border,
+        iconBg: colors.secondaryBg,
+        icon: colors.cFamily,
         emoji: '✅',
     };
 }
@@ -114,7 +114,7 @@ function MedicineCard({ item }: { item: FamilyMedicineItem }) {
                     <Ionicons
                         name='chevron-forward'
                         size={14}
-                        color='#94A3B8'
+                        color={colors.text3}
                     />
                 </View>
 
@@ -201,7 +201,7 @@ function AddMedicineSheet({
                                 <Ionicons
                                     name='close'
                                     size={14}
-                                    color='#64748B'
+                                    color={colors.text2}
                                 />
                             </Pressable>
                         </View>
@@ -218,7 +218,7 @@ function AddMedicineSheet({
                             </Text>
                             <TextInput
                                 placeholder='VD: Paracetamol 500mg'
-                                placeholderTextColor='#94A3B8'
+                                placeholderTextColor={colors.text3}
                                 style={styles.fieldInput}
                             />
                         </View>
@@ -230,7 +230,7 @@ function AddMedicineSheet({
                                 </Text>
                                 <TextInput
                                     placeholder='Giảm đau'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     style={styles.fieldInput}
                                 />
                             </View>
@@ -239,7 +239,7 @@ function AddMedicineSheet({
                                 <Text style={styles.fieldLabel}>Vị trí</Text>
                                 <TextInput
                                     placeholder='Tủ phòng khách'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     style={styles.fieldInput}
                                 />
                             </View>
@@ -250,7 +250,7 @@ function AddMedicineSheet({
                                 <Text style={styles.fieldLabel}>Số lượng</Text>
                                 <TextInput
                                     placeholder='8'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     keyboardType='numeric'
                                     style={styles.fieldInput}
                                 />
@@ -260,7 +260,7 @@ function AddMedicineSheet({
                                 <Text style={styles.fieldLabel}>Đơn vị</Text>
                                 <TextInput
                                     placeholder='viên'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     style={styles.fieldInput}
                                 />
                             </View>
@@ -273,7 +273,7 @@ function AddMedicineSheet({
                                 </Text>
                                 <TextInput
                                     placeholder='20/04/2026'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     style={styles.fieldInput}
                                 />
                             </View>
@@ -284,7 +284,7 @@ function AddMedicineSheet({
                                 </Text>
                                 <TextInput
                                     placeholder='10'
-                                    placeholderTextColor='#94A3B8'
+                                    placeholderTextColor={colors.text3}
                                     keyboardType='numeric'
                                     style={styles.fieldInput}
                                 />
@@ -295,7 +295,7 @@ function AddMedicineSheet({
                             <Text style={styles.fieldLabel}>Liều dùng</Text>
                             <TextInput
                                 placeholder='VD: 1-2 viên/lần'
-                                placeholderTextColor='#94A3B8'
+                                placeholderTextColor={colors.text3}
                                 style={styles.fieldInput}
                             />
                         </View>
@@ -304,7 +304,7 @@ function AddMedicineSheet({
                             <Text style={styles.fieldLabel}>Ghi chú</Text>
                             <TextInput
                                 placeholder='Ghi chú bảo quản hoặc cách dùng'
-                                placeholderTextColor='#94A3B8'
+                                placeholderTextColor={colors.text3}
                                 multiline
                                 textAlignVertical='top'
                                 style={[
@@ -373,7 +373,7 @@ export default function FamilyMedicineInventoryScreen({
             />
 
             <LinearGradient
-                colors={['#0F766E', '#0D9488', '#0891B2']}
+                colors={gradients.health}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.hero}
@@ -452,7 +452,7 @@ export default function FamilyMedicineInventoryScreen({
                                 cy='40'
                                 r='30'
                                 fill='none'
-                                stroke='#FCA5A5'
+                                stroke='#FDA4AF'
                                 strokeWidth='8'
                                 strokeLinecap='round'
                                 strokeDasharray={CIRCUMFERENCE}
@@ -474,7 +474,7 @@ export default function FamilyMedicineInventoryScreen({
                             <View
                                 style={[
                                     styles.legendDot,
-                                    { backgroundColor: '#FCA5A5' },
+                                    { backgroundColor: '#FDA4AF' },
                                 ]}
                             />
                             <Text style={styles.legendText}>Sắp hết hạn</Text>
@@ -515,12 +515,16 @@ export default function FamilyMedicineInventoryScreen({
 
             <View style={styles.searchShell}>
                 <View style={styles.searchWrap}>
-                    <Ionicons name='search-outline' size={16} color='#94A3B8' />
+                    <Ionicons
+                        name='search-outline'
+                        size={16}
+                        color={colors.text3}
+                    />
                     <TextInput
                         value={query}
                         onChangeText={setQuery}
                         placeholder='Tìm thuốc trong tủ...'
-                        placeholderTextColor='#94A3B8'
+                        placeholderTextColor={colors.text3}
                         style={styles.searchInput}
                     />
                 </View>
@@ -540,7 +544,7 @@ export default function FamilyMedicineInventoryScreen({
                         <Ionicons
                             name='file-tray-outline'
                             size={26}
-                            color='#94A3B8'
+                            color={colors.text3}
                         />
                         <Text style={styles.emptyTitle}>
                             Không tìm thấy thuốc
@@ -563,7 +567,7 @@ export default function FamilyMedicineInventoryScreen({
 const styles = StyleSheet.create({
     page: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: colors.bg,
     },
     hero: {
         marginHorizontal: scale(16),
@@ -695,9 +699,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: scale(10),
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.card,
         borderWidth: 1.5,
-        borderColor: '#E4EAF2',
+        borderColor: colors.border,
         borderRadius: moderateScale(14),
         paddingHorizontal: scale(14),
         minHeight: verticalScale(46),
@@ -708,7 +712,7 @@ const styles = StyleSheet.create({
             Platform.OS === 'ios' ? verticalScale(10) : verticalScale(8),
         fontFamily: typography.font.medium,
         fontSize: scaleFont(13),
-        color: '#0F172A',
+        color: colors.text,
     },
     content: {
         flex: 1,
@@ -738,7 +742,7 @@ const styles = StyleSheet.create({
     sectionCount: {
         fontFamily: typography.font.medium,
         fontSize: scaleFont(11),
-        color: '#94A3B8',
+        color: colors.text3,
     },
     sectionList: {
         gap: verticalScale(8),
@@ -775,7 +779,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: typography.font.bold,
         fontSize: scaleFont(13.5),
-        color: '#0F172A',
+        color: colors.text,
     },
     cardExpiry: {
         fontFamily: typography.font.medium,
@@ -785,7 +789,7 @@ const styles = StyleSheet.create({
     barTrack: {
         height: 5,
         borderRadius: 999,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: colors.border,
         overflow: 'hidden',
     },
     barFill: {
@@ -807,7 +811,7 @@ const styles = StyleSheet.create({
         marginTop: verticalScale(10),
         fontFamily: typography.font.bold,
         fontSize: scaleFont(16),
-        color: '#0F172A',
+        color: colors.text,
     },
     emptyMessage: {
         marginTop: verticalScale(6),
@@ -815,7 +819,7 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.medium,
         fontSize: scaleFont(13),
         lineHeight: scaleFont(19),
-        color: '#64748B',
+        color: colors.text2,
     },
     sheetBackdrop: {
         flex: 1,
@@ -826,7 +830,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     sheet: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.card,
         borderTopLeftRadius: moderateScale(24),
         borderTopRightRadius: moderateScale(24),
         maxHeight: '88%',
@@ -837,14 +841,14 @@ const styles = StyleSheet.create({
         paddingTop: verticalScale(10),
         paddingBottom: verticalScale(12),
         borderBottomWidth: 1,
-        borderBottomColor: '#E4EAF2',
+        borderBottomColor: colors.border,
     },
     sheetHandle: {
         alignSelf: 'center',
         width: scale(32),
         height: verticalScale(4),
         borderRadius: 999,
-        backgroundColor: '#E4EAF2',
+        backgroundColor: colors.border,
         marginBottom: verticalScale(12),
     },
     sheetTitleRow: {
@@ -855,7 +859,7 @@ const styles = StyleSheet.create({
     sheetTitle: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(15),
-        color: '#0F172A',
+        color: colors.text,
     },
     sheetCloseBtn: {
         width: scale(28),
@@ -863,9 +867,9 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: colors.bg,
         borderWidth: 1.5,
-        borderColor: '#E4EAF2',
+        borderColor: colors.border,
     },
     sheetScroll: {
         flexGrow: 0,
@@ -890,12 +894,12 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(6),
         fontFamily: typography.font.bold,
         fontSize: scaleFont(11),
-        color: '#64748B',
+        color: colors.text2,
         textTransform: 'uppercase',
         letterSpacing: 0.6,
     },
     req: {
-        color: '#E11D48',
+        color: colors.cDanger,
     },
     fieldInput: {
         minHeight: verticalScale(46),
@@ -903,12 +907,12 @@ const styles = StyleSheet.create({
         paddingVertical:
             Platform.OS === 'ios' ? verticalScale(12) : verticalScale(9),
         borderWidth: 1.5,
-        borderColor: '#E4EAF2',
+        borderColor: colors.border,
         borderRadius: moderateScale(11),
-        backgroundColor: '#F8FAFC',
+        backgroundColor: colors.bg,
         fontFamily: typography.font.medium,
         fontSize: scaleFont(13),
-        color: '#0F172A',
+        color: colors.text,
     },
     fieldTextarea: {
         minHeight: verticalScale(88),
@@ -919,7 +923,7 @@ const styles = StyleSheet.create({
         borderRadius: moderateScale(14),
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#2563EB',
+        backgroundColor: colors.primary,
     },
     sheetSubmitText: {
         fontFamily: typography.font.bold,
