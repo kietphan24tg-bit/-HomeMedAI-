@@ -1,6 +1,9 @@
 import { router } from 'expo-router';
 import { create } from 'zustand';
 import * as SecureStore from '@/src/lib/secureStore';
+import { meQueryKeys } from '@/src/features/me/queryKeys';
+import { normalizeMeOverview } from '@/src/features/me/types';
+import { appQueryClient } from '@/src/lib/query-client';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
 import type {
@@ -12,6 +15,13 @@ import type { User } from '@/src/types/user';
 
 const REFRESH_TOKEN = 'refresh_token';
 const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
+
+function cacheMe(data: unknown) {
+    appQueryClient.setQueryData(
+        meQueryKeys.overview(),
+        normalizeMeOverview(data),
+    );
+}
 
 export const useAuthStore = create<AuthStore>((set, get) => {
     return {
@@ -25,6 +35,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             SecureStore.deleteItemAsync(REFRESH_TOKEN).catch((error) => {
                 console.log(error);
             });
+            appQueryClient.removeQueries({ queryKey: meQueryKeys.all });
             set({ user: null, accessToken: null });
         },
         bootstrap: async () => {
@@ -53,8 +64,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 }
 
                 set({ accessToken, hasSeenOnboarding });
-                const profile = await authService.fetchMe();
-                set({ user: profile.user, initialized: true });
+                const account = await authService.fetchMe();
+                cacheMe(account);
+                set({ user: account, initialized: true });
 
                 await SecureStore.setItemAsync(
                     REFRESH_TOKEN,
@@ -70,7 +82,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 );
                 appToast.showError(
                     'Error',
-                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
+                    'Phi�n dang nh?p d� h?t h?n. Vui l�ng dang nh?p l?i!',
                 );
                 set({
                     user: null,
@@ -98,7 +110,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    'Đăng ký thất bại. Vui lòng thử lại.',
+                    '�ang k� th?t b?i. Vui l�ng th? l?i.',
                 );
                 return false;
             } finally {
@@ -138,7 +150,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    'Đăng nhập thất bại. Vui lòng thử lại.',
+                    '�ang nh?p th?t b?i. Vui l�ng th? l?i.',
                 );
                 return false;
             } finally {
@@ -176,7 +188,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
                 appToast.showError(
                     'Error',
-                    'Đăng nhập thất bại. Vui lòng thử lại.',
+                    '�ang nh?p th?t b?i. Vui l�ng th? l?i.',
                 );
             } finally {
                 set({ loading: false });
@@ -187,20 +199,21 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 await authService.signOut();
                 await SecureStore.deleteItemAsync(REFRESH_TOKEN);
                 get().clearStore();
-                appToast.showSuccess('Success', 'Đăng xuất thành công!');
+                appToast.showSuccess('Success', '�ang xu?t th�nh c�ng!');
             } catch (error) {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    'Đăng xuất thất bại. Vui lòng thử lại.',
+                    '�ang xu?t th?t b?i. Vui l�ng th? l?i.',
                 );
             }
         },
         fetchMe: async () => {
             try {
                 set({ loading: true });
-                const res = await authService.fetchMe();
-                set({ user: res.user });
+                const account = await authService.fetchMe();
+                cacheMe(account);
+                set({ user: account });
             } catch (error) {
                 console.log(error);
             } finally {
@@ -239,7 +252,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
+                    'Phi�n dang nh?p d� h?t h?n. Vui l�ng dang nh?p l?i!',
                 );
                 get().clearStore();
                 router.push('/auth');
