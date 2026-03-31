@@ -131,7 +131,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const handleLogout = async (): Promise<void> => {
         await useAuthStore.getState().clearStore();
-        router.replace('/onboarding');
+        router.replace('/auth');
     };
 
     const bmi = calcBMI(fields.height, fields.weight);

@@ -4,6 +4,7 @@ import type {
     SignInWithGoogleParams,
 } from '../types/useAuthStore.type';
 import type { User } from '../types/user';
+import { toVietnamE164 } from '../utils/phone';
 
 export const authService = {
     signUp: async ({
@@ -11,10 +12,12 @@ export const authService = {
         password,
         phone_number,
     }: Pick<User, 'email' | 'password' | 'phone_number'>) => {
+        const normalizedPhoneNumber = toVietnamE164(phone_number);
+
         const res = await apiClient.post('/auth/register', {
             email,
-            phone_number,
-            password_hash: password,
+            phone_number: normalizedPhoneNumber ?? phone_number,
+            password,
         });
         return res.data;
     },
@@ -96,7 +99,7 @@ export const authService = {
             },
         );
 
-        return res.data;
+        return res.data ?? { success: true };
     },
     changePassword: async (old_password: string, new_password: string) => {
         const res = await apiClient.put('/user/change-password', {

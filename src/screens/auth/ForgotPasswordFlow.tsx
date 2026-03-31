@@ -69,6 +69,10 @@ export default function ForgotPasswordFlow({
             setIsLoading(true);
             const res = await authService.forgotPassword(email.trim());
 
+            if (!res?.reset_token) {
+                throw new Error('Missing reset token');
+            }
+
             resetToken.current = res.reset_token;
             setErrors({});
             setOtpValues(['', '', '', '', '', '']);
@@ -79,10 +83,11 @@ export default function ForgotPasswordFlow({
             if (showSuccessToast) {
                 appToast.showSuccess(
                     'Thành công',
-                    'Mã OTP đã được gửi đến email của bạn.',
+                    res.message || 'Mã OTP đã được gửi đến email của bạn.',
                 );
             }
         } catch (error) {
+            console.log(error);
             appToast.showError(
                 'Lỗi',
                 'Email không tồn tại hoặc có lỗi xảy ra. Vui lòng thử lại.',
@@ -174,17 +179,14 @@ export default function ForgotPasswordFlow({
 
         try {
             setIsLoading(true);
-            const res = await authService.resetPassword(
+            await authService.resetPassword(
                 resetToken.current!,
                 email.trim(),
                 otpValues.join(''),
                 newPassword,
             );
 
-            appToast.showSuccess(
-                'Thành công',
-                res.message || 'Đặt lại mật khẩu thành công.',
-            );
+            appToast.showSuccess('Thành công', 'Đặt lại mật khẩu thành công.');
 
             resetPasswordState();
             onBackToAuth();
@@ -192,9 +194,8 @@ export default function ForgotPasswordFlow({
             console.log(error);
             appToast.showError(
                 'Lỗi',
-                'Đặt lại mật khẩu thất bại. Vui lòng thử lại.',
+                'Đặt lại mật khẩu thất bại. Vui lòng kiểm tra lại OTP và thử lại.',
             );
-            resetPasswordState();
         } finally {
             setIsLoading(false);
         }
@@ -570,18 +571,6 @@ const styles = StyleSheet.create({
     loadingButton: {
         backgroundColor: 'rgba(37, 99, 235, 0.72)',
         opacity: 0.88,
-    },
-    footerText: {
-        marginTop: 20,
-        textAlign: 'center',
-        fontFamily: typography.font.regular,
-        fontSize: 12,
-        lineHeight: 18,
-        color: colors.text3,
-    },
-    footerLink: {
-        color: colors.primary,
-        fontFamily: typography.font.semiBold,
     },
     errorText: {
         marginTop: 6,

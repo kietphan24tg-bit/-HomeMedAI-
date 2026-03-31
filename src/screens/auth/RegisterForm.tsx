@@ -206,7 +206,9 @@ export default function RegisterForm({
                             <ActivityIndicator size='small' color='#fff' />
                         ) : null}
                         <Text style={s.btnPrimaryText}>
-                            {loading ? 'Đang xử lý...' : 'Tạo tài khoản'}
+                            {loading
+                                ? 'Đang tạo tài khoản...'
+                                : 'Tạo tài khoản'}
                         </Text>
                     </View>
                 </LinearGradient>

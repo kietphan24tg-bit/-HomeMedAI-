@@ -1,10 +1,25 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import React from 'react';
 import { Animated, Modal, Pressable, Text, View } from 'react-native';
+import StatePanel from '@/src/components/state/StatePanel';
 import type { FamilyOption } from '../home.types';
 import { styles } from '../styles';
+
+type Props = {
+    visible: boolean;
+    backdropAnim: Animated.Value;
+    slideAnim: Animated.Value;
+    selectedFamily: string | null;
+    familyOptions: FamilyOption[];
+    isLoading: boolean;
+    error: string | null;
+    onClose: () => void;
+    onSelectFamily: (id: string) => void;
+    onRetry: () => void;
+    onCreateFamily: () => void;
+    onViewInvites: () => void;
+};
 
 export default function FamilyPickerSheet({
     visible,
@@ -17,109 +32,34 @@ export default function FamilyPickerSheet({
     onClose,
     onSelectFamily,
     onRetry,
-}: {
-    visible: boolean;
-    backdropAnim: Animated.Value;
-    slideAnim: Animated.Value;
-    selectedFamily: string | null;
-    familyOptions: FamilyOption[];
-    isLoading: boolean;
-    error: string | null;
-    onClose: () => void;
-    onSelectFamily: (id: string) => void;
-    onRetry: () => void;
-}): React.JSX.Element {
+    onCreateFamily,
+    onViewInvites,
+}: Props): React.JSX.Element {
     const renderLoadingState = () => (
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 12 }}>
-            <Text style={[styles.sheetSubtitle, { marginTop: 0 }]}>
-                Đang tải danh sách gia đình...
-            </Text>
-            {[0, 1, 2].map((item) => (
-                <View
-                    key={item}
-                    style={[
-                        styles.fpRow,
-                        {
-                            backgroundColor: '#F8FAFC',
-                            borderRadius: 18,
-                            marginHorizontal: 0,
-                            paddingHorizontal: 16,
-                        },
-                    ]}
-                >
-                    <View
-                        style={[
-                            styles.fpIcon,
-                            { backgroundColor: '#E2E8F0', borderRadius: 14 },
-                        ]}
-                    />
-                    <View style={{ flex: 1, gap: 8 }}>
-                        <View
-                            style={{
-                                width: '55%',
-                                height: 14,
-                                borderRadius: 999,
-                                backgroundColor: '#E2E8F0',
-                            }}
-                        />
-                        <View
-                            style={{
-                                width: '38%',
-                                height: 11,
-                                borderRadius: 999,
-                                backgroundColor: '#EDF2F7',
-                            }}
-                        />
-                    </View>
-                </View>
-            ))}
-        </View>
+        <StatePanel
+            variant='loading'
+            title='Đang tải danh sách gia đình'
+            message='Vui lòng chờ trong giây lát để lấy dữ liệu mới nhất.'
+            compact
+        />
     );
 
     const renderEmptyState = () => (
         <View
             style={{
-                paddingHorizontal: 24,
-                paddingTop: 28,
-                paddingBottom: 12,
+                paddingHorizontal: 28,
+                paddingTop: 32,
+                paddingBottom: 20,
                 alignItems: 'center',
             }}
         >
-            <View
-                style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 24,
-                    backgroundColor: '#EFF6FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 18,
-                }}
-            >
-                <Ionicons name='people-outline' size={30} color='#2563EB' />
-            </View>
-            <Text
-                style={[
-                    styles.sheetTitle,
-                    { fontSize: 18, textAlign: 'center', marginBottom: 8 },
-                ]}
-            >
-                Bạn chưa có gia đình nào
-            </Text>
-            <Text
-                style={[
-                    styles.sheetSubtitle,
-                    {
-                        textAlign: 'center',
-                        marginTop: 0,
-                        lineHeight: 20,
-                        marginBottom: 20,
-                    },
-                ]}
-            >
-                Tạo gia đình mới hoặc chờ lời mời tham gia từ người thân để bắt
-                đầu quản lý sức khỏe chung.
-            </Text>
+            <StatePanel
+                variant='empty'
+                title='Bạn chưa có gia đình nào'
+                message='Tạo gia đình đầu tiên để bắt đầu quản lý sức khỏe cho cả nhà.'
+                compact
+                flat
+            />
             <Pressable
                 style={{
                     width: '100%',
@@ -127,8 +67,9 @@ export default function FamilyPickerSheet({
                     borderRadius: 16,
                     paddingVertical: 14,
                     alignItems: 'center',
-                    marginBottom: 10,
+                    marginTop: 10,
                 }}
+                onPress={onCreateFamily}
             >
                 <Text
                     style={{
@@ -136,7 +77,6 @@ export default function FamilyPickerSheet({
                         fontFamily: 'Inter_700Bold',
                         fontSize: 14,
                     }}
-                    onPress={() => router.push('/family')}
                 >
                     Tạo gia đình
                 </Text>
@@ -150,7 +90,9 @@ export default function FamilyPickerSheet({
                     borderRadius: 16,
                     paddingVertical: 14,
                     alignItems: 'center',
+                    marginTop: 10,
                 }}
+                onPress={onViewInvites}
             >
                 <Text
                     style={{
@@ -167,71 +109,16 @@ export default function FamilyPickerSheet({
 
     const renderErrorState = () => (
         <View
-            style={{
-                paddingHorizontal: 24,
-                paddingTop: 28,
-                paddingBottom: 12,
-                alignItems: 'center',
-            }}
+            style={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 12 }}
         >
-            <View
-                style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 24,
-                    backgroundColor: '#FFF7ED',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 18,
-                }}
-            >
-                <Ionicons
-                    name='cloud-offline-outline'
-                    size={30}
-                    color='#EA580C'
-                />
-            </View>
-            <Text
-                style={[
-                    styles.sheetTitle,
-                    { fontSize: 18, textAlign: 'center', marginBottom: 8 },
-                ]}
-            >
-                Không tải được danh sách gia đình
-            </Text>
-            <Text
-                style={[
-                    styles.sheetSubtitle,
-                    {
-                        textAlign: 'center',
-                        marginTop: 0,
-                        lineHeight: 20,
-                        marginBottom: 20,
-                    },
-                ]}
-            >
-                {error || 'Vui lòng thử lại sau ít phút.'}
-            </Text>
-            <Pressable
-                style={{
-                    width: '100%',
-                    backgroundColor: '#2563EB',
-                    borderRadius: 16,
-                    paddingVertical: 14,
-                    alignItems: 'center',
-                }}
-                onPress={onRetry}
-            >
-                <Text
-                    style={{
-                        color: '#fff',
-                        fontFamily: 'Inter_700Bold',
-                        fontSize: 14,
-                    }}
-                >
-                    Thử lại
-                </Text>
-            </Pressable>
+            <StatePanel
+                variant='error'
+                title='Không tải được danh sách gia đình'
+                message={error || 'Vui lòng thử lại sau ít phút.'}
+                actionLabel='Thử lại'
+                onAction={onRetry}
+                compact
+            />
         </View>
     );
 
@@ -295,7 +182,7 @@ export default function FamilyPickerSheet({
                                       <Ionicons
                                           name={
                                               (family.iconName ??
-                                                  'home-outline') as any
+                                                  'home-outline') as never
                                           }
                                           size={22}
                                           color='#fff'

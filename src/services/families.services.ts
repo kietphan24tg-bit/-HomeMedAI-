@@ -1,5 +1,6 @@
 import apiClient from '../api/client';
 import type { FamilyRole } from '../types/family-domain';
+import { toVietnamE164 } from '../utils/phone';
 export const familiesServices = {
     createFamily: async ({
         name,
@@ -47,15 +48,23 @@ export const familiesServices = {
         //"limit": 10,
         //"data": []
     },
+    previewInviteCode: async (invite_code: string) => {
+        const res = await apiClient.get('/families/invite/preview', {
+            params: { invite_code },
+        });
+        return res.data;
+    },
     findUserByPhoneNumber: async (
         family_id: string,
         phone_number: string,
         dry_run = true,
     ) => {
+        const normalizedPhoneNumber = toVietnamE164(phone_number);
+
         const res = await apiClient.post(
             `/families/${family_id}/invite-by-phone`,
             {
-                phone_number,
+                phone_number: normalizedPhoneNumber ?? phone_number,
                 dry_run,
             },
         );
@@ -68,10 +77,12 @@ export const familiesServices = {
         role: FamilyRole,
         dry_run = true,
     ) => {
+        const normalizedPhoneNumber = toVietnamE164(phone_number);
+
         const res = await apiClient.post(
             `/families/${family_id}/invite-by-phone`,
             {
-                phone_number,
+                phone_number: normalizedPhoneNumber ?? phone_number,
                 user_id,
                 role,
                 dry_run,

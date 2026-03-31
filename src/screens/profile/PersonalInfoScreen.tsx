@@ -18,6 +18,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { appToast } from '../../lib/toast';
+import { userService } from '../../services/user.services';
 import {
     moderateScale,
     scale,
@@ -30,9 +32,9 @@ import { colors, typography } from '../../styles/tokens';
 const PAGE_BG = '#F0F4FF';
 
 const GENDERS = [
-    { key: 'Nam', label: 'Nam', icon: 'male-outline' as const },
-    { key: 'Nữ', label: 'Nữ', icon: 'female-outline' as const },
-    { key: 'Khác', label: 'Khác', icon: 'male-female-outline' as const },
+    { key: 'male', label: 'Nam', icon: 'male-outline' as const },
+    { key: 'female', label: 'Nữ', icon: 'female-outline' as const },
+    { key: 'other', label: 'Khác', icon: 'male-female-outline' as const },
 ];
 
 function formatDate(d: Date): string {
@@ -41,12 +43,30 @@ function formatDate(d: Date): string {
     return `${dd} / ${mm} / ${d.getFullYear()}`;
 }
 
+function toApiDate(d: Date): string {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function formatDobInput(text: string): string {
+    let cleaned = text.replace(/\D/g, '');
+    if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
+
+    let formatted = cleaned;
+    if (cleaned.length > 2) {
+        formatted = `${cleaned.slice(0, 2)} / ${cleaned.slice(2)}`;
+    }
+    if (cleaned.length > 4) {
+        formatted = `${cleaned.slice(0, 2)} / ${cleaned.slice(2, 4)} / ${cleaned.slice(4)}`;
+    }
+
+    return formatted;
+}
+
 interface Props {
-    /** When true, skip SafeAreaView wrapper (used inside onboarding pager) */
     embedded?: boolean;
-    /** Width override for the onboarding pager layout */
     width?: number;
-    /** Callback when user finishes; if omitted navigates to /(tabs) */
     onComplete?: () => void;
 }
 
@@ -55,27 +75,20 @@ export default function PersonalInfoScreen({
     width,
     onComplete,
 }: Props): React.JSX.Element {
-    /* ── form state ── */
     const [dob, setDob] = useState<Date | null>(null);
-    const [fullName, setFullName] = useState('');
     const [dobText, setDobText] = useState('');
     const [showPicker, setShowPicker] = useState(false);
+    const [fullName, setFullName] = useState('');
     const [gender, setGender] = useState('');
     const [height, setHeight] = useState('');
     const [weight, setWeight] = useState('');
     const [address, setAddress] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    /* ── focus state ── */
-    const [focusFullName, setFocusFullName] = useState(false);
-    const [focusDob, setFocusDob] = useState(false);
-    const [focusHeight, setFocusHeight] = useState(false);
-    const [focusWeight, setFocusWeight] = useState(false);
-    const [focusAddr, setFocusAddr] = useState(false);
-
-    /* ── staggered entrance ── */
     const anims = useRef(
         Array.from({ length: 7 }, () => new Animated.Value(0)),
     ).current;
+
     useEffect(() => {
         Animated.stagger(
             70,
@@ -89,7 +102,8 @@ export default function PersonalInfoScreen({
                 }),
             ),
         ).start();
-    }, []);
+    }, [anims]);
+
     const anim = (i: number) => ({
         opacity: anims[i],
         transform: [
@@ -102,139 +116,209 @@ export default function PersonalInfoScreen({
         ],
     });
 
-    /* ── date helpers ── */
     const handleDobText = (text: string) => {
-        let c = text.replace(/\D/g, '');
-        if (c.length > 8) c = c.slice(0, 8);
-        let f = c;
-        if (c.length > 2) f = c.slice(0, 2) + ' / ' + c.slice(2);
-        if (c.length > 4) f = f.slice(0, 7) + ' / ' + c.slice(4);
-        setDobText(f);
-        if (c.length === 8) {
-            const date = new Date(
-                +c.slice(4, 8),
-                +c.slice(2, 4) - 1,
-                +c.slice(0, 2),
+        const formatted = formatDobInput(text);
+        const cleaned = formatted.replace(/\D/g, '');
+
+        setDobText(formatted);
+
+        if (cleaned.length === 8) {
+            const parsedDate = new Date(
+                Number(cleaned.slice(4, 8)),
+                Number(cleaned.slice(2, 4)) - 1,
+                Number(cleaned.slice(0, 2)),
             );
-            if (!isNaN(date.getTime())) setDob(date);
+
+            if (!Number.isNaN(parsedDate.getTime())) {
+                setDob(parsedDate);
+            }
         }
     };
-    const handlePicker = useCallback((_e: DateTimePickerEvent, d?: Date) => {
-        if (Platform.OS === 'android') setShowPicker(false);
-        if (d) {
-            setDob(d);
-            setDobText(formatDate(d));
-        }
-    }, []);
+
+    const handlePicker = useCallback(
+        (_e: DateTimePickerEvent, selected?: Date) => {
+            if (Platform.OS === 'android') {
+                setShowPicker(false);
+            }
+
+            if (selected) {
+                setDob(selected);
+                setDobText(formatDate(selected));
+            }
+        },
+        [],
+    );
+
     const closePicker = useCallback(() => setShowPicker(false), []);
 
-    /* ── complete action ── */
-    const handleComplete = () => {
-        if (onComplete) {
-            onComplete();
-        } else {
-            router.replace('/(tabs)');
+    const buildDescription = (error: any) => {
+        const detail = error?.response?.data?.detail;
+
+        if (Array.isArray(detail)) {
+            return detail
+                .map((item) => item?.msg)
+                .filter(Boolean)
+                .join(', ');
         }
+
+        return (
+            error?.response?.data?.message ||
+            'Không thể lưu hồ sơ ngay lúc này.'
+        );
     };
 
-    /* ── shorthand styles ── */
-    const card = (focused: boolean) => [
-        s.inputCard,
-        focused && s.inputCardFocus,
-    ];
+    const handleComplete = async () => {
+        const trimmedFullName = fullName.trim();
+        const trimmedAddress = address.trim();
+        const parsedHeight = height.trim() ? Number(height) : null;
+        const parsedWeight = weight.trim() ? Number(weight) : null;
+
+        if (!trimmedFullName) {
+            appToast.showWarning(
+                'Thiếu họ tên',
+                'Vui lòng nhập họ và tên trước khi tiếp tục.',
+            );
+            return;
+        }
+
+        if (height.trim() && Number.isNaN(parsedHeight)) {
+            appToast.showWarning(
+                'Chiều cao chưa hợp lệ',
+                'Vui lòng nhập chiều cao ở dạng số.',
+            );
+            return;
+        }
+
+        if (weight.trim() && Number.isNaN(parsedWeight)) {
+            appToast.showWarning(
+                'Cân nặng chưa hợp lệ',
+                'Vui lòng nhập cân nặng ở dạng số.',
+            );
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+
+            await userService.createPersonalProfile({
+                full_name: trimmedFullName,
+                dob: dob ? toApiDate(dob) : null,
+                gender: gender || null,
+                height_cm: parsedHeight,
+                weight_kg: parsedWeight,
+                address: trimmedAddress || null,
+            });
+
+            appToast.showSuccess(
+                'Tạo hồ sơ thành công',
+                'Thông tin cá nhân của bạn đã được lưu.',
+            );
+
+            if (onComplete) {
+                onComplete();
+            } else {
+                router.replace('/(tabs)');
+            }
+        } catch (error: any) {
+            appToast.showError('Lưu hồ sơ thất bại', buildDescription(error));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const Wrapper = embedded ? View : SafeAreaView;
     const containerStyle = embedded
-        ? [s.page, { width, backgroundColor: PAGE_BG }]
-        : [s.page, { backgroundColor: PAGE_BG }];
+        ? [styles.page, { width, backgroundColor: PAGE_BG }]
+        : [styles.page, { backgroundColor: PAGE_BG }];
 
     return (
         <Wrapper style={containerStyle}>
             {!embedded && (
                 <StatusBar barStyle='dark-content' backgroundColor={PAGE_BG} />
             )}
+
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={s.scrollContent}
+                contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
-                automaticallyAdjustKeyboardInsets={true}
+                keyboardDismissMode='none'
+                removeClippedSubviews={false}
             >
-                {/* ── HEADER ── */}
-                <Animated.View style={[s.header, anim(0)]}>
-                    <View style={s.badge}>
+                <Animated.View style={[styles.header, anim(0)]}>
+                    <View style={styles.badge}>
                         <Ionicons
                             name='person-outline'
                             size={11}
                             color={colors.primary}
                         />
-                        <Text style={s.badgeText}>Thông tin cá nhân</Text>
+                        <Text style={styles.badgeText}>Thông tin cá nhân</Text>
                     </View>
-                    <Text style={s.title}>
+                    <Text style={styles.title}>
                         {'Hãy cho HomeMedAI\n'}
                         <Text style={{ color: colors.primary }}>
                             biết về bạn
                         </Text>
                     </Text>
-                    <Text style={s.sub}>
-                        Thông tin giúp cá nhân hoá và theo dõi sức khoẻ chính
-                        xác hơn.
+                    <Text style={styles.sub}>
+                        Thông tin này giúp cá nhân hóa trải nghiệm và theo dõi
+                        sức khỏe chính xác hơn.
                     </Text>
                 </Animated.View>
 
-                {/* ── HỌ VÀ TÊN ── */}
-                <Animated.View style={[s.inputGroup, anim(1)]}>
-                    <Text style={s.label}>Họ và tên</Text>
-                    <View style={card(focusFullName)}>
+                <Animated.View style={[styles.inputGroup, anim(1)]}>
+                    <Text style={styles.label}>Họ và tên</Text>
+                    <View style={styles.inputCard}>
                         <Ionicons
                             name='person-outline'
                             size={16}
                             color={colors.primary}
-                            style={{ marginRight: 10 }}
+                            style={styles.leadingIcon}
                         />
                         <TextInput
-                            style={[s.inputText, { flex: 1 }]}
+                            style={[styles.inputText, { flex: 1 }]}
                             value={fullName}
                             onChangeText={setFullName}
                             placeholder='Nguyễn Văn An'
                             placeholderTextColor={colors.text3}
-                            onFocus={() => setFocusFullName(true)}
-                            onBlur={() => setFocusFullName(false)}
+                            autoCapitalize='words'
+                            returnKeyType='done'
                         />
                     </View>
                 </Animated.View>
 
-                {/* ── NGÀY SINH ── */}
-                <Animated.View style={[s.inputGroup, anim(2)]}>
-                    <Text style={s.label}>Ngày sinh</Text>
-                    <Pressable
-                        style={card(focusDob)}
-                        onPress={() => setShowPicker(true)}
-                    >
-                        <Ionicons
-                            name='calendar-outline'
-                            size={16}
-                            color={colors.primary}
-                            style={{ marginRight: 10 }}
-                        />
+                <Animated.View style={[styles.inputGroup, anim(2)]}>
+                    <Text style={styles.label}>Ngày sinh</Text>
+                    <View style={styles.inputCard}>
+                        <Pressable
+                            onPress={() => setShowPicker(true)}
+                            hitSlop={8}
+                            style={styles.dateIconButton}
+                        >
+                            <Ionicons
+                                name='calendar-outline'
+                                size={16}
+                                color={colors.primary}
+                            />
+                        </Pressable>
                         <TextInput
-                            style={s.inputText}
+                            style={[styles.inputText, { flex: 1 }]}
                             value={dobText}
                             onChangeText={handleDobText}
                             placeholder='DD / MM / YYYY'
                             placeholderTextColor={colors.text3}
                             keyboardType='numeric'
                             maxLength={14}
-                            onFocus={() => setFocusDob(true)}
-                            onBlur={() => setFocusDob(false)}
+                            returnKeyType='done'
                         />
-                    </Pressable>
+                    </View>
+
                     {showPicker &&
                         (Platform.OS === 'ios' ? (
-                            <View style={s.iosWrap}>
-                                <View style={s.iosBar}>
+                            <View style={styles.iosWrap}>
+                                <View style={styles.iosBar}>
                                     <Pressable onPress={closePicker}>
-                                        <Text style={s.iosDone}>Xong</Text>
+                                        <Text style={styles.iosDone}>Xong</Text>
                                     </Pressable>
                                 </View>
                                 <DateTimePicker
@@ -255,38 +339,36 @@ export default function PersonalInfoScreen({
                         ))}
                 </Animated.View>
 
-                {/* ── GIỚI TÍNH ── */}
-                <Animated.View style={[s.inputGroup, anim(3)]}>
-                    <Text style={s.label}>Giới tính</Text>
-                    <View style={s.genderRow}>
+                <Animated.View style={[styles.inputGroup, anim(3)]}>
+                    <Text style={styles.label}>Giới tính</Text>
+                    <View style={styles.genderRow}>
                         {GENDERS.map(({ key, label, icon }) => {
                             const active = gender === key;
+
                             return (
                                 <Pressable
                                     key={key}
                                     onPress={() => setGender(key)}
                                     style={({ pressed }) => [
-                                        s.genderBtn,
-                                        active && s.genderBtnActive,
+                                        styles.genderBtn,
+                                        active && styles.genderBtnActive,
                                         pressed && shared.pressed,
                                     ]}
                                 >
                                     <Ionicons
                                         name={icon}
-                                        size={22}
+                                        size={20}
                                         color={
                                             active
                                                 ? colors.primary
                                                 : colors.text3
                                         }
-                                        style={{
-                                            marginBottom: verticalScale(4),
-                                        }}
+                                        style={styles.genderIcon}
                                     />
                                     <Text
                                         style={[
-                                            s.genderLabel,
-                                            active && s.genderLabelActive,
+                                            styles.genderLabel,
+                                            active && styles.genderLabelActive,
                                         ]}
                                     >
                                         {label}
@@ -297,71 +379,69 @@ export default function PersonalInfoScreen({
                     </View>
                 </Animated.View>
 
-                {/* ── CHIỀU CAO + CÂN NẶNG ── */}
-                <Animated.View style={[s.dualRow, anim(4)]}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={s.label}>Chiều cao</Text>
-                        <View style={card(focusHeight)}>
+                <Animated.View style={[styles.dualRow, anim(4)]}>
+                    <View style={styles.dualCol}>
+                        <Text style={styles.label}>Chiều cao</Text>
+                        <View style={styles.inputCard}>
                             <TextInput
-                                style={[s.metricInput, { flex: 1 }]}
+                                style={[styles.metricInput, { flex: 1 }]}
                                 value={height}
                                 onChangeText={setHeight}
                                 placeholder='170'
                                 placeholderTextColor={colors.text3}
                                 keyboardType='numeric'
                                 maxLength={3}
-                                onFocus={() => setFocusHeight(true)}
-                                onBlur={() => setFocusHeight(false)}
+                                returnKeyType='done'
                             />
-                            <Text style={s.metricUnit}>cm</Text>
+                            <Text style={styles.metricUnit}>cm</Text>
                         </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={s.label}>Cân nặng</Text>
-                        <View style={card(focusWeight)}>
+
+                    <View style={styles.dualCol}>
+                        <Text style={styles.label}>Cân nặng</Text>
+                        <View style={styles.inputCard}>
                             <TextInput
-                                style={[s.metricInput, { flex: 1 }]}
+                                style={[styles.metricInput, { flex: 1 }]}
                                 value={weight}
                                 onChangeText={setWeight}
                                 placeholder='65'
                                 placeholderTextColor={colors.text3}
                                 keyboardType='numeric'
                                 maxLength={3}
-                                onFocus={() => setFocusWeight(true)}
-                                onBlur={() => setFocusWeight(false)}
+                                returnKeyType='done'
                             />
-                            <Text style={s.metricUnit}>kg</Text>
+                            <Text style={styles.metricUnit}>kg</Text>
                         </View>
                     </View>
                 </Animated.View>
 
-                {/* ── ĐỊA CHỈ ── */}
-                <Animated.View style={[s.inputGroup, anim(5)]}>
-                    <Text style={s.label}>Địa chỉ</Text>
-                    <View style={card(focusAddr)}>
+                <Animated.View style={[styles.inputGroup, anim(5)]}>
+                    <Text style={styles.label}>Địa chỉ</Text>
+                    <View style={styles.inputCard}>
                         <Ionicons
                             name='location-outline'
                             size={16}
                             color={colors.primary}
-                            style={{ marginRight: 10 }}
+                            style={styles.leadingIcon}
                         />
                         <TextInput
-                            style={[s.inputText, { flex: 1 }]}
+                            style={[styles.inputText, { flex: 1 }]}
                             value={address}
                             onChangeText={setAddress}
                             placeholder='Hồ Chí Minh'
                             placeholderTextColor={colors.text3}
-                            onFocus={() => setFocusAddr(true)}
-                            onBlur={() => setFocusAddr(false)}
+                            returnKeyType='done'
                         />
                     </View>
                 </Animated.View>
 
-                {/* ── BUTTON ── */}
-                <Animated.View style={[s.btnWrap, anim(6)]}>
+                <Animated.View style={[styles.btnWrap, anim(6)]}>
                     <Pressable
-                        style={({ pressed }) => [pressed && shared.pressed]}
+                        style={({ pressed }) => [
+                            (pressed || isSubmitting) && shared.pressed,
+                        ]}
                         onPress={handleComplete}
+                        disabled={isSubmitting}
                     >
                         <LinearGradient
                             colors={[colors.primary, colors.secondary]}
@@ -369,19 +449,23 @@ export default function PersonalInfoScreen({
                             end={{ x: 1, y: 0 }}
                             style={[
                                 shared.btnFilled,
-                                s.btn,
+                                styles.btn,
                                 { shadowColor: colors.primary },
                             ]}
                         >
-                            <Text style={[shared.btnFilledText, s.btnText]}>
-                                Tiếp theo
+                            <Text
+                                style={[shared.btnFilledText, styles.btnText]}
+                            >
+                                {isSubmitting ? 'Đang lưu...' : 'Tiếp theo'}
                             </Text>
-                            <Feather
-                                name='arrow-right'
-                                size={18}
-                                color='#fff'
-                                style={{ marginLeft: 8 }}
-                            />
+                            {!isSubmitting ? (
+                                <Feather
+                                    name='arrow-right'
+                                    size={18}
+                                    color='#fff'
+                                    style={{ marginLeft: 8 }}
+                                />
+                            ) : null}
                         </LinearGradient>
                     </Pressable>
                 </Animated.View>
@@ -390,20 +474,19 @@ export default function PersonalInfoScreen({
     );
 }
 
-/* ── local styles ── */
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
     page: {
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: scale(24),
+        paddingHorizontal: scale(20),
         paddingTop: verticalScale(12),
-        paddingBottom: verticalScale(32),
+        paddingBottom: verticalScale(28),
         flexGrow: 1,
     },
     header: {
-        paddingTop: verticalScale(6),
-        paddingBottom: verticalScale(18),
+        paddingTop: verticalScale(4),
+        paddingBottom: verticalScale(16),
     },
     badge: {
         flexDirection: 'row',
@@ -423,72 +506,96 @@ const s = StyleSheet.create({
     },
     title: {
         fontFamily: typography.font.black,
-        fontSize: scaleFont(26),
+        fontSize: scaleFont(24),
         color: colors.text,
-        lineHeight: verticalScale(34),
+        lineHeight: verticalScale(32),
         letterSpacing: -0.5,
-        marginBottom: verticalScale(6),
+        marginBottom: verticalScale(8),
     },
     sub: {
         fontFamily: typography.font.regular,
-        fontSize: scaleFont(13),
+        fontSize: scaleFont(14),
         color: colors.text2,
-        lineHeight: verticalScale(20),
+        lineHeight: verticalScale(22),
     },
     inputGroup: {
-        marginBottom: verticalScale(12),
+        marginBottom: verticalScale(16),
     },
     label: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(10),
-        color: colors.text3,
-        textTransform: 'uppercase',
-        letterSpacing: 0.6,
-        marginBottom: verticalScale(5),
-        paddingLeft: scale(2),
+        fontSize: scaleFont(13),
+        color: colors.text,
+        marginBottom: verticalScale(8),
     },
     inputCard: {
+        minHeight: verticalScale(48),
+        borderRadius: moderateScale(16),
+        borderWidth: 1.5,
+        borderColor: '#D9E4F7',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: scale(12),
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#ffffff',
-        borderRadius: moderateScale(14),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(11),
     },
-    inputCardFocus: {
-        borderColor: colors.primary,
+    leadingIcon: {
+        marginRight: 8,
+    },
+    dateIconButton: {
+        marginRight: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     inputText: {
         flex: 1,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(14),
+        fontSize: scaleFont(15),
         color: colors.text,
-        padding: 0,
+        paddingVertical: verticalScale(10),
+    },
+    iosWrap: {
+        marginTop: verticalScale(10),
+        borderRadius: moderateScale(16),
+        backgroundColor: '#FFFFFF',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#D9E4F7',
+    },
+    iosBar: {
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(10),
+        alignItems: 'flex-end',
+        borderBottomWidth: 1,
+        borderBottomColor: '#EDF2FF',
+    },
+    iosDone: {
+        color: colors.primary,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
     },
     genderRow: {
         flexDirection: 'row',
-        gap: scale(8),
+        gap: scale(10),
     },
     genderBtn: {
         flex: 1,
+        borderWidth: 1.5,
+        borderColor: '#D9E4F7',
+        borderRadius: moderateScale(16),
+        backgroundColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: verticalScale(10),
-        paddingHorizontal: scale(6),
-        borderRadius: moderateScale(14),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        backgroundColor: '#ffffff',
+        paddingVertical: verticalScale(12),
     },
     genderBtnActive: {
         borderColor: colors.primary,
-        backgroundColor: colors.primaryBg,
+        backgroundColor: '#EFF6FF',
+    },
+    genderIcon: {
+        marginBottom: verticalScale(4),
     },
     genderLabel: {
         fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(13),
         color: colors.text2,
     },
     genderLabelActive: {
@@ -496,54 +603,30 @@ const s = StyleSheet.create({
     },
     dualRow: {
         flexDirection: 'row',
-        gap: scale(10),
-        marginBottom: verticalScale(12),
+        gap: scale(12),
+        marginBottom: verticalScale(16),
+    },
+    dualCol: {
+        flex: 1,
     },
     metricInput: {
-        fontFamily: typography.font.black,
-        fontSize: scaleFont(18),
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(15),
         color: colors.text,
-        padding: 0,
+        paddingVertical: verticalScale(10),
     },
     metricUnit: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(12),
-        color: '#CBD5E1',
-        marginLeft: scale(4),
-        flexShrink: 0,
+        fontSize: scaleFont(13),
+        color: colors.text2,
     },
     btnWrap: {
-        paddingTop: verticalScale(8),
-        paddingBottom: verticalScale(8),
+        marginTop: verticalScale(2),
     },
     btn: {
-        borderRadius: moderateScale(18),
+        borderRadius: moderateScale(20),
     },
     btnText: {
-        fontSize: scaleFont(15),
         letterSpacing: 0.2,
-        fontFamily: typography.font.black,
-    },
-    /* date picker iOS */
-    iosWrap: {
-        backgroundColor: colors.card,
-        borderRadius: moderateScale(12),
-        marginTop: verticalScale(6),
-        borderWidth: 1,
-        borderColor: colors.border,
-        overflow: 'hidden',
-    },
-    iosBar: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(8),
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    iosDone: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
-        color: colors.primary,
     },
 });

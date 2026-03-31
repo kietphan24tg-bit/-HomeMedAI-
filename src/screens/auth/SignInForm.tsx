@@ -121,7 +121,7 @@ export default function SignInForm({
                             <ActivityIndicator size='small' color='#fff' />
                         ) : null}
                         <Text style={s.btnPrimaryText}>
-                            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+                            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                         </Text>
                     </View>
                 </LinearGradient>
@@ -142,7 +142,7 @@ export default function SignInForm({
                     },
                 ]}
                 onPress={() =>
-                    appToast.showInfo('Thông tin', 'Tính năng đang phát triển')
+                    appToast.showInfo('Infor', 'Tính năng đang phát triển')
                 }
             >
                 <GoogleLogo />

@@ -17,8 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
+import { userService } from '@/src/services/user.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { colors } from '@/src/styles/tokens';
+import { sanitizeVietnamPhoneInput, toVietnamE164 } from '@/src/utils/phone';
 import { authStyles as s } from './authStyles';
 import RegisterForm from './RegisterForm';
 import SignInForm from './SignInForm';
@@ -32,31 +34,6 @@ interface Props {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
-
-const sanitizeVietnamPhoneInput = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-
-    if (digits.startsWith('84')) {
-        return `0${digits.slice(2, 11)}`;
-    }
-
-    return digits.slice(0, 10);
-};
-
-const toVietnamE164 = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    const nationalNumber = digits.startsWith('84')
-        ? digits.slice(2)
-        : digits.startsWith('0')
-          ? digits.slice(1)
-          : digits;
-
-    if (nationalNumber.length !== 9) {
-        return null;
-    }
-
-    return `+84${nationalNumber}`;
-};
 
 export default function AuthScreen({
     initialMode,
@@ -101,6 +78,20 @@ export default function AuthScreen({
         setShowPassword(false);
         setShowConfirmPassword(false);
         setErrors({});
+    };
+
+    const routeAfterSignIn = async () => {
+        const withoutFamilyProfiles =
+            await userService.getProfilesWithoutFamily();
+        const items = Array.isArray(withoutFamilyProfiles)
+            ? withoutFamilyProfiles
+            : Array.isArray(withoutFamilyProfiles?.data)
+              ? withoutFamilyProfiles.data
+              : Array.isArray(withoutFamilyProfiles?.profiles)
+                ? withoutFamilyProfiles.profiles
+                : [];
+
+        router.replace(items.length > 0 ? '/(tabs)' : '/post-login');
     };
 
     const switchMode = (newMode: 'signin' | 'signup') => {
@@ -201,7 +192,7 @@ export default function AuthScreen({
                 if (onSuccess) {
                     onSuccess();
                 } else {
-                    router.replace('/(tabs)');
+                    await routeAfterSignIn();
                 }
                 return;
             }

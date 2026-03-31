@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,7 +46,7 @@ export default function HomeScreen(): React.JSX.Element {
         ]).start();
     };
 
-    const closePicker = () => {
+    const closePicker = (onClosed?: () => void) => {
         Animated.parallel([
             Animated.timing(backdropAnim, {
                 toValue: 0,
@@ -57,13 +58,30 @@ export default function HomeScreen(): React.JSX.Element {
                 duration: 300,
                 useNativeDriver: true,
             }),
-        ]).start(() => setPickerVisible(false));
+        ]).start(() => {
+            setPickerVisible(false);
+            if (typeof onClosed === 'function') {
+                onClosed();
+            }
+        });
     };
 
     const selectFamily = (id: string) => {
         setSelectedFamily(id);
         setMode('family');
         closePicker();
+    };
+
+    const navigateToFamilyTab = () => {
+        closePicker(() => {
+            router.push('/(tabs)/family');
+        });
+    };
+
+    const navigateToFamilyInvites = () => {
+        closePicker(() => {
+            router.push('/(tabs)/family/invites');
+        });
     };
 
     if (showNotifications) {
@@ -109,6 +127,8 @@ export default function HomeScreen(): React.JSX.Element {
                 onClose={closePicker}
                 onSelectFamily={selectFamily}
                 onRetry={refetch}
+                onCreateFamily={navigateToFamilyTab}
+                onViewInvites={navigateToFamilyInvites}
             />
         </SafeAreaView>
     );

@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import StatePanel from '@/src/components/state/StatePanel';
-import FamilyDetailScreen from '@/src/screens/family/FamilyDetailScreen';
+import FamilyMedicineInventoryScreen from '@/src/screens/family/FamilyMedicineInventoryScreen';
 import { getFamilyById } from '@/src/screens/family/familyShared';
 import { colors } from '@/src/styles/tokens';
 
-export default function FamilyDetailRoute() {
+export default function FamilyMedicineRoute() {
     const { familyId } = useLocalSearchParams<{ familyId: string }>();
     const family = getFamilyById(familyId);
 
@@ -21,11 +21,11 @@ export default function FamilyDetailRoute() {
                 <StatePanel
                     variant='empty'
                     title='Không tìm thấy gia đình'
-                    message='Gia đình này không còn tồn tại hoặc dữ liệu chưa sẵn sàng.'
+                    message='Không thể mở tủ thuốc vì gia đình này không còn tồn tại.'
                 />
             </View>
         );
     }
 
-    return <FamilyDetailScreen family={family} />;
+    return <FamilyMedicineInventoryScreen family={family} />;
 }

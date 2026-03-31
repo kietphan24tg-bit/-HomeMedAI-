@@ -14,6 +14,7 @@ import {
     ThemeProvider,
 } from '@react-navigation/native';
 import { Stack } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -21,6 +22,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
+import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -49,6 +51,8 @@ export default function RootLayout() {
         let active = true;
 
         const initializeApp = async () => {
+            await SecureStore.deleteItemAsync('refresh_token');
+            await SecureStore.deleteItemAsync('has_seen_onboarding');
             await SplashScreen.hideAsync();
             await bootstrap();
             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -79,11 +83,31 @@ export default function RootLayout() {
                 <ThemeProvider
                     value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
                 >
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name='onboarding' />
-                        <Stack.Screen name='(tabs)' />
-                        <Stack.Screen name='auth' />
-                        <Stack.Screen name='personal-info' />
+                    <Stack screenOptions={MOTION_PRESETS.root}>
+                        <Stack.Screen
+                            name='onboarding'
+                            options={MOTION_PRESETS.launch}
+                        />
+                        <Stack.Screen
+                            name='(tabs)'
+                            options={MOTION_PRESETS.tabEntry}
+                        />
+                        <Stack.Screen
+                            name='auth'
+                            options={MOTION_PRESETS.flowEntry}
+                        />
+                        <Stack.Screen
+                            name='personal-info'
+                            options={MOTION_PRESETS.drillDown}
+                        />
+                        <Stack.Screen
+                            name='post-login'
+                            options={MOTION_PRESETS.flowEntry}
+                        />
+                        <Stack.Screen
+                            name='join-family-code'
+                            options={MOTION_PRESETS.drillDown}
+                        />
                     </Stack>
                     <StatusBar style='auto' />
                 </ThemeProvider>

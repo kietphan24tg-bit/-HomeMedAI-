@@ -16,16 +16,21 @@ export function useHomeFamilies(mode: 'personal' | 'family') {
             setError(null);
 
             const data = await familiesServices.getMyFamilies();
-            const options = data.families.map((family: any, index: number) => {
-                const currentMember = family.members.find(
+            const families = data ? data : [];
+
+            const options = families.map((family: any, index: number) => {
+                const members = Array.isArray(family?.members)
+                    ? family.members
+                    : [];
+                const currentMember = members.find(
                     (member: any) => member.is_self,
                 );
                 const fallbackFamily = FAMILIES[index];
 
                 return {
-                    id: family.id,
-                    name: family.name,
-                    numberOfMembers: family.members.length,
+                    id: family?.id ?? `family-${index}`,
+                    name: family?.name ?? 'Gia dình',
+                    numberOfMembers: members.length,
                     role:
                         currentMember?.relation_role ||
                         currentMember?.role ||

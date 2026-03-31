@@ -2,12 +2,20 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import {
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
-import { colors } from '@/src/styles/tokens';
+import { colors, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
-import { ActionRow, MemberRow, SectionLabel } from './familyShared';
+import { MemberRow, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
 export default function FamilyDetailScreen({
@@ -42,6 +50,26 @@ export default function FamilyDetailScreen({
                         <Ionicons name='chevron-back' size={14} color='#fff' />
                         <Text style={styles.backBtnText}>Gia đình</Text>
                     </Pressable>
+
+                    <View style={localStyles.heroActionRow}>
+                        <Pressable
+                            style={localStyles.medicineBtn}
+                            onPress={() =>
+                                router.push(
+                                    `/(tabs)/family/${family.id}/medicine`,
+                                )
+                            }
+                        >
+                            <Ionicons
+                                name='medkit-outline'
+                                size={14}
+                                color='#fff'
+                            />
+                            <Text style={localStyles.medicineBtnText}>
+                                Tủ thuốc gia đình
+                            </Text>
+                        </Pressable>
+                    </View>
 
                     <View style={styles.detailHeroContent}>
                         <View style={[styles.davStack, { marginLeft: 6 }]}>
@@ -83,13 +111,6 @@ export default function FamilyDetailScreen({
                                 {family.createdDate}
                             </Text>
                         </View>
-                        <Pressable style={styles.detailMore}>
-                            <Ionicons
-                                name='ellipsis-vertical'
-                                size={16}
-                                color='#fff'
-                            />
-                        </Pressable>
                     </View>
                 </LinearGradient>
 
@@ -134,32 +155,29 @@ export default function FamilyDetailScreen({
                         <Text style={styles.addMlbl}>Thêm thành viên</Text>
                     </Pressable>
                 </View>
-
-                <SectionLabel title='Thiết lập nhanh' />
-
-                <View style={shared.cardBlock}>
-                    <ActionRow
-                        icon='link-outline'
-                        color={colors.primary}
-                        bg='#EFF6FF'
-                        title='Tạo link mời liên kết'
-                        subtitle='Dành cho thành viên chưa có tài khoản'
-                    />
-                    <ActionRow
-                        icon='call-outline'
-                        color='#0D9488'
-                        bg='#F0FDFA'
-                        title='Mời bằng số điện thoại'
-                        subtitle='Tìm tài khoản đã có và gửi lời mời'
-                        isLast
-                        onPress={() =>
-                            router.push(
-                                `/(tabs)/family/${family.id}/search-phone`,
-                            )
-                        }
-                    />
-                </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
+
+const localStyles = StyleSheet.create({
+    heroActionRow: {
+        position: 'absolute',
+        top: verticalScale(46),
+        right: scale(20),
+    },
+    medicineBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(6),
+        backgroundColor: 'rgba(255,255,255,0.16)',
+        borderRadius: 999,
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(8),
+    },
+    medicineBtnText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        color: '#fff',
+    },
+});
