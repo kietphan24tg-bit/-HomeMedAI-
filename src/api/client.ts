@@ -1,5 +1,6 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '@/src/lib/secureStore';
+import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;

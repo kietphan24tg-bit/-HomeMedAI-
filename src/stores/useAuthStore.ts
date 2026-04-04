@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
+import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
 import type {

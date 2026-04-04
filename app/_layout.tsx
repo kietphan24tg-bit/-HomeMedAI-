@@ -14,7 +14,6 @@ import {
     ThemeProvider,
 } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -51,8 +50,6 @@ export default function RootLayout() {
         let active = true;
 
         const initializeApp = async () => {
-            await SecureStore.deleteItemAsync('refresh_token');
-            await SecureStore.deleteItemAsync('has_seen_onboarding');
             await SplashScreen.hideAsync();
             await bootstrap();
             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -73,42 +70,46 @@ export default function RootLayout() {
         return null;
     }
 
-    if (showLaunchScreen) {
-        return <LaunchScreen />;
-    }
-
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
                 <ThemeProvider
                     value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
                 >
-                    <Stack screenOptions={MOTION_PRESETS.root}>
-                        <Stack.Screen
-                            name='onboarding'
-                            options={MOTION_PRESETS.launch}
-                        />
-                        <Stack.Screen
-                            name='(tabs)'
-                            options={MOTION_PRESETS.tabEntry}
-                        />
-                        <Stack.Screen
-                            name='auth'
-                            options={MOTION_PRESETS.flowEntry}
-                        />
-                        <Stack.Screen
-                            name='personal-info'
-                            options={MOTION_PRESETS.drillDown}
-                        />
-                        <Stack.Screen
-                            name='post-login'
-                            options={MOTION_PRESETS.flowEntry}
-                        />
-                        <Stack.Screen
-                            name='join-family-code'
-                            options={MOTION_PRESETS.drillDown}
-                        />
-                    </Stack>
+                    {showLaunchScreen ? (
+                        <LaunchScreen />
+                    ) : (
+                        <Stack screenOptions={MOTION_PRESETS.root}>
+                            <Stack.Screen
+                                name='onboarding'
+                                options={MOTION_PRESETS.launch}
+                            />
+                            <Stack.Screen
+                                name='(tabs)'
+                                options={MOTION_PRESETS.tabEntry}
+                            />
+                            <Stack.Screen
+                                name='auth'
+                                options={MOTION_PRESETS.flowEntry}
+                            />
+                            <Stack.Screen
+                                name='personal-info'
+                                options={MOTION_PRESETS.drillDown}
+                            />
+                            <Stack.Screen
+                                name='post-login'
+                                options={MOTION_PRESETS.flowEntry}
+                            />
+                            <Stack.Screen
+                                name='join-family-code'
+                                options={MOTION_PRESETS.drillDown}
+                            />
+                            <Stack.Screen
+                                name='medical-dictionary/[entryType]/[itemId]'
+                                options={MOTION_PRESETS.drillDown}
+                            />
+                        </Stack>
+                    )}
                     <StatusBar style='auto' />
                 </ThemeProvider>
             </SafeAreaProvider>
