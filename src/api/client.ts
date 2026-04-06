@@ -38,7 +38,8 @@ apiClient.interceptors.response.use(
         if (
             originalRequest.url.includes('/signin') ||
             originalRequest.url.includes('/signup') ||
-            originalRequest.url.includes('/signout')
+            originalRequest.url.includes('/signout') ||
+            originalRequest.url.includes('/rag/chat')
         ) {
             return Promise.reject(error);
         }
