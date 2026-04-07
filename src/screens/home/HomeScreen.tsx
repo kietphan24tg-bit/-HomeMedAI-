@@ -112,7 +112,7 @@ export default function HomeScreen(): React.JSX.Element {
                 <FamilySection />
                 <ScheduleSection />
                 <MedicationSection />
-                <ChatbotBanner />
+                <ChatbotBanner onPress={() => router.push('/(tabs)/explore')} />
                 <ArticlesSection />
             </ScrollView>
 

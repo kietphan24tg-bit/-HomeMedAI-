@@ -239,10 +239,17 @@ export function MedicationSection(): React.JSX.Element {
     );
 }
 
-export function ChatbotBanner(): React.JSX.Element {
+type ChatbotBannerProps = {
+    onPress?: () => void;
+};
+
+export function ChatbotBanner({
+    onPress,
+}: ChatbotBannerProps): React.JSX.Element {
     return (
         <View style={styles.chatbotWrap}>
-            <View
+            <Pressable
+                onPress={onPress}
                 style={[
                     styles.chatbotGradient,
                     { backgroundColor: colors.primary },
@@ -266,7 +273,7 @@ export function ChatbotBanner(): React.JSX.Element {
                     size={20}
                     color='rgba(255,255,255,0.7)'
                 />
-            </View>
+            </Pressable>
         </View>
     );
 }

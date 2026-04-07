@@ -47,6 +47,60 @@ const MOCK_HEALTH_PROFILE = {
     prescriptions: [],
 };
 
+type DictionaryType = 'disease' | 'drug' | 'vaccine';
+
+type DictionarySeedItem = {
+    id: string;
+    type: DictionaryType;
+    title: string;
+    aliases: string[];
+    summary: string;
+    content: Record<string, unknown>;
+    source_file: string;
+};
+
+const DICTIONARY_SEED: DictionarySeedItem[] = [
+    {
+        id: 'disease-flu',
+        type: 'disease',
+        title: 'Influenza (Cúm mùa)',
+        aliases: ['flu', 'cúm', 'influenza'],
+        summary: 'Nhiễm virus hô hấp cấp, thường tự giới hạn sau 5-7 ngày.',
+        content: {
+            symptoms: ['Sốt', 'Đau họng', 'Mệt mỏi', 'Ho khan'],
+            treatment: 'Nghỉ ngơi, bù nước, hạ sốt theo hướng dẫn bác sĩ.',
+            warning_signs: ['Khó thở', 'Sốt cao kéo dài', 'Đau ngực'],
+        },
+        source_file: 'mock://dictionary/disease-flu',
+    },
+    {
+        id: 'drug-paracetamol',
+        type: 'drug',
+        title: 'Paracetamol',
+        aliases: ['acetaminophen', 'hạ sốt'],
+        summary: 'Thuốc giảm đau, hạ sốt phổ biến cho người lớn và trẻ em.',
+        content: {
+            indication: ['Sốt', 'Đau đầu', 'Đau cơ'],
+            adult_dose: '500-1000mg mỗi 4-6 giờ, tối đa 4000mg/ngày.',
+            caution: 'Thận trọng ở người bệnh gan, tránh dùng quá liều.',
+        },
+        source_file: 'mock://dictionary/drug-paracetamol',
+    },
+    {
+        id: 'vaccine-covid19',
+        type: 'vaccine',
+        title: 'Vaccine COVID-19',
+        aliases: ['covid vaccine', 'vaccine corona'],
+        summary: 'Giúp giảm nguy cơ bệnh nặng và nhập viện do COVID-19.',
+        content: {
+            schedule: 'Theo khuyến cáo của Bộ Y tế và nhóm nguy cơ.',
+            common_reactions: ['Đau tại chỗ tiêm', 'Mệt mỏi nhẹ', 'Sốt nhẹ'],
+            note: 'Theo dõi phản ứng sau tiêm ít nhất 30 phút.',
+        },
+        source_file: 'mock://dictionary/vaccine-covid19',
+    },
+];
+
 function buildFamilyApiData() {
     return FAMILIES.map((f) => ({
         id: f.id,
@@ -111,6 +165,13 @@ function buildMedicineApiData(familyId: string) {
         form: m.form ?? null,
         reminder: m.reminder ?? null,
     }));
+}
+
+function normalizeText(value: string) {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
 }
 
 type RouteHandler = (
@@ -196,6 +257,40 @@ const routes: Route[] = [
         method: 'post',
         pattern: /^\/auth\/reset-password$/,
         handler: () => ({ message: 'Đặt lại mật khẩu thành công.' }),
+    },
+    {
+        method: 'post',
+        pattern: /^\/rag\/chat$/,
+        handler: (_url, config) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            const question = String(body.question ?? '').trim();
+            const normalized = normalizeText(question);
+
+            let answer =
+                'Mình đã ghi nhận câu hỏi của bạn. Đây là phản hồi mô phỏng từ AI, không thay thế tư vấn y khoa trực tiếp.';
+
+            if (normalized.includes('sot') || normalized.includes('fever')) {
+                answer =
+                    'Nếu sốt dưới 38.5°C, bạn nên nghỉ ngơi và uống đủ nước. Nếu sốt cao kéo dài trên 48 giờ hoặc kèm khó thở, hãy đi khám sớm.';
+            } else if (
+                normalized.includes('paracetamol') ||
+                normalized.includes('thuoc')
+            ) {
+                answer =
+                    'Paracetamol thường dùng hạ sốt, giảm đau. Người lớn thường dùng 500mg mỗi 4-6 giờ khi cần, không quá 4g/ngày.';
+            } else if (
+                normalized.includes('ho') ||
+                normalized.includes('dau hong')
+            ) {
+                answer =
+                    'Bạn có thể súc họng nước muối, uống nước ấm và theo dõi triệu chứng. Nếu ho kéo dài trên 1 tuần, nên khám bác sĩ.';
+            }
+
+            return {
+                answer,
+                session_id: body.session_id ?? '1',
+            };
+        },
     },
 
     // ─── Users / Me ────────────────────────────────────
@@ -376,6 +471,66 @@ const routes: Route[] = [
         pattern: /^\/family-memberships\/(?<membershipId>[^/]+)$/,
         handler: () => ({ message: 'Đã xóa.' }),
     },
+
+    // ─── Medical Dictionary ───────────────────────────
+    {
+        method: 'get',
+        pattern: /^\/medical-dictionary\/search$/,
+        handler: (_url, config) => {
+            const params = (config.params ?? {}) as Record<string, unknown>;
+            const q = String(params.q ?? '').trim();
+            const type = (params.type as DictionaryType | undefined) ?? null;
+            const page = Number(params.page ?? 1) || 1;
+            const limit = Number(params.limit ?? 20) || 20;
+
+            const normalizedQ = normalizeText(q);
+
+            const filtered = DICTIONARY_SEED.filter((item) => {
+                const typeOk = !type || item.type === type;
+                if (!typeOk) return false;
+                if (!normalizedQ) return true;
+                const haystack = normalizeText(
+                    [item.title, ...item.aliases, item.summary].join(' '),
+                );
+                return haystack.includes(normalizedQ);
+            });
+
+            const start = (page - 1) * limit;
+            const paged = filtered.slice(start, start + limit);
+
+            return {
+                items: paged.map(
+                    ({ content: _content, source_file, ...rest }) => ({
+                        ...rest,
+                        source_file,
+                    }),
+                ),
+                total: filtered.length,
+                page,
+                limit,
+                has_next: start + limit < filtered.length,
+            };
+        },
+    },
+    {
+        method: 'get',
+        pattern:
+            /^\/medical-dictionary\/(?<entryType>disease|drug|vaccine)\/(?<itemId>[^/]+)$/,
+        handler: (_url, _config, p) => {
+            const found = DICTIONARY_SEED.find(
+                (item) => item.type === p.entryType && item.id === p.itemId,
+            );
+            if (!found) {
+                const err: any = new Error('Not found');
+                err.response = {
+                    status: 404,
+                    data: { message: 'Dictionary item not found.' },
+                };
+                throw err;
+            }
+            return found;
+        },
+    },
 ];
 
 function matchRoute(
@@ -426,7 +581,6 @@ export function mockAdapter(
 
             try {
                 const data = match.handler(url, config, match.params);
-                console.log(`[MockAPI] ${method.toUpperCase()} ${url} → 200`);
                 resolve({
                     data,
                     status: 200,

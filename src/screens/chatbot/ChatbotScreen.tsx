@@ -9,13 +9,13 @@ import {
     Modal,
     Platform,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     Text,
     TextInput,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '@/src/api/client';
 import { colors } from '@/src/styles/tokens';
 import { chatbotStyles } from './styles';
@@ -33,14 +33,7 @@ type ChatSession = {
     timestamp: number;
 };
 
-const initialMessages: ChatMessage[] = [
-    {
-        id: 'welcome',
-        sender: 'ai',
-        text: 'Xin chào! Tôi là trợ lý AI y tế. Bạn muốn hỏi gì hôm nay?',
-        time: '09:00',
-    },
-];
+const initialMessages: ChatMessage[] = [];
 
 function formatTimestamp(date: Date) {
     return date.toLocaleTimeString('vi-VN', {
@@ -84,7 +77,7 @@ export default function ChatbotScreen(): React.JSX.Element {
     };
 
     const saveCurrentSession = () => {
-        if (messages.length <= 1) return; // Don't save empty sessions
+        if (messages.length === 0) return;
         const title =
             messages.find((m) => m.sender === 'user')?.text.slice(0, 50) ||
             'New Chat';
@@ -249,6 +242,17 @@ export default function ChatbotScreen(): React.JSX.Element {
                         contentContainerStyle={chatbotStyles.messagesList}
                         showsVerticalScrollIndicator={false}
                     >
+                        {messages.length === 0 ? (
+                            <View style={chatbotStyles.emptyStateCard}>
+                                <Text style={chatbotStyles.emptyStateTitle}>
+                                    Xin chào, tôi là trợ lý AI y tế
+                                </Text>
+                                <Text style={chatbotStyles.emptyStateText}>
+                                    Hãy nhập triệu chứng hoặc câu hỏi để bắt đầu
+                                    tư vấn.
+                                </Text>
+                            </View>
+                        ) : null}
                         {messageNodes}
                         {isLoading ? (
                             <View style={chatbotStyles.loader}>

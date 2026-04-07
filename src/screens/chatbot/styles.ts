@@ -14,15 +14,14 @@ export const chatbotStyles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: scale(20),
-        paddingTop: verticalScale(20),
+        paddingTop: verticalScale(8),
         paddingBottom: verticalScale(14),
     },
     title: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(22),
+        fontSize: scaleFont(17),
         color: colors.text,
-        lineHeight: verticalScale(28),
-        marginBottom: verticalScale(6),
+        lineHeight: verticalScale(22),
     },
     subtitle: {
         fontFamily: typography.font.regular,
@@ -38,6 +37,28 @@ export const chatbotStyles = StyleSheet.create({
     messagesList: {
         paddingTop: verticalScale(10),
         paddingBottom: verticalScale(20),
+    },
+    emptyStateCard: {
+        backgroundColor: colors.card,
+        borderRadius: moderateScale(16),
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(14),
+        marginBottom: verticalScale(12),
+        ...shadows.card,
+    },
+    emptyStateTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(15),
+        color: colors.text,
+        marginBottom: verticalScale(6),
+    },
+    emptyStateText: {
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(12.5),
+        color: colors.text2,
+        lineHeight: verticalScale(18),
     },
     messageBubble: {
         maxWidth: '85%',
@@ -135,6 +156,7 @@ export const chatbotStyles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: scale(8),
+        flex: 1,
     },
     headerActions: {
         flexDirection: 'row',
