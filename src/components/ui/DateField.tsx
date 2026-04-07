@@ -17,6 +17,7 @@ import {
     scaleFont,
     verticalScale,
 } from '../../styles/responsive';
+import { inputSystem } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 
 function formatDate(d: Date): string {
@@ -86,10 +87,12 @@ export function DateField({
             if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
 
             let formatted = cleaned;
-            if (cleaned.length > 2)
-                {formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);}
-            if (cleaned.length > 4)
-                {formatted = formatted.slice(0, 5) + '/' + cleaned.slice(4);}
+            if (cleaned.length > 2) {
+                formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+            }
+            if (cleaned.length > 4) {
+                formatted = formatted.slice(0, 5) + '/' + cleaned.slice(4);
+            }
 
             setInputText(formatted);
 
@@ -113,8 +116,9 @@ export function DateField({
             if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
 
             let formatted = cleaned;
-            if (cleaned.length > 2)
-                {formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);}
+            if (cleaned.length > 2) {
+                formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
+            }
 
             setInputText(formatted);
 
@@ -195,24 +199,26 @@ export function DateField({
 
 const s = StyleSheet.create({
     fieldRow: {
+        ...inputSystem.field,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: colors.bg,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        borderRadius: moderateScale(12),
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(11),
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(5),
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        backgroundColor: colors.card,
     },
     fieldText: {
-        fontSize: scaleFont(14),
-        fontWeight: '600',
+        ...inputSystem.textStrong,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
         color: colors.text,
+        textAlignVertical: 'center',
     },
     iosWrap: {
         backgroundColor: colors.card,
-        borderRadius: moderateScale(12),
+        borderRadius: moderateScale(10),
         marginTop: verticalScale(6),
         borderWidth: 1,
         borderColor: colors.border,

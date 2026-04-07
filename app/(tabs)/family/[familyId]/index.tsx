@@ -1,15 +1,32 @@
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import StatePanel from '@/src/components/state/StatePanel';
+import { useFamilyQuery } from '@/src/features/family/queries';
 import FamilyDetailScreen from '@/src/screens/family/FamilyDetailScreen';
-import { getFamilyById } from '@/src/screens/family/familyShared';
 import { colors } from '@/src/styles/tokens';
 
 export default function FamilyDetailRoute() {
     const { familyId } = useLocalSearchParams<{ familyId: string }>();
-    const family = getFamilyById(familyId);
+    const { data: family, isLoading, isError } = useFamilyQuery(familyId);
 
-    if (!family) {
+    if (isLoading) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    backgroundColor: colors.bg,
+                    justifyContent: 'center',
+                }}
+            >
+                <StatePanel
+                    variant='loading'
+                    title='Đang tải dữ liệu gia đình...'
+                />
+            </View>
+        );
+    }
+
+    if (isError || !family) {
         return (
             <View
                 style={{

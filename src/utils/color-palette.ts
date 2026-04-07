@@ -1,72 +1,93 @@
 // src/utils/color-palette.ts
+import { colors } from '../styles/tokens';
 
-// ── Avatar Gradient Palette (for person avatars) ──
-export const AVATAR_PALETTES: [string, string][] = [
-    ['#2563EB', '#0D9488'], // 0: Blue → Teal
-    ['#7C3AED', '#EC4899'], // 1: Purple → Pink
-    ['#D97706', '#F59E0B'], // 2: Amber → Yellow
-    ['#0D9488', '#06B6D4'], // 3: Teal → Cyan
-    ['#E11D48', '#F43F5E'], // 4: Rose
-    ['#059669', '#10B981'], // 5: Emerald
-    ['#4F46E5', '#818CF8'], // 6: Indigo
-    ['#C026D3', '#E879F9'], // 7: Fuchsia
+// ── Avatar colors — cool-spectrum, muted, health-appropriate ──
+export const AVATAR_COLORS: string[] = [
+    '#3B82F6',
+    '#0D9488',
+    '#6366F1',
+    '#8B5CF6',
+    '#059669',
+    '#0891B2',
+    '#7C3AED',
+    '#2563EB',
 ];
 
-// ── Category Color Palette (for list items, tags, icons) ──
+// ── Family card colors — distinct, premium, diverse palette ──
+export const FAMILY_CARD_COLORS: string[] = [
+    '#0F6E56', // deep teal
+    '#7C3AED', // violet
+    '#0E7490', // cyan
+    '#C2410C', // burnt orange
+    '#1D4ED8', // royal blue
+    '#15803D', // forest green
+    '#9D174D', // rose
+    '#854D0E', // amber-brown
+];
+
+/** @deprecated Use AVATAR_COLORS[i] directly */
+export const AVATAR_PALETTES: [string, string][] = AVATAR_COLORS.map(
+    (c) => [c, c] as [string, string],
+);
+
+// ── Category / specialty palette — aligned to semantic tokens ──
+
 export interface CategoryColor {
     color: string;
     bg: string;
 }
 
 export const CATEGORY_PALETTES: CategoryColor[] = [
-    { color: '#2563EB', bg: '#EFF6FF' }, // 0: Blue
-    { color: '#0D9488', bg: '#F0FDFA' }, // 1: Teal
-    { color: '#D97706', bg: '#FFFBEB' }, // 2: Amber
-    { color: '#7C3AED', bg: '#F5F3FF' }, // 3: Purple
-    { color: '#16A34A', bg: '#F0FDF4' }, // 4: Green
-    { color: '#E11D48', bg: '#FFF1F2' }, // 5: Rose
-    { color: '#EA580C', bg: '#FFF7ED' }, // 6: Orange
-    { color: '#0EA5E9', bg: '#F0F9FF' }, // 7: Sky
-    { color: '#6366F1', bg: '#EEF2FF' }, // 8: Indigo
-    { color: '#EC4899', bg: '#FDF2F8' }, // 9: Pink
+    { color: colors.primary, bg: colors.primaryBg },
+    { color: colors.info, bg: colors.infoBg },
+    { color: colors.secondary, bg: colors.secondaryBg },
+    { color: colors.success, bg: colors.successBg },
+    { color: '#0891B2', bg: '#ECFEFF' },
+    { color: '#6366F1', bg: '#EEF2FF' },
+    { color: colors.warning, bg: colors.warningBg },
+    { color: colors.text3, bg: colors.divider },
 ];
 
-// ── Medical Specialty Color Map ──
 export const SPECIALTY_COLORS: Record<string, CategoryColor> = {
-    cardiology: { color: '#2563EB', bg: '#EFF6FF' },
-    general: { color: '#0D9488', bg: '#F0FDFA' },
-    internal: { color: '#D97706', bg: '#FFFBEB' },
-    dermatology: { color: '#7C3AED', bg: '#F5F3FF' },
-    pediatrics: { color: '#16A34A', bg: '#F0FDF4' },
-    neurology: { color: '#E11D48', bg: '#FFF1F2' },
-    orthopedic: { color: '#D97706', bg: '#FFFBEB' },
-    ent: { color: '#0D9488', bg: '#F0FDFA' },
-    obstetrics: { color: '#EC4899', bg: '#FDF2F8' },
-    dental: { color: '#0EA5E9', bg: '#F0F9FF' },
-    ophthalmology: { color: '#6366F1', bg: '#EEF2FF' },
-    endocrine: { color: '#F59E0B', bg: '#FFFBEB' },
-    gastro: { color: '#84CC16', bg: '#F7FEE7' },
-    other: { color: '#64748B', bg: '#F1F5F9' },
+    cardiology: { color: colors.primary, bg: colors.primaryBg },
+    general: { color: colors.secondary, bg: colors.secondaryBg },
+    internal: { color: colors.info, bg: colors.infoBg },
+    dermatology: { color: '#0891B2', bg: '#ECFEFF' },
+    pediatrics: { color: colors.success, bg: colors.successBg },
+    neurology: { color: '#6366F1', bg: '#EEF2FF' },
+    orthopedic: { color: colors.warning, bg: colors.warningBg },
+    ent: { color: colors.secondary, bg: colors.secondaryBg },
+    obstetrics: { color: colors.info, bg: colors.infoBg },
+    dental: { color: '#0891B2', bg: '#ECFEFF' },
+    ophthalmology: { color: colors.primary, bg: colors.primaryBg },
+    endocrine: { color: colors.warning, bg: colors.warningBg },
+    gastro: { color: colors.success, bg: colors.successBg },
+    other: { color: colors.text3, bg: colors.divider },
 };
 
-// ── Helper Functions ──
+// ── Helpers ──
 
-/** Get avatar gradient by index (wraps around) */
-export function getAvatarGradient(index: number): [string, string] {
-    return AVATAR_PALETTES[index % AVATAR_PALETTES.length];
+export function getAvatarColor(index: number): string {
+    return AVATAR_COLORS[index % AVATAR_COLORS.length];
 }
 
-/** Get category color by index (wraps around) */
+export function getAvatarGradient(index: number): [string, string] {
+    const c = getAvatarColor(index);
+    return [c, c];
+}
+
+export function getFamilyCardColor(index: number): string {
+    return FAMILY_CARD_COLORS[index % FAMILY_CARD_COLORS.length];
+}
+
 export function getCategoryColor(index: number): CategoryColor {
     return CATEGORY_PALETTES[index % CATEGORY_PALETTES.length];
 }
 
-/** Get specialty color by category key */
 export function getSpecialtyColor(category: string): CategoryColor {
-    return SPECIALTY_COLORS[category] ?? SPECIALTY_COLORS['other'];
+    return SPECIALTY_COLORS[category] ?? SPECIALTY_COLORS.other;
 }
 
-/** Hash a string to a deterministic number */
 export function hashString(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -75,17 +96,18 @@ export function hashString(str: string): number {
     return Math.abs(hash);
 }
 
-/** Get avatar gradient by string key (deterministic) */
+export function getAvatarColorByKey(key: string): string {
+    return getAvatarColor(hashString(key));
+}
+
 export function getAvatarGradientByKey(key: string): [string, string] {
     return getAvatarGradient(hashString(key));
 }
 
-/** Get category color by string key (deterministic) */
 export function getCategoryColorByKey(key: string): CategoryColor {
     return getCategoryColor(hashString(key));
 }
 
-/** Derive all record color fields from a category */
 export function recordColors(category: string) {
     const cc = getSpecialtyColor(category);
     return {

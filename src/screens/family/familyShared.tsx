@@ -1,18 +1,21 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
+    Image,
     KeyboardAvoidingView,
     Modal,
     Platform,
     Pressable,
+    type StyleProp,
     Text,
     TextInput,
     View,
+    type ViewStyle,
 } from 'react-native';
 import { FAMILIES } from '@/src/data/family-data';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { shared } from '@/src/styles/shared';
+import { formSystem, shared } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
 import type { FamilyGroup, FamilyMember } from '@/src/types/family';
 import { styles } from './styles';
@@ -36,13 +39,15 @@ export const RECENT_CONTACTS = [
         name: 'Nguyễn Thị Bình',
         phone: '0901224567',
         initials: 'NB',
-        gradient: ['#7C3AED', '#A855F7'] as [string, string],
+        color: '#0D9488',
+        gradient: ['#0D9488', '#0D9488'] as [string, string],
     },
     {
         name: 'Nguyễn Văn Ba',
         phone: '0912345678',
         initials: 'BA',
-        gradient: ['#0D9488', '#2563EB'] as [string, string],
+        color: '#EA580C',
+        gradient: ['#EA580C', '#EA580C'] as [string, string],
     },
 ];
 
@@ -71,7 +76,7 @@ export const INITIAL_INVITES: InviteItem[] = [
         role: 'Cháu',
         roleEmoji: '🧒',
         invitedAt: '2 giờ trước',
-        gradient: ['#064E3B', '#059669'],
+        gradient: ['#15803D', '#15803D'] as [string, string],
     },
     {
         id: 'inv-2',
@@ -82,7 +87,7 @@ export const INITIAL_INVITES: InviteItem[] = [
         role: 'Con dâu',
         roleEmoji: '👩',
         invitedAt: '1 ngày trước',
-        gradient: ['#1E1B4B', '#4F46E5'],
+        gradient: ['#1D4ED8', '#1D4ED8'] as [string, string],
     },
 ];
 
@@ -121,11 +126,7 @@ export function SectionLabel({ title }: { title: string }) {
         >
             <Text
                 style={{
-                    fontFamily: typography.font.bold,
-                    fontSize: scaleFont(11),
-                    color: colors.text2,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.9,
+                    ...formSystem.sectionTitle,
                 }}
             >
                 {title}
@@ -148,13 +149,15 @@ export function MemberRow({
             style={[styles.mrow, isLast ? styles.mrowLast : null]}
             onPress={onPress}
         >
-            <LinearGradient
-                colors={member.gradientColors as LinearGradientProps['colors']}
-                style={styles.mav}
+            <View
+                style={[
+                    styles.mav,
+                    { backgroundColor: member.gradientColors[0] },
+                ]}
             >
                 <Text style={styles.mavText}>{member.initials}</Text>
                 {member.isOnline ? <View style={styles.mavDot} /> : null}
-            </LinearGradient>
+            </View>
             <View style={styles.minfo}>
                 <Text style={styles.mname}>{member.name}</Text>
                 <Text style={styles.mrole}>{member.role}</Text>
@@ -172,6 +175,7 @@ export function ProfileRow({
     value,
     badge,
     isLast,
+    onPress,
 }: {
     icon: React.ComponentProps<typeof Ionicons>['name'];
     color: string;
@@ -180,9 +184,13 @@ export function ProfileRow({
     value: string;
     badge?: string;
     isLast?: boolean;
+    onPress?: () => void;
 }) {
     return (
-        <View style={[styles.prow, isLast ? styles.prowLast : null]}>
+        <Pressable
+            style={[styles.prow, isLast ? styles.prowLast : null]}
+            onPress={onPress}
+        >
             <View style={[styles.prowIc, { backgroundColor: bg }]}>
                 <Ionicons name={icon} size={18} color={color} />
             </View>
@@ -201,7 +209,7 @@ export function ProfileRow({
                     ) : null}
                 </View>
             </View>
-        </View>
+        </Pressable>
     );
 }
 
@@ -255,6 +263,7 @@ export function MethodCard({
     iconBg,
     title,
     subtitle,
+    style,
     onPress,
 }: {
     icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -262,10 +271,11 @@ export function MethodCard({
     iconBg: string;
     title: string;
     subtitle: string;
+    style?: StyleProp<ViewStyle>;
     onPress?: () => void;
 }) {
     return (
-        <Pressable style={styles.methodCard} onPress={onPress}>
+        <Pressable style={[styles.methodCard, style]} onPress={onPress}>
             <View style={styles.methodInner}>
                 <View style={[styles.methodIc, { backgroundColor: iconBg }]}>
                     <Ionicons name={icon} size={22} color={iconColor} />
@@ -299,7 +309,7 @@ export function InviteCard({
                 backgroundColor: colors.card,
                 borderWidth: 1.5,
                 borderColor: colors.border,
-                borderRadius: 16,
+                borderRadius: 20,
                 overflow: 'hidden',
                 shadowColor: '#0F172A',
                 shadowOpacity: 0.06,
@@ -312,7 +322,8 @@ export function InviteCard({
                 colors={invite.gradient}
                 style={{
                     paddingHorizontal: scale(14),
-                    paddingVertical: verticalScale(12),
+                    paddingVertical: verticalScale(10),
+                    minHeight: verticalScale(48),
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 10,
@@ -320,9 +331,9 @@ export function InviteCard({
             >
                 <View
                     style={{
-                        width: scale(36),
-                        height: scale(36),
-                        borderRadius: scale(11),
+                        width: scale(30),
+                        height: scale(30),
+                        borderRadius: scale(9),
                         backgroundColor: 'rgba(255,255,255,0.18)',
                         borderWidth: 1.5,
                         borderColor: 'rgba(255,255,255,0.25)',
@@ -373,7 +384,7 @@ export function InviteCard({
                 </View>
             </LinearGradient>
 
-            <View style={{ paddingHorizontal: scale(14), paddingVertical: 12 }}>
+            <View style={{ paddingHorizontal: scale(14), paddingVertical: 10 }}>
                 <View
                     style={{
                         flexDirection: 'row',
@@ -515,15 +526,21 @@ export function CreateFamilyModal({
     visible,
     familyName,
     familyAddress,
+    familyAvatarUri,
     onChangeFamilyName,
     onChangeFamilyAddress,
+    onPickFamilyAvatar,
+    onSubmit,
     onClose,
 }: {
     visible: boolean;
     familyName: string;
     familyAddress: string;
+    familyAvatarUri: string | null;
     onChangeFamilyName: (value: string) => void;
     onChangeFamilyAddress: (value: string) => void;
+    onPickFamilyAvatar: () => void;
+    onSubmit: () => void;
     onClose: () => void;
 }) {
     return (
@@ -557,23 +574,44 @@ export function CreateFamilyModal({
                         </View>
                         <View style={shared.sheetBody}>
                             <View style={styles.popupAvWrap}>
-                                <LinearGradient
-                                    colors={['#DDD6FE', '#C4B5FD']}
-                                    style={styles.popupAv}
+                                <Pressable
+                                    style={styles.popupAvPressable}
+                                    onPress={onPickFamilyAvatar}
                                 >
-                                    <Ionicons
-                                        name='people-outline'
-                                        size={28}
-                                        color='#7C3AED'
-                                    />
-                                    <View style={styles.popupAvCam}>
-                                        <Ionicons
-                                            name='camera-outline'
-                                            size={10}
-                                            color='#fff'
-                                        />
+                                    <View style={styles.popupAv}>
+                                        {familyAvatarUri ? (
+                                            <Image
+                                                source={{
+                                                    uri: familyAvatarUri,
+                                                }}
+                                                style={styles.popupAvImage}
+                                            />
+                                        ) : (
+                                            <View
+                                                style={[
+                                                    styles.popupAvPlaceholder,
+                                                    {
+                                                        backgroundColor:
+                                                            colors.primaryBg,
+                                                    },
+                                                ]}
+                                            >
+                                                <Ionicons
+                                                    name='image-outline'
+                                                    size={28}
+                                                    color={colors.primary}
+                                                />
+                                            </View>
+                                        )}
+                                        <View style={styles.popupAvCam}>
+                                            <Ionicons
+                                                name='camera-outline'
+                                                size={10}
+                                                color={colors.card}
+                                            />
+                                        </View>
                                     </View>
-                                </LinearGradient>
+                                </Pressable>
                                 <Text style={styles.popupAvHint}>
                                     Nhấn để chọn ảnh đại diện
                                 </Text>
@@ -615,22 +653,24 @@ export function CreateFamilyModal({
                                     viên sau.
                                 </Text>
                             </View>
-                            <LinearGradient
-                                colors={['#7C3AED', '#2563EB']}
-                                style={styles.createBtn}
+                            <View
+                                style={[
+                                    styles.createBtn,
+                                    { backgroundColor: colors.primary },
+                                ]}
                             >
                                 <Pressable
                                     style={{
                                         width: '100%',
                                         alignItems: 'center',
                                     }}
-                                    onPress={onClose}
+                                    onPress={onSubmit}
                                 >
                                     <Text style={styles.createBtnText}>
                                         Tạo gia đình
                                     </Text>
                                 </Pressable>
-                            </LinearGradient>
+                            </View>
                         </View>
                     </Pressable>
                 </Pressable>
@@ -686,26 +726,26 @@ export function RoleSelectionModal({
                             ]}
                         >
                             <View style={[styles.mrow, styles.mrowLast]}>
-                                <LinearGradient
-                                    colors={['#F5F3FF', '#EEF2FF']}
+                                <View
                                     style={[
                                         styles.mav,
                                         {
                                             width: 44,
                                             height: 44,
                                             borderRadius: 22,
+                                            backgroundColor: '#7C3AED',
                                         },
                                     ]}
                                 >
                                     <Text
                                         style={[
                                             styles.mavText,
-                                            { color: '#7C3AED' },
+                                            { color: '#fff' },
                                         ]}
                                     >
                                         NB
                                     </Text>
-                                </LinearGradient>
+                                </View>
                                 <View style={styles.minfo}>
                                     <Text style={styles.mname}>
                                         Nguyễn Thị Bình
@@ -791,13 +831,15 @@ export function RoleSelectionModal({
                             })}
                         </View>
 
-                        <LinearGradient
-                            colors={
-                                selectedRole
-                                    ? ['#2563EB', '#0D9488']
-                                    : ['#CBD5E1', '#CBD5E1']
-                            }
-                            style={styles.createBtn}
+                        <View
+                            style={[
+                                styles.createBtn,
+                                {
+                                    backgroundColor: selectedRole
+                                        ? colors.primary
+                                        : '#CBD5E1',
+                                },
+                            ]}
                         >
                             <Pressable
                                 disabled={!selectedRole}
@@ -808,7 +850,7 @@ export function RoleSelectionModal({
                                     Gửi lời mời
                                 </Text>
                             </Pressable>
-                        </LinearGradient>
+                        </View>
                     </View>
                 </Pressable>
             </Pressable>

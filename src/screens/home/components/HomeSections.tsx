@@ -51,20 +51,30 @@ export function OverviewSection(): React.JSX.Element {
                                 </Text>
                             </View>
                         </View>
-                        <Text
-                            style={[
-                                styles.statValue,
-                                card.valueColor && { color: card.valueColor },
-                                card.valueSize
-                                    ? {
-                                          fontSize: card.valueSize,
-                                          fontWeight: '700',
-                                      }
-                                    : null,
-                            ]}
-                        >
-                            {card.value}
-                        </Text>
+                        <View style={styles.statValueRow}>
+                            <Text
+                                style={[
+                                    styles.statValue,
+                                    card.valueColor && {
+                                        color: card.valueColor,
+                                    },
+                                ]}
+                            >
+                                {card.value}
+                            </Text>
+                            {card.valueSuffix ? (
+                                <Text
+                                    style={[
+                                        styles.statValueSuffix,
+                                        card.valueColor && {
+                                            color: card.valueColor,
+                                        },
+                                    ]}
+                                >
+                                    {card.valueSuffix}
+                                </Text>
+                            ) : null}
+                        </View>
                         <Text style={styles.statLabel}>{card.label}</Text>
                         {card.sub ? (
                             <Text style={styles.statSub}>{card.sub}</Text>
@@ -232,12 +242,11 @@ export function MedicationSection(): React.JSX.Element {
 export function ChatbotBanner(): React.JSX.Element {
     return (
         <View style={styles.chatbotWrap}>
-            <LinearGradient
-                colors={['#1D4ED8', '#2563EB', '#0D9488']}
-                locations={[0, 0.55, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.chatbotGradient}
+            <View
+                style={[
+                    styles.chatbotGradient,
+                    { backgroundColor: colors.primary },
+                ]}
             >
                 <View style={styles.chatbotIcon}>
                     <Ionicons
@@ -257,7 +266,7 @@ export function ChatbotBanner(): React.JSX.Element {
                     size={20}
                     color='rgba(255,255,255,0.7)'
                 />
-            </LinearGradient>
+            </View>
         </View>
     );
 }

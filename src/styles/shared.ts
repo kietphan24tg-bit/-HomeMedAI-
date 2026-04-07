@@ -2,6 +2,180 @@ import { StyleSheet } from 'react-native';
 import { moderateScale, scale, scaleFont, verticalScale } from './responsive';
 import { colors, shadows, typography } from './tokens';
 
+const cardShellBase = {
+    borderRadius: moderateScale(20),
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    ...shadows.card,
+} as const;
+
+const cardRowBase = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(18),
+    paddingVertical: verticalScale(10),
+    minHeight: verticalScale(48),
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+} as const;
+
+const cardRowIconBase = {
+    width: moderateScale(30),
+    height: moderateScale(30),
+    borderRadius: moderateScale(9),
+    alignItems: 'center',
+    justifyContent: 'center',
+} as const;
+
+const inputFieldBase = {
+    minHeight: verticalScale(36),
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: moderateScale(10),
+    backgroundColor: colors.card,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(5),
+} as const;
+
+const buttonBase = {
+    minHeight: verticalScale(38),
+    borderRadius: moderateScale(11),
+    paddingHorizontal: scale(13),
+    paddingVertical: verticalScale(6),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: scale(8),
+} as const;
+
+export const cardSystem = {
+    shell: cardShellBase,
+    row: cardRowBase,
+    rowIcon: cardRowIconBase,
+    rowBody: {
+        flex: 1,
+        justifyContent: 'center',
+        minHeight: verticalScale(30),
+    },
+    rowTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: colors.text,
+    },
+    rowSub: {
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(11),
+        color: colors.text3,
+        marginTop: verticalScale(3),
+    },
+} as const;
+
+export const inputSystem = {
+    field: inputFieldBase,
+    fieldSoft: {
+        ...inputFieldBase,
+        backgroundColor: colors.bg,
+    },
+    fieldIcon: {
+        ...inputFieldBase,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(8),
+    },
+    text: {
+        flex: 1,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text,
+        padding: 0,
+    },
+    textStrong: {
+        flex: 1,
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(11.5),
+        color: colors.text,
+        padding: 0,
+    },
+    textarea: {
+        ...inputFieldBase,
+        minHeight: verticalScale(72),
+        textAlignVertical: 'top',
+    },
+    selectOption: {
+        ...inputFieldBase,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+} as const;
+
+export const buttonSystem = {
+    primary: {
+        ...buttonBase,
+    },
+    outline: {
+        ...buttonBase,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+    },
+    ghost: {
+        ...buttonBase,
+        backgroundColor: 'transparent',
+    },
+    textPrimary: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12.5),
+        color: '#fff',
+    },
+    textOutline: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12.5),
+        color: colors.text2,
+    },
+    textGhost: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12.5),
+        color: colors.text2,
+    },
+} as const;
+
+export const formSystem = {
+    sectionTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12.5),
+        color: colors.text2,
+        letterSpacing: 0.4,
+    },
+    fieldLabel: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(11.5),
+        color: colors.text2,
+    },
+} as const;
+
+export const medicineCardSystem = {
+    radius: moderateScale(16),
+    topPadding: verticalScale(11),
+    sidePadding: scale(11),
+    rowGap: scale(9),
+    iconBox: moderateScale(32),
+    iconRadius: moderateScale(9),
+    iconSize: 16,
+    titleSize: scaleFont(13.25),
+    titleLineHeight: verticalScale(17),
+    subtitleSize: scaleFont(10.5),
+    statusSize: scaleFont(12),
+    badgeSize: scaleFont(9.5),
+    badgePaddingX: scale(8),
+    badgePaddingY: verticalScale(3),
+    progressHeight: verticalScale(4),
+    reminderSize: scaleFont(11),
+    actionSize: scaleFont(11),
+    actionPaddingY: verticalScale(8),
+} as const;
+
 export const shared = StyleSheet.create({
     // ── Layout ──
     flexRow: {
@@ -28,6 +202,16 @@ export const shared = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         ...shadows.card,
+    },
+    iconBtnFlat: {
+        width: moderateScale(36),
+        height: moderateScale(36),
+        borderRadius: moderateScale(11),
+        backgroundColor: colors.card,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     // ── Icon Circle (colored bg square/circle for row items) ──
@@ -58,36 +242,25 @@ export const shared = StyleSheet.create({
 
     // ── Card Block ──
     cardBlock: {
+        ...cardShellBase,
         marginHorizontal: scale(20),
-        borderRadius: moderateScale(20),
-        backgroundColor: colors.card,
-        borderWidth: 1.5,
-        borderColor: colors.border,
         overflow: 'hidden',
-        ...shadows.card,
     },
 
     card: {
-        backgroundColor: colors.card,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        ...shadows.card,
+        ...cardShellBase,
     },
 
     // ── Row with divider ──
     dividerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: scale(18),
-        paddingVertical: verticalScale(12),
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        ...cardRowBase,
     },
     dividerRowTop: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: scale(18),
         paddingVertical: verticalScale(10),
+        minHeight: verticalScale(48),
         borderTopWidth: 1,
         borderTopColor: colors.border,
     },
@@ -99,25 +272,34 @@ export const shared = StyleSheet.create({
         color: colors.text,
     },
 
-    rowSub: {
-        fontFamily: typography.font.regular,
-        fontSize: scaleFont(11),
-        color: colors.text3,
-        marginTop: verticalScale(1),
-    },
+    rowSub: { ...cardSystem.rowSub },
 
-    rowBody: { flex: 1 },
+    rowBody: { ...cardSystem.rowBody },
+
+    inputField: { ...inputSystem.field },
+    inputFieldSoft: { ...inputSystem.fieldSoft },
+    inputFieldIcon: { ...inputSystem.fieldIcon },
+    inputText: { ...inputSystem.text },
+    inputTextStrong: { ...inputSystem.textStrong },
+    inputTextarea: { ...inputSystem.textarea },
+    selectOption: { ...inputSystem.selectOption },
+    btnPrimaryBase: { ...buttonSystem.primary },
+    btnOutlineBase: { ...buttonSystem.outline },
+    btnGhostBase: { ...buttonSystem.ghost },
+    btnPrimaryTextBase: { ...buttonSystem.textPrimary },
+    btnOutlineTextBase: { ...buttonSystem.textOutline },
+    btnGhostTextBase: { ...buttonSystem.textGhost },
 
     // ── Badge / Pill ──
     pill: {
-        paddingHorizontal: scale(8),
-        paddingVertical: verticalScale(2),
-        borderRadius: moderateScale(20),
+        paddingHorizontal: scale(9),
+        paddingVertical: verticalScale(3),
+        borderRadius: moderateScale(999),
         overflow: 'hidden',
     },
     pillText: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(10),
+        fontSize: scaleFont(9.5),
     },
 
     // ── Inline Badge (icon + text) ──
@@ -126,47 +308,35 @@ export const shared = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: scale(6),
-        paddingHorizontal: scale(12),
-        paddingVertical: verticalScale(4),
-        borderRadius: moderateScale(20),
-        marginBottom: verticalScale(10),
+        paddingHorizontal: scale(10),
+        paddingVertical: verticalScale(3),
+        borderRadius: moderateScale(18),
+        marginBottom: verticalScale(8),
     },
     inlineBadgeText: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
+        fontSize: scaleFont(10.5),
     },
 
     // ── Buttons ──
     btnFilled: {
-        borderRadius: moderateScale(14),
-        paddingVertical: verticalScale(16),
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
+        ...buttonSystem.primary,
         shadowOpacity: 0.3,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
         elevation: 5,
     },
     btnFilledText: {
-        color: '#fff',
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
+        ...buttonSystem.textPrimary,
     },
     btnOutline: {
-        borderRadius: moderateScale(14),
-        paddingVertical: verticalScale(14),
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        flexDirection: 'row',
+        ...buttonSystem.outline,
     },
     btnOutlineText: {
-        fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(14),
-        color: colors.text2,
+        ...buttonSystem.textOutline,
     },
+    btnGhost: { ...buttonSystem.ghost },
+    btnGhostText: { ...buttonSystem.textGhost },
     pressed: {
         opacity: 0.8,
         transform: [{ scale: 0.97 }],
@@ -180,30 +350,30 @@ export const shared = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: verticalScale(12),
+        marginBottom: verticalScale(10),
     },
     sectionTitle: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
+        fontSize: scaleFont(14),
         color: colors.text,
     },
     sectionAction: {
         fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(11.5),
         color: colors.primary,
     },
     sectionTitleSmall: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
+        fontSize: scaleFont(10.5),
         color: colors.text2,
         textTransform: 'uppercase',
-        letterSpacing: 0.8,
+        letterSpacing: 0.7,
     },
 
     // ── Section Header (legacy — used by SectionHeader component) ──
     sectionHeaderOuter: {
         paddingHorizontal: scale(20),
-        paddingTop: verticalScale(22),
+        paddingTop: verticalScale(20),
         paddingBottom: verticalScale(8),
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -211,14 +381,14 @@ export const shared = StyleSheet.create({
     },
     sectionHeaderText: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
-        color: '#5A6A82',
+        fontSize: scaleFont(10.5),
+        color: colors.text2,
         textTransform: 'uppercase',
-        letterSpacing: 0.9,
+        letterSpacing: 0.7,
     },
     sectionHeaderAction: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(11.5),
         color: colors.primary,
     },
 
@@ -241,7 +411,7 @@ export const shared = StyleSheet.create({
         width: moderateScale(10),
         height: moderateScale(10),
         borderRadius: moderateScale(5),
-        backgroundColor: colors.cHealth,
+        backgroundColor: colors.success,
         borderWidth: 2,
         borderColor: '#fff',
     },
@@ -260,7 +430,8 @@ export const shared = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: scale(18),
-        paddingVertical: verticalScale(14),
+        paddingVertical: verticalScale(10),
+        minHeight: verticalScale(48),
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
     },
@@ -269,9 +440,7 @@ export const shared = StyleSheet.create({
         alignItems: 'center',
     },
     csIcon: {
-        width: moderateScale(34),
-        height: moderateScale(34),
-        borderRadius: moderateScale(10),
+        ...cardRowIconBase,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: scale(10),
@@ -279,48 +448,39 @@ export const shared = StyleSheet.create({
     csTitle: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(14),
-        color: '#0C1A2E',
+        color: colors.text,
     },
     countPill: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(11),
         color: colors.primary,
         backgroundColor: colors.primaryBg,
-        paddingHorizontal: scale(11),
-        paddingVertical: verticalScale(4),
-        borderRadius: moderateScale(20),
+        paddingHorizontal: scale(10),
+        paddingVertical: verticalScale(3),
+        borderRadius: moderateScale(999),
     },
 
     // ── Icon Row (icon + content + right element) ──
     iconRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: scale(18),
-        paddingVertical: verticalScale(10),
+        ...cardRowBase,
         borderTopWidth: 1,
         borderTopColor: colors.border,
+        borderBottomWidth: 0,
     },
     iconRowIcon: {
-        width: moderateScale(36),
-        height: moderateScale(36),
-        borderRadius: moderateScale(11),
+        ...cardRowIconBase,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: scale(12),
     },
     iconRowBody: {
-        flex: 1,
+        ...cardSystem.rowBody,
     },
     iconRowTitle: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(13),
-        color: '#0C1A2E',
+        ...cardSystem.rowTitle,
     },
     iconRowSub: {
-        fontFamily: typography.font.regular,
-        fontSize: scaleFont(11),
-        color: '#9BABB8',
-        marginTop: verticalScale(1),
+        ...cardSystem.rowSub,
     },
 
     // ── Note Row ──
@@ -331,7 +491,7 @@ export const shared = StyleSheet.create({
         paddingVertical: verticalScale(10),
         borderTopWidth: 1,
         borderTopColor: colors.border,
-        backgroundColor: '#FAFBFF',
+        backgroundColor: colors.bg,
     },
     noteIcon: {
         width: moderateScale(16),
@@ -341,16 +501,16 @@ export const shared = StyleSheet.create({
         textAlignVertical: 'center',
         fontFamily: typography.font.bold,
         fontSize: scaleFont(10),
-        color: '#9BABB8',
+        color: colors.text3,
         borderWidth: 1,
-        borderColor: '#9BABB8',
+        borderColor: colors.text3,
         marginRight: scale(6),
         marginTop: verticalScale(1),
     },
     noteText: {
         fontFamily: typography.font.regular,
         fontSize: scaleFont(10),
-        color: '#9BABB8',
+        color: colors.text3,
         flex: 1,
         lineHeight: verticalScale(15),
     },
@@ -400,7 +560,7 @@ export const shared = StyleSheet.create({
     },
     sheetTitle: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
+        fontSize: scaleFont(14),
         color: colors.text,
     },
     sheetBody: {
@@ -408,22 +568,18 @@ export const shared = StyleSheet.create({
         paddingTop: verticalScale(16),
     },
     sheetInputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.primaryBg,
-        borderRadius: moderateScale(14),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(12),
+        ...inputSystem.fieldIcon,
+        backgroundColor: colors.card,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        paddingHorizontal: scale(13),
         gap: scale(10),
     },
     sheetInput: {
-        flex: 1,
-        fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(15),
-        color: colors.text,
-        padding: 0,
+        ...inputSystem.textStrong,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
     },
     sheetBtnRow: {
         flexDirection: 'row',
@@ -432,32 +588,17 @@ export const shared = StyleSheet.create({
         paddingTop: verticalScale(18),
     },
     sheetBtnGhost: {
+        ...buttonSystem.outline,
         flex: 1,
-        paddingVertical: verticalScale(13),
-        borderRadius: moderateScale(14),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
-    sheetBtnGhostText: {
-        fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(14),
-        color: colors.text2,
-    },
+    sheetBtnGhostText: { ...buttonSystem.textOutline },
     sheetBtnPrimaryWrap: {
         flex: 1,
         borderRadius: moderateScale(14),
         overflow: 'hidden',
     },
     sheetBtnPrimary: {
-        paddingVertical: verticalScale(13),
-        alignItems: 'center',
-        justifyContent: 'center',
+        ...buttonSystem.primary,
     },
-    sheetBtnPrimaryText: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
-        color: '#fff',
-    },
+    sheetBtnPrimaryText: { ...buttonSystem.textPrimary },
 });

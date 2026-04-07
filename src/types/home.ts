@@ -7,15 +7,15 @@ export interface StatCard {
     badgeColor: string;
     badgeText: string;
     value: string;
+    valueSuffix?: string;
     valueColor?: string;
-    valueSize?: number;
     label: string;
     sub?: string;
     progress?: number;
     progressColor?: string;
 }
 
-export interface FamilyMember {
+export interface HomeFamilyMember {
     code: string;
     name: string;
     role: string;
@@ -23,6 +23,9 @@ export interface FamilyMember {
     gradient: [string, string];
     status: string;
 }
+
+/** @deprecated Use HomeFamilyMember */
+export type FamilyMember = HomeFamilyMember;
 
 export interface ScheduleItem {
     id: number;

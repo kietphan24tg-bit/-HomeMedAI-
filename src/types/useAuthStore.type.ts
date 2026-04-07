@@ -1,3 +1,4 @@
+import type { CurrentUserAccount } from '@/src/features/me/types';
 import { type User } from './user';
 
 export interface SignInParams {
@@ -18,7 +19,7 @@ export interface SignInWithGoogleParams {
 }
 
 export interface AuthStore {
-    user: User | null;
+    user: CurrentUserAccount | null;
     loading: boolean;
     initialized: boolean;
     hasSeenOnboarding: boolean;

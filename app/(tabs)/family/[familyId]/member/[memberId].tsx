@@ -1,26 +1,67 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
+import { useFamilyQuery } from '@/src/features/family/queries';
 import FamilyMemberDetailScreen from '@/src/screens/family/FamilyMemberDetailScreen';
-import {
-    getFamilyById,
-    getMemberById,
-} from '@/src/screens/family/familyShared';
 
 export default function FamilyMemberRoute() {
-    const { familyId, memberId } = useLocalSearchParams<{
+    const { familyId, memberId, tab } = useLocalSearchParams<{
         familyId: string;
         memberId: string;
+        tab?: string;
     }>();
-    const family = getFamilyById(familyId);
-    const member = getMemberById(familyId, memberId);
+    const { data: family, isLoading } = useFamilyQuery(familyId);
 
-    if (!family || !member) {
+    if (isLoading) {
         return (
-            <View>
+            <View
+                style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Text>Đang tải...</Text>
+            </View>
+        );
+    }
+
+    if (!family) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Text>Không tìm thấy gia đình.</Text>
+            </View>
+        );
+    }
+
+    const member = family.members.find(
+        (m: any) => String(m.id) === String(memberId),
+    );
+
+    if (!member) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
                 <Text>Không tìm thấy thành viên.</Text>
             </View>
         );
     }
 
-    return <FamilyMemberDetailScreen family={family} member={member} />;
+    return (
+        <FamilyMemberDetailScreen
+            family={family}
+            member={member}
+            initialTab={tab as any}
+        />
+    );
 }

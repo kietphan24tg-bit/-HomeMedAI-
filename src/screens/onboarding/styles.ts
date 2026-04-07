@@ -5,6 +5,7 @@ import {
     scaleFont,
     verticalScale,
 } from '../../styles/responsive';
+import { buttonSystem, formSystem, inputSystem } from '../../styles/shared';
 import { colors, shadows, typography } from '../../styles/tokens';
 
 export const styles = StyleSheet.create({
@@ -47,6 +48,48 @@ export const styles = StyleSheet.create({
         paddingTop: verticalScale(8),
         paddingBottom: verticalScale(28),
         backgroundColor: colors.bg,
+    },
+    onboardPrimaryBtn: {
+        width: '100%',
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 5,
+    },
+    onboardPrimaryBtnText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
+        letterSpacing: 0.1,
+        backgroundColor: 'transparent',
+        includeFontPadding: false,
+    },
+    onboardPrimaryBtnContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+    },
+    onboardOutlineBtn: {
+        width: '100%',
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: verticalScale(10),
+    },
+    onboardOutlineBtnText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+        color: colors.text,
     },
     /* ── S1 WELCOME ── */
     s1Content: {
@@ -244,7 +287,7 @@ export const styles = StyleSheet.create({
         borderRadius: moderateScale(20),
         paddingVertical: verticalScale(20),
         paddingHorizontal: scale(20),
-        backgroundColor: colors.cReminderBg,
+        backgroundColor: colors.warningBg,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: verticalScale(12),
@@ -418,29 +461,16 @@ export const styles = StyleSheet.create({
         marginBottom: verticalScale(12),
     },
     inputLabel: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
-        color: colors.text2,
-        textTransform: 'uppercase',
-        letterSpacing: 0.4,
+        ...formSystem.fieldLabel,
         marginBottom: verticalScale(5),
     },
     inputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: moderateScale(12),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        backgroundColor: colors.bg,
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(12),
+        ...inputSystem.fieldSoft,
     },
     textInput: {
-        flex: 1,
+        ...inputSystem.text,
         fontFamily: typography.font.medium,
         fontSize: scaleFont(14),
-        color: colors.text,
-        padding: 0,
     },
     forgot: {
         alignSelf: 'flex-end',

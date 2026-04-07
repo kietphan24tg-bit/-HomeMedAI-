@@ -1,9 +1,12 @@
 // src/screens/profile/ProfileScreen.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    Alert,
+    Image,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -21,9 +24,9 @@ import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
-import { colors } from '../../styles/tokens';
+import { colors, gradients } from '../../styles/tokens';
 
-type SheetType = 'simple' | 'select' | 'date' | null;
+type SheetType = 'simple' | 'select' | 'date' | 'contacts' | null;
 interface SheetState {
     type: SheetType;
     key: string;
@@ -37,18 +40,6 @@ interface SheetState {
 }
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
-const BLOOD_OPTIONS = [
-    'A+',
-    'A-',
-    'B+',
-    'B-',
-    'AB+',
-    'AB-',
-    'O+',
-    'O-',
-    'Chưa biết',
-];
-
 function calcBMI(h: string, w: string): string {
     const hNum = parseFloat(h);
     const wNum = parseFloat(w);
@@ -59,6 +50,12 @@ function calcBMI(h: string, w: string): string {
 
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
+    const [avatarUri, setAvatarUri] = useState<string | null>(null);
+    const [contacts, setContacts] = useState({
+        email: 'nguyenvanam[at]email.com',
+        phone: '0901 234 567',
+    });
+    const [contactDraft, setContactDraft] = useState(contacts);
 
     const [fields, setFields] = useState({
         dob: '12/03/1987',
@@ -123,8 +120,49 @@ export default function ProfileScreen(): React.JSX.Element {
         });
     };
 
+    const handlePickAvatar = async () => {
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permission.granted) {
+            Alert.alert(
+                'Chưa có quyền truy cập ảnh',
+                'Hãy cho phép ứng dụng truy cập thư viện ảnh để chọn ảnh đại diện.',
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+        });
+
+        if (!result.canceled && result.assets[0]?.uri) {
+            setAvatarUri(result.assets[0].uri);
+        }
+    };
+
+    const openContactsEditor = () => {
+        Keyboard.dismiss();
+        setContactDraft(contacts);
+        setSheet({
+            type: 'contacts',
+            key: 'contacts',
+            title: 'Thông tin liên hệ',
+            value: '',
+            icon: 'mail-outline',
+        });
+    };
+
     const saveSheet = () => {
         if (!sheet) return;
+        if (sheet.type === 'contacts') {
+            setContacts(contactDraft);
+            setSheet(null);
+            return;
+        }
         setFields((prev) => ({ ...prev, [sheet.key]: draft }));
         setSheet(null);
     };
@@ -150,35 +188,36 @@ export default function ProfileScreen(): React.JSX.Element {
                 {/* TOPBAR */}
                 <View style={styles.topbar}>
                     <View style={styles.topbarLeft}>
-                        <Pressable style={styles.iconBtnSmall}>
+                        <Pressable
+                            style={styles.iconBtnPlain}
+                            onPress={() => router.back()}
+                        >
                             <Ionicons
                                 name='chevron-back'
                                 size={15}
                                 color={colors.text2}
                             />
                         </Pressable>
-                        <Text style={styles.pageTitle}>Hồ sơ cá nhân</Text>
+                        <Text style={styles.pageTitle}>
+                            {'H\u1ED3 s\u01A1 c\u00E1 nh\u00E2n'}
+                        </Text>
                     </View>
-                    <Pressable style={styles.iconBtnSmall}>
-                        <Ionicons
-                            name='share-outline'
-                            size={15}
-                            color={colors.text2}
-                        />
-                    </Pressable>
                 </View>
 
                 {/* HERO CARD */}
                 <View style={styles.heroCard}>
                     <LinearGradient
-                        colors={['#EFF6FF', '#F0FDFA']}
+                        colors={gradients.brandSoft}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.heroStrip}
                     >
                         <View style={styles.stripRow}>
                             <View />
-                            <Pressable style={styles.pencilBtn}>
+                            <Pressable
+                                style={styles.pencilBtn}
+                                onPress={openContactsEditor}
+                            >
                                 <Ionicons
                                     name='create-outline'
                                     size={13}
@@ -187,15 +226,27 @@ export default function ProfileScreen(): React.JSX.Element {
                             </Pressable>
                         </View>
                         <View style={styles.avRow}>
-                            <View style={styles.avWrap}>
-                                <LinearGradient
-                                    colors={['#BFDBFE', '#99F6E4']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.avCircle}
-                                >
-                                    <Text style={styles.avInitials}>AN</Text>
-                                </LinearGradient>
+                            <Pressable
+                                style={styles.avWrap}
+                                onPress={handlePickAvatar}
+                            >
+                                {avatarUri ? (
+                                    <Image
+                                        source={{ uri: avatarUri }}
+                                        style={styles.avCircle}
+                                    />
+                                ) : (
+                                    <LinearGradient
+                                        colors={gradients.healthSoft}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.avCircle}
+                                    >
+                                        <Text style={styles.avInitials}>
+                                            AN
+                                        </Text>
+                                    </LinearGradient>
+                                )}
                                 <View style={styles.avCam}>
                                     <Ionicons
                                         name='camera'
@@ -203,7 +254,7 @@ export default function ProfileScreen(): React.JSX.Element {
                                         color='#fff'
                                     />
                                 </View>
-                            </View>
+                            </Pressable>
                             <View style={styles.heroMeta}>
                                 <Text style={styles.hmName}>Nguyễn Văn An</Text>
                                 <Text style={styles.hmSub}>
@@ -216,7 +267,7 @@ export default function ProfileScreen(): React.JSX.Element {
                         <View style={styles.contactRow}>
                             <Text style={styles.contactLabel}>Email :</Text>
                             <Text style={styles.contactValue}>
-                                nguyenvanam[at]email.com
+                                {contacts.email}
                             </Text>
                         </View>
                         <View style={styles.contactRow}>
@@ -224,7 +275,7 @@ export default function ProfileScreen(): React.JSX.Element {
                                 Số điện thoại :
                             </Text>
                             <Text style={styles.contactValue}>
-                                0901 234 567
+                                {contacts.phone}
                             </Text>
                         </View>
                     </View>
@@ -240,16 +291,16 @@ export default function ProfileScreen(): React.JSX.Element {
                             label='Ngày sinh'
                             value={fields.dob}
                             iconName='calendar'
-                            iconColor={colors.cMedical}
-                            iconBg={colors.cMedicalBg}
+                            iconColor={colors.primary}
+                            iconBg={colors.primaryBg}
                             onPress={openDate}
                         />
                         <FieldRow
                             label='Giới tính'
                             value={fields.gender}
                             iconName='person'
-                            iconColor={colors.cFamily}
-                            iconBg={colors.cFamilyBg}
+                            iconColor={colors.secondary}
+                            iconBg={colors.secondaryBg}
                             onPress={() =>
                                 openSelect(
                                     'gender',
@@ -263,8 +314,8 @@ export default function ProfileScreen(): React.JSX.Element {
                             label='Chiều cao'
                             value={`${fields.height} cm`}
                             iconName='resize'
-                            iconColor={colors.cHealth}
-                            iconBg={colors.cHealthBg}
+                            iconColor={colors.success}
+                            iconBg={colors.successBg}
                             onPress={() =>
                                 openSimple(
                                     'height',
@@ -280,8 +331,8 @@ export default function ProfileScreen(): React.JSX.Element {
                             value={`${fields.weight} kg`}
                             badge={bmi}
                             iconName='speedometer-outline'
-                            iconColor={colors.cHealth}
-                            iconBg={colors.cHealthBg}
+                            iconColor={colors.success}
+                            iconBg={colors.successBg}
                             onPress={() =>
                                 openSimple(
                                     'weight',
@@ -297,8 +348,8 @@ export default function ProfileScreen(): React.JSX.Element {
                             label='Địa chỉ'
                             value={fields.address}
                             iconName='location'
-                            iconColor='#64748B'
-                            iconBg='#F1F5F9'
+                            iconColor={colors.text2}
+                            iconBg={colors.bgHealth}
                             isLast
                             onPress={() =>
                                 openSimple('address', 'Địa chỉ', 'location')
@@ -313,7 +364,7 @@ export default function ProfileScreen(): React.JSX.Element {
                         <Ionicons
                             name='log-out-outline'
                             size={15}
-                            color={colors.cDanger}
+                            color={colors.danger}
                         />
                         <Text style={styles.btnLogoutText}>Đăng xuất</Text>
                     </Pressable>
@@ -416,17 +467,9 @@ export default function ProfileScreen(): React.JSX.Element {
                             {sheet?.type === 'simple' && (
                                 <View style={shared.sheetBody}>
                                     {sheet.isStepper ? (
-                                        <View
-                                            style={[
-                                                styles.stepperContainer,
-                                                { height: 60 },
-                                            ]}
-                                        >
+                                        <View style={styles.stepperContainer}>
                                             <TextInput
-                                                style={[
-                                                    styles.stepperInput,
-                                                    { fontSize: 22 },
-                                                ]}
+                                                style={styles.stepperInput}
                                                 value={draft}
                                                 onChangeText={setDraft}
                                                 keyboardType='numeric'
@@ -436,13 +479,7 @@ export default function ProfileScreen(): React.JSX.Element {
                                                 style={styles.stepperControls}
                                             >
                                                 <Pressable
-                                                    style={[
-                                                        styles.stepBtn,
-                                                        {
-                                                            width: 44,
-                                                            height: 44,
-                                                        },
-                                                    ]}
+                                                    style={styles.stepBtn}
                                                     onPress={() => {
                                                         const val =
                                                             parseInt(
@@ -458,13 +495,7 @@ export default function ProfileScreen(): React.JSX.Element {
                                                     />
                                                 </Pressable>
                                                 <Pressable
-                                                    style={[
-                                                        styles.stepBtn,
-                                                        {
-                                                            width: 44,
-                                                            height: 44,
-                                                        },
-                                                    ]}
+                                                    style={styles.stepBtn}
                                                     onPress={() => {
                                                         const val = Math.max(
                                                             0,
@@ -484,13 +515,7 @@ export default function ProfileScreen(): React.JSX.Element {
                                             </View>
                                             {sheet.suffix && (
                                                 <Text
-                                                    style={[
-                                                        styles.stepperUnit,
-                                                        {
-                                                            fontSize: 16,
-                                                            marginRight: 10,
-                                                        },
-                                                    ]}
+                                                    style={styles.stepperUnit}
                                                 >
                                                     {sheet.suffix}
                                                 </Text>
@@ -528,6 +553,73 @@ export default function ProfileScreen(): React.JSX.Element {
                                             )}
                                         </View>
                                     )}
+                                </View>
+                            )}
+
+                            {sheet?.type === 'contacts' && (
+                                <View style={shared.sheetBody}>
+                                    <View style={styles.contactFieldGroup}>
+                                        <Text style={styles.contactFieldLabel}>
+                                            Email
+                                        </Text>
+                                        <View
+                                            style={styles.contactFieldInputWrap}
+                                        >
+                                            <Ionicons
+                                                name='mail-outline'
+                                                size={17}
+                                                color={colors.primary}
+                                            />
+                                            <TextInput
+                                                style={styles.contactFieldInput}
+                                                value={contactDraft.email}
+                                                onChangeText={(value) =>
+                                                    setContactDraft((prev) => ({
+                                                        ...prev,
+                                                        email: value,
+                                                    }))
+                                                }
+                                                keyboardType='email-address'
+                                                autoCapitalize='none'
+                                                autoCorrect={false}
+                                                placeholder='Nhập email'
+                                                placeholderTextColor={
+                                                    colors.text3
+                                                }
+                                                autoFocus
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.contactFieldGroup}>
+                                        <Text style={styles.contactFieldLabel}>
+                                            Số điện thoại
+                                        </Text>
+                                        <View
+                                            style={styles.contactFieldInputWrap}
+                                        >
+                                            <Ionicons
+                                                name='call-outline'
+                                                size={17}
+                                                color={colors.primary}
+                                            />
+                                            <TextInput
+                                                style={styles.contactFieldInput}
+                                                value={contactDraft.phone}
+                                                onChangeText={(value) =>
+                                                    setContactDraft((prev) => ({
+                                                        ...prev,
+                                                        phone: value,
+                                                    }))
+                                                }
+                                                keyboardType='phone-pad'
+                                                placeholder='Nhập số điện thoại'
+                                                placeholderTextColor={
+                                                    colors.text3
+                                                }
+                                            />
+                                        </View>
+                                    </View>
                                 </View>
                             )}
 
@@ -579,18 +671,13 @@ export default function ProfileScreen(): React.JSX.Element {
                                     </Text>
                                 </Pressable>
                                 <Pressable
-                                    style={shared.sheetBtnPrimaryWrap}
+                                    style={[
+                                        shared.sheetBtnPrimaryWrap,
+                                        { backgroundColor: colors.primary },
+                                    ]}
                                     onPress={saveSheet}
                                 >
-                                    <LinearGradient
-                                        colors={[
-                                            colors.primary,
-                                            colors.secondary,
-                                        ]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={shared.sheetBtnPrimary}
-                                    >
+                                    <View style={shared.sheetBtnPrimary}>
                                         <View
                                             style={{
                                                 flexDirection: 'row',
@@ -608,10 +695,10 @@ export default function ProfileScreen(): React.JSX.Element {
                                                     shared.sheetBtnPrimaryText
                                                 }
                                             >
-                                                Lưu
+                                                {'L\u01B0u'}
                                             </Text>
                                         </View>
-                                    </LinearGradient>
+                                    </View>
                                 </Pressable>
                             </View>
                         </Pressable>

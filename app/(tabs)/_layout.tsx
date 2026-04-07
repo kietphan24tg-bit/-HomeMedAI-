@@ -1,5 +1,4 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
@@ -72,20 +71,22 @@ export default function TabLayout() {
                 name='profile'
                 options={{
                     title: '',
-                    tabBarIcon: () => (
+                    tabBarIcon: ({ focused }) => (
                         <View style={raisedStyles.wrap}>
-                            <LinearGradient
-                                colors={['#2563EB', '#14B8A6']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={raisedStyles.btn}
+                            <View
+                                style={[
+                                    raisedStyles.btn,
+                                    focused
+                                        ? raisedStyles.btnActive
+                                        : raisedStyles.btnIdle,
+                                ]}
                             >
                                 <MaterialIcons
                                     name='note-add'
                                     size={22}
                                     color='#fff'
                                 />
-                            </LinearGradient>
+                            </View>
                             <Text style={raisedStyles.label}>Hồ sơ</Text>
                         </View>
                     ),
@@ -128,11 +129,21 @@ const raisedStyles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 3,
         borderColor: colors.card,
+        backgroundColor: colors.primary,
+    },
+    btnActive: {
         shadowColor: '#2563EB',
         shadowOpacity: 0.32,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 4 },
         elevation: 6,
+    },
+    btnIdle: {
+        shadowColor: colors.primary,
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
     },
     label: {
         fontSize: 10,

@@ -1,5 +1,6 @@
 import LaunchScreen from '@/src/components/LaunchScreen';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
     Inter_400Regular,
     Inter_500Medium,
@@ -13,6 +14,7 @@ import {
     DefaultTheme,
     ThemeProvider,
 } from '@react-navigation/native';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -21,6 +23,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
+import { appQueryClient } from '@/src/lib/query-client';
 import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 
@@ -40,6 +43,7 @@ export default function RootLayout() {
         Inter_600SemiBold,
         Inter_700Bold,
         Inter_900Black,
+        ...MaterialCommunityIcons.font,
     });
 
     useEffect(() => {
@@ -72,48 +76,52 @@ export default function RootLayout() {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
-                <ThemeProvider
-                    value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
-                >
-                    {showLaunchScreen ? (
-                        <LaunchScreen />
-                    ) : (
-                        <Stack screenOptions={MOTION_PRESETS.root}>
-                            <Stack.Screen
-                                name='onboarding'
-                                options={MOTION_PRESETS.launch}
-                            />
-                            <Stack.Screen
-                                name='(tabs)'
-                                options={MOTION_PRESETS.tabEntry}
-                            />
-                            <Stack.Screen
-                                name='auth'
-                                options={MOTION_PRESETS.flowEntry}
-                            />
-                            <Stack.Screen
-                                name='personal-info'
-                                options={MOTION_PRESETS.drillDown}
-                            />
-                            <Stack.Screen
-                                name='post-login'
-                                options={MOTION_PRESETS.flowEntry}
-                            />
-                            <Stack.Screen
-                                name='join-family-code'
-                                options={MOTION_PRESETS.drillDown}
-                            />
-                            <Stack.Screen
-                                name='medical-dictionary/[entryType]/[itemId]'
-                                options={MOTION_PRESETS.drillDown}
-                            />
-                        </Stack>
-                    )}
-                    <StatusBar style='auto' />
-                </ThemeProvider>
-            </SafeAreaProvider>
-            <Toaster />
+            <QueryClientProvider client={appQueryClient}>
+                <SafeAreaProvider>
+                    <ThemeProvider
+                        value={
+                            colorScheme === 'dark' ? DarkTheme : DefaultTheme
+                        }
+                    >
+                        {showLaunchScreen ? (
+                            <LaunchScreen />
+                        ) : (
+                            <Stack screenOptions={MOTION_PRESETS.root}>
+                                <Stack.Screen
+                                    name='onboarding'
+                                    options={MOTION_PRESETS.launch}
+                                />
+                                <Stack.Screen
+                                    name='(tabs)'
+                                    options={MOTION_PRESETS.tabEntry}
+                                />
+                                <Stack.Screen
+                                    name='auth'
+                                    options={MOTION_PRESETS.flowEntry}
+                                />
+                                <Stack.Screen
+                                    name='personal-info'
+                                    options={MOTION_PRESETS.drillDown}
+                                />
+                                <Stack.Screen
+                                    name='post-login'
+                                    options={MOTION_PRESETS.flowEntry}
+                                />
+                                <Stack.Screen
+                                    name='join-family-code'
+                                    options={MOTION_PRESETS.drillDown}
+                                />
+                                <Stack.Screen
+                                    name='medical-dictionary/[entryType]/[itemId]'
+                                    options={MOTION_PRESETS.drillDown}
+                                />
+                            </Stack>
+                        )}
+                        <StatusBar style='auto' />
+                    </ThemeProvider>
+                </SafeAreaProvider>
+                <Toaster />
+            </QueryClientProvider>
         </GestureHandlerRootView>
     );
 }

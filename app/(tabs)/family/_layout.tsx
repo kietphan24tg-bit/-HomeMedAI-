@@ -28,6 +28,46 @@ export default function FamilyLayout() {
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
+                name='[familyId]/member/[memberId]/history'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/records/index'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/records/new'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/records/[recordId]'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/vaccines/index'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/vaccines/[vaxId]'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/metrics/index'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/metrics/new'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/followups/index'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
+                name='[familyId]/member/[memberId]/history/followups/new'
+                options={MOTION_PRESETS.drillDown}
+            />
+            <Stack.Screen
                 name='[familyId]/medicine'
                 options={MOTION_PRESETS.drillDown}
             />

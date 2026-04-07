@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
     ActivityIndicator,
@@ -9,7 +8,6 @@ import {
     View,
 } from 'react-native';
 import { appToast } from '@/src/lib/toast';
-import { shared } from '@/src/styles/shared';
 import { colors } from '@/src/styles/tokens';
 import { authStyles as s, type SignInFormProps } from './authStyles';
 import { GoogleLogo } from '../../components/ui';
@@ -34,8 +32,8 @@ export default function SignInForm({
                     <View style={s.inputIcon}>
                         <Ionicons
                             name='mail-outline'
-                            size={16}
-                            color={errors.email ? colors.cDanger : colors.text3}
+                            size={18}
+                            color={errors.email ? colors.danger : colors.text3}
                         />
                     </View>
                     <TextInput
@@ -49,28 +47,28 @@ export default function SignInForm({
                         editable={!loading}
                     />
                 </View>
-                {errors.email && (
+                {errors.email ? (
                     <Text style={s.errorText}>{errors.email}</Text>
-                )}
+                ) : null}
             </View>
 
             <View style={s.inputGroup}>
-                <Text style={s.inputLabel}>MẬT KHẨU</Text>
+                <Text style={s.inputLabel}>{'M\u1EACT KH\u1EA8U'}</Text>
                 <View
                     style={[s.inputWrap, errors.password && s.inputWrapError]}
                 >
                     <View style={s.inputIcon}>
                         <Ionicons
                             name='lock-closed-outline'
-                            size={16}
+                            size={18}
                             color={
-                                errors.password ? colors.cDanger : colors.text3
+                                errors.password ? colors.danger : colors.text3
                             }
                         />
                     </View>
                     <TextInput
                         style={s.textInput}
-                        placeholder='Nhập mật khẩu'
+                        placeholder={'Nh\u1EADp m\u1EADt kh\u1EA9u'}
                         placeholderTextColor={colors.text3}
                         value={password}
                         onChangeText={setPassword}
@@ -87,49 +85,44 @@ export default function SignInForm({
                             }
                             size={18}
                             color={
-                                errors.password ? colors.cDanger : colors.text3
+                                errors.password ? colors.danger : colors.text3
                             }
                         />
                     </Pressable>
                 </View>
-                {errors.password && (
+                {errors.password ? (
                     <Text style={s.errorText}>{errors.password}</Text>
-                )}
+                ) : null}
             </View>
 
             <Pressable style={s.forgotBtn} onPress={onForgotPassword}>
-                <Text style={s.forgotText}>Quên mật khẩu?</Text>
+                <Text style={s.forgotText}>
+                    {'Qu\u00EAn m\u1EADt kh\u1EA9u?'}
+                </Text>
             </Pressable>
 
             <Pressable
-                style={({ pressed }) => [pressed && shared.pressed]}
+                style={[s.btnPrimary, loading && s.btnPrimaryLoading]}
                 onPress={handleAction}
                 disabled={loading}
             >
-                <LinearGradient
-                    colors={
-                        loading
-                            ? ['#5B84F1', '#4D73E8']
-                            : ['#2563EB', '#1D4ED8']
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[s.btnPrimary, loading && s.btnPrimaryLoading]}
-                >
-                    <View style={s.btnPrimaryContent}>
-                        {loading ? (
-                            <ActivityIndicator size='small' color='#fff' />
-                        ) : null}
-                        <Text style={s.btnPrimaryText}>
-                            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                        </Text>
-                    </View>
-                </LinearGradient>
+                <View style={s.btnPrimaryContent}>
+                    {loading ? (
+                        <ActivityIndicator size='small' color='#fff' />
+                    ) : null}
+                    <Text style={s.btnPrimaryText}>
+                        {loading
+                            ? '\u0110ang \u0111\u0103ng nh\u1EADp...'
+                            : '\u0110\u0103ng nh\u1EADp'}
+                    </Text>
+                </View>
             </Pressable>
 
             <View style={s.orRow}>
                 <View style={s.orLine} />
-                <Text style={s.orText}>hoặc tiếp tục với</Text>
+                <Text style={s.orText}>
+                    {'ho\u1EB7c ti\u1EBFp t\u1EE5c v\u1EDBi'}
+                </Text>
                 <View style={s.orLine} />
             </View>
 
@@ -142,11 +135,16 @@ export default function SignInForm({
                     },
                 ]}
                 onPress={() =>
-                    appToast.showInfo('Infor', 'Tính năng đang phát triển')
+                    appToast.showInfo(
+                        'Info',
+                        'T\u00EDnh n\u0103ng \u0111ang ph\u00E1t tri\u1EC3n',
+                    )
                 }
             >
                 <GoogleLogo />
-                <Text style={s.btnSocialLabel}>Tiếp tục với Google</Text>
+                <Text style={s.btnSocialLabel}>
+                    {'Ti\u1EBFp t\u1EE5c v\u1EDBi Google'}
+                </Text>
             </Pressable>
 
             <View style={s.trustRow}>
@@ -156,7 +154,7 @@ export default function SignInForm({
                         size={12}
                         color={colors.text3}
                     />
-                    <Text style={s.trustText}>SSL bảo mật</Text>
+                    <Text style={s.trustText}>{'SSL b\u1EA3o m\u1EADt'}</Text>
                 </View>
                 <View style={s.trustItem}>
                     <Ionicons
@@ -164,7 +162,9 @@ export default function SignInForm({
                         size={12}
                         color={colors.text3}
                     />
-                    <Text style={s.trustText}>Không chia sẻ dữ liệu</Text>
+                    <Text style={s.trustText}>
+                        {'Kh\u00F4ng chia s\u1EBB d\u1EEF li\u1EC7u'}
+                    </Text>
                 </View>
             </View>
         </View>

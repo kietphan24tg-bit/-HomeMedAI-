@@ -11,6 +11,8 @@ export type FamilyMedicineItem = {
     dose?: string;
     lowThreshold: number;
     originalQty: number;
+    form?: string;
+    reminder?: string;
 };
 
 export const FAMILY_MEDICINES: FamilyMedicineItem[] = [
@@ -27,6 +29,8 @@ export const FAMILY_MEDICINES: FamilyMedicineItem[] = [
         dose: '1-2 viên/lần',
         lowThreshold: 10,
         originalQty: 20,
+        form: 'Viên nén',
+        reminder: 'ON • T3,T5 07:00/20:00',
     },
     {
         id: 'tc2',
@@ -82,6 +86,8 @@ export const FAMILY_MEDICINES: FamilyMedicineItem[] = [
         dose: '1 viên/ngày',
         lowThreshold: 8,
         originalQty: 30,
+        form: 'Viên sủi',
+        reminder: 'ON • Mỗi ngày 08:00',
     },
     {
         id: 'tc6',

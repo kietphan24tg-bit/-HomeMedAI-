@@ -57,7 +57,7 @@ export default function PermissionPage({
                             <Ionicons
                                 name='notifications'
                                 size={52}
-                                color={colors.cReminder}
+                                color={colors.warning}
                             />
                         </Animated.View>
                     </View>
@@ -66,18 +66,18 @@ export default function PermissionPage({
                 <View
                     style={[
                         shared.inlineBadge,
-                        { backgroundColor: colors.cReminderBg },
+                        { backgroundColor: colors.warningBg },
                     ]}
                 >
                     <Ionicons
                         name='notifications-outline'
                         size={11}
-                        color={colors.cReminder}
+                        color={colors.warning}
                     />
                     <Text
                         style={[
                             shared.inlineBadgeText,
-                            { color: colors.cReminder },
+                            { color: colors.warning },
                         ]}
                     >
                         Thông báo
@@ -120,22 +120,17 @@ export default function PermissionPage({
             <View style={styles.sBtn}>
                 <Pressable
                     style={({ pressed }) => [
-                        shared.btnFilled,
-                        {
-                            backgroundColor: colors.cReminder,
-                            shadowColor: colors.cReminder,
-                        },
+                        styles.onboardPrimaryBtn,
                         pressed && shared.pressed,
                     ]}
                     onPress={() => goTo(3)}
                 >
-                    <Ionicons
-                        name='notifications'
-                        size={16}
-                        color='#fff'
-                        style={{ marginRight: 8 }}
-                    />
-                    <Text style={shared.btnFilledText}>Cho phép thông báo</Text>
+                    <View style={styles.onboardPrimaryBtnContent}>
+                        <Ionicons name='notifications' size={16} color='#fff' />
+                        <Text style={styles.onboardPrimaryBtnText}>
+                            Cho phép thông báo
+                        </Text>
+                    </View>
                 </Pressable>
                 <Pressable
                     style={({ pressed }) => [

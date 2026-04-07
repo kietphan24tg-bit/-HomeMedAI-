@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -15,8 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatePanel from '@/src/components/state/StatePanel';
 import { familiesServices } from '@/src/services/families.services';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { shared } from '@/src/styles/shared';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
 import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
@@ -44,7 +48,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             setPreviewData(res);
             setPreviewState('success');
         } catch (error) {
-            console.log(error);
+            console.error(error);
             setPreviewData(null);
             setPreviewState('error');
         }
@@ -84,13 +88,13 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                     </Text>
                 </View>
 
-                <View style={styles.formCard}>
+                <View style={styles.inputGroup}>
                     <Text style={styles.label}>Mã gia đình / mã mời</Text>
                     <View style={styles.inputWrap}>
                         <Ionicons
                             name='key-outline'
                             size={18}
-                            color={colors.primary}
+                            color={colors.text3}
                             style={{ marginRight: 10 }}
                         />
                         <TextInput
@@ -102,54 +106,78 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             autoCapitalize='characters'
                         />
                     </View>
+                </View>
 
+                <View style={styles.primaryWrap}>
                     <Pressable
-                        style={({ pressed }) => [
-                            pressed && shared.pressed,
-                            styles.primaryWrap,
+                        style={[
+                            styles.primaryBtn,
+                            previewState === 'loading' &&
+                                styles.primaryBtnLoading,
                         ]}
                         onPress={handlePreview}
                         disabled={previewState === 'loading'}
                     >
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={shared.btnFilled}
-                        >
+                        <View style={styles.primaryBtnContent}>
                             {previewState === 'loading' ? (
-                                <ActivityIndicator
-                                    size='small'
-                                    color='#fff'
-                                    style={{ marginRight: 8 }}
-                                />
+                                <ActivityIndicator size='small' color='#fff' />
                             ) : null}
-                            <Text style={shared.btnFilledText}>
-                                Kiểm tra mã
+                            <Text style={styles.primaryBtnText}>
+                                {previewState === 'loading'
+                                    ? '\u0110ang ki\u1EC3m tra...'
+                                    : 'Ki\u1EC3m tra m\u00E3'}
                             </Text>
-                        </LinearGradient>
+                        </View>
                     </Pressable>
                 </View>
 
                 {previewState === 'success' && previewData ? (
                     <View style={styles.previewCard}>
-                        <Text style={styles.previewLabel}>Đã tìm thấy</Text>
-                        <Text style={styles.previewTitle}>
-                            {previewData.family_name || 'Gia đình hợp lệ'}
-                        </Text>
-                        <Text style={styles.previewDesc}>
-                            Mã {previewData.invite_code || inviteCode.trim()}{' '}
-                            hợp lệ. Bước chọn hồ sơ trong gia đình có thể được
-                            nối tiếp ở vòng triển khai tiếp theo.
-                        </Text>
-                        <Pressable
-                            style={styles.secondaryBtn}
-                            onPress={() => router.replace('/(tabs)')}
-                        >
-                            <Text style={styles.secondaryBtnText}>
-                                Vào trang chủ
+                        <View style={styles.previewHeaderRow}>
+                            <View style={styles.previewHeaderIconWrap}>
+                                <Ionicons
+                                    name='checkmark'
+                                    size={11}
+                                    color={colors.primary}
+                                />
+                            </View>
+                            <Text style={styles.previewLabel}>Đã tìm thấy</Text>
+                        </View>
+                        <View style={styles.previewBody}>
+                            <Text style={styles.previewTitle}>
+                                {previewData.family_name || 'Gia đình hợp lệ'}
                             </Text>
-                        </Pressable>
+                            <Text style={styles.previewDesc}>
+                                Mã{' '}
+                                <Text style={styles.previewCode}>
+                                    {(
+                                        previewData.invite_code ||
+                                        inviteCode.trim()
+                                    ).toUpperCase()}
+                                </Text>{' '}
+                                hợp lệ. Bước chọn hồ sơ trong gia đình có thể
+                                được nối tiếp ở vòng triển khai tiếp theo.
+                            </Text>
+
+                            <View style={styles.previewFooterRow}>
+                                <Text style={styles.previewMeta}>
+                                    Sẵn sàng chọn hồ sơ để liên kết
+                                </Text>
+                                <Pressable
+                                    style={styles.secondaryBtn}
+                                    onPress={() => router.replace('/(tabs)')}
+                                >
+                                    <Text style={styles.secondaryBtnText}>
+                                        Chọn hồ sơ
+                                    </Text>
+                                    <Ionicons
+                                        name='chevron-forward'
+                                        size={14}
+                                        color={colors.primary}
+                                    />
+                                </Pressable>
+                            </View>
+                        </View>
                     </View>
                 ) : null}
 
@@ -188,7 +216,7 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(13),
     },
     hero: {
-        marginBottom: verticalScale(20),
+        marginBottom: verticalScale(10),
     },
     badge: {
         alignSelf: 'flex-start',
@@ -217,83 +245,142 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(14),
         lineHeight: verticalScale(22),
     },
-    formCard: {
+    inputGroup: {
+        marginBottom: verticalScale(16),
+    },
+    label: {
+        ...formSystem.fieldLabel,
+        lineHeight: verticalScale(16),
+        marginBottom: verticalScale(7),
+    },
+    inputWrap: {
+        ...inputSystem.fieldIcon,
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: colors.card,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(12),
         borderWidth: 1.5,
         borderColor: colors.border,
-        borderRadius: scale(22),
-        padding: scale(18),
+        paddingHorizontal: scale(13),
+    },
+    primaryBtn: {
+        width: '100%',
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 5,
+    },
+    primaryBtnLoading: {
+        backgroundColor: 'rgba(15, 110, 86, 0.72)',
+        opacity: 0.88,
+    },
+    primaryBtnText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
+    },
+    primaryBtnContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+    },
+    input: {
+        ...inputSystem.text,
+        fontFamily: typography.font.medium,
+        color: colors.text,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
+    },
+    primaryWrap: {
+        marginTop: verticalScale(8),
+        marginBottom: verticalScale(18),
+    },
+    previewCard: {
+        backgroundColor: colors.card,
+        borderRadius: scale(18),
+        overflow: 'hidden',
         marginBottom: verticalScale(18),
         ...shadows.card,
     },
-    label: {
-        color: colors.text2,
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
-        textTransform: 'uppercase',
-        marginBottom: verticalScale(8),
-        letterSpacing: 0.5,
-    },
-    inputWrap: {
+    previewHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.bg,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        borderRadius: scale(16),
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(14),
+        gap: scale(8),
+        backgroundColor: colors.primary,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(10),
     },
-    input: {
-        flex: 1,
-        padding: 0,
-        color: colors.text,
-        fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(15),
-    },
-    primaryWrap: {
-        marginTop: verticalScale(14),
-    },
-    previewCard: {
-        backgroundColor: '#F0FDFA',
-        borderWidth: 1.5,
-        borderColor: '#99F6E4',
-        borderRadius: scale(20),
-        padding: scale(18),
-        marginBottom: verticalScale(18),
+    previewHeaderIconWrap: {
+        width: moderateScale(20),
+        height: moderateScale(20),
+        borderRadius: moderateScale(10),
+        backgroundColor: '#D1FAE5',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     previewLabel: {
-        color: colors.secondary,
+        color: '#ECFDF5',
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
+        fontSize: scaleFont(12),
         textTransform: 'uppercase',
-        marginBottom: verticalScale(6),
+        letterSpacing: 0.4,
+    },
+    previewBody: {
+        paddingHorizontal: scale(20),
+        paddingVertical: verticalScale(16),
     },
     previewTitle: {
-        color: colors.text,
+        color: '#134E4A',
         fontFamily: typography.font.black,
-        fontSize: scaleFont(18),
-        marginBottom: verticalScale(8),
+        fontSize: scaleFont(19),
+        lineHeight: verticalScale(26),
+        marginBottom: verticalScale(10),
     },
     previewDesc: {
         color: colors.text2,
         fontFamily: typography.font.regular,
         fontSize: scaleFont(13),
-        lineHeight: verticalScale(20),
-        marginBottom: verticalScale(14),
+        lineHeight: verticalScale(21),
+        marginBottom: verticalScale(16),
+    },
+    previewCode: {
+        color: colors.primary,
+        fontFamily: typography.font.bold,
+    },
+    previewFooterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: scale(10),
+    },
+    previewMeta: {
+        flex: 1,
+        color: '#0D9488',
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12.5),
     },
     secondaryBtn: {
-        alignSelf: 'flex-start',
-        backgroundColor: colors.card,
-        borderColor: '#99F6E4',
-        borderWidth: 1.5,
-        borderRadius: scale(14),
+        ...buttonSystem.outline,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(6),
+        backgroundColor: '#F0FDF4',
+        borderColor: '#A7F3D0',
+        borderRadius: scale(999),
         paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(10),
+        minHeight: verticalScale(34),
     },
     secondaryBtnText: {
-        color: colors.secondary,
+        color: colors.primary,
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(13),
+        fontSize: scaleFont(12.5),
     },
 });

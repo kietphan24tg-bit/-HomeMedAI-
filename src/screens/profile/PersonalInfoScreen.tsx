@@ -2,12 +2,11 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import DateTimePicker, {
     type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
-    Easing,
     Platform,
     Pressable,
     ScrollView,
@@ -26,10 +25,15 @@ import {
     scaleFont,
     verticalScale,
 } from '../../styles/responsive';
-import { shared } from '../../styles/shared';
+import {
+    buttonSystem,
+    formSystem,
+    inputSystem,
+    shared,
+} from '../../styles/shared';
 import { colors, typography } from '../../styles/tokens';
 
-const PAGE_BG = '#F0F4FF';
+const PAGE_BG = colors.bg;
 
 const GENDERS = [
     { key: 'male', label: 'Nam', icon: 'male-outline' as const },
@@ -86,23 +90,8 @@ export default function PersonalInfoScreen({
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const anims = useRef(
-        Array.from({ length: 7 }, () => new Animated.Value(0)),
+        Array.from({ length: 7 }, () => new Animated.Value(1)),
     ).current;
-
-    useEffect(() => {
-        Animated.stagger(
-            70,
-            anims.map((a, i) =>
-                Animated.timing(a, {
-                    toValue: 1,
-                    duration: 440,
-                    delay: 60 + i * 90,
-                    easing: Easing.out(Easing.back(1.15)),
-                    useNativeDriver: true,
-                }),
-            ),
-        ).start();
-    }, [anims]);
 
     const anim = (i: number) => ({
         opacity: anims[i],
@@ -271,8 +260,8 @@ export default function PersonalInfoScreen({
                     <View style={styles.inputCard}>
                         <Ionicons
                             name='person-outline'
-                            size={16}
-                            color={colors.primary}
+                            size={18}
+                            color={colors.text3}
                             style={styles.leadingIcon}
                         />
                         <TextInput
@@ -297,8 +286,8 @@ export default function PersonalInfoScreen({
                         >
                             <Ionicons
                                 name='calendar-outline'
-                                size={16}
-                                color={colors.primary}
+                                size={18}
+                                color={colors.text3}
                             />
                         </Pressable>
                         <TextInput
@@ -357,7 +346,7 @@ export default function PersonalInfoScreen({
                                 >
                                     <Ionicons
                                         name={icon}
-                                        size={20}
+                                        size={18}
                                         color={
                                             active
                                                 ? colors.primary
@@ -420,8 +409,8 @@ export default function PersonalInfoScreen({
                     <View style={styles.inputCard}>
                         <Ionicons
                             name='location-outline'
-                            size={16}
-                            color={colors.primary}
+                            size={18}
+                            color={colors.text3}
                             style={styles.leadingIcon}
                         />
                         <TextInput
@@ -437,36 +426,32 @@ export default function PersonalInfoScreen({
 
                 <Animated.View style={[styles.btnWrap, anim(6)]}>
                     <Pressable
-                        style={({ pressed }) => [
-                            (pressed || isSubmitting) && shared.pressed,
+                        style={[
+                            styles.btnSave,
+                            isSubmitting && styles.btnSaveLoading,
                         ]}
                         onPress={handleComplete}
                         disabled={isSubmitting}
                     >
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={[
-                                shared.btnFilled,
-                                styles.btn,
-                                { shadowColor: colors.primary },
-                            ]}
-                        >
-                            <Text
-                                style={[shared.btnFilledText, styles.btnText]}
-                            >
-                                {isSubmitting ? 'Đang lưu...' : 'Tiếp theo'}
-                            </Text>
-                            {!isSubmitting ? (
+                        {isSubmitting ? (
+                            <View style={styles.btnSaveContent}>
+                                <ActivityIndicator size='small' color='#fff' />
+                                <Text style={styles.btnSaveText}>
+                                    {'\u0110ang l\u01B0u...'}
+                                </Text>
+                            </View>
+                        ) : (
+                            <View style={styles.btnSaveContent}>
                                 <Feather
                                     name='arrow-right'
                                     size={18}
                                     color='#fff'
-                                    style={{ marginLeft: 8 }}
                                 />
-                            ) : null}
-                        </LinearGradient>
+                                <Text style={styles.btnSaveText}>
+                                    {'Ti\u1EBFp theo'}
+                                </Text>
+                            </View>
+                        )}
                     </Pressable>
                 </Animated.View>
             </ScrollView>
@@ -522,50 +507,48 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(16),
     },
     label: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(13),
-        color: colors.text,
-        marginBottom: verticalScale(8),
+        ...formSystem.fieldLabel,
+        lineHeight: verticalScale(16),
+        marginBottom: verticalScale(7),
     },
     inputCard: {
-        minHeight: verticalScale(48),
-        borderRadius: moderateScale(16),
+        ...inputSystem.fieldIcon,
+        backgroundColor: colors.card,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(12),
         borderWidth: 1.5,
-        borderColor: '#D9E4F7',
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: scale(12),
-        flexDirection: 'row',
-        alignItems: 'center',
+        borderColor: colors.border,
+        paddingHorizontal: scale(13),
     },
     leadingIcon: {
-        marginRight: 8,
+        marginRight: scale(10),
     },
     dateIconButton: {
-        marginRight: 8,
+        marginRight: scale(10),
         alignItems: 'center',
         justifyContent: 'center',
     },
     inputText: {
-        flex: 1,
+        ...inputSystem.text,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(15),
-        color: colors.text,
-        paddingVertical: verticalScale(10),
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
     },
     iosWrap: {
         marginTop: verticalScale(10),
-        borderRadius: moderateScale(16),
-        backgroundColor: '#FFFFFF',
+        borderRadius: moderateScale(11),
+        backgroundColor: colors.card,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#D9E4F7',
+        borderColor: colors.border,
     },
     iosBar: {
         paddingHorizontal: scale(16),
         paddingVertical: verticalScale(10),
         alignItems: 'flex-end',
         borderBottomWidth: 1,
-        borderBottomColor: '#EDF2FF',
+        borderBottomColor: colors.border,
     },
     iosDone: {
         color: colors.primary,
@@ -579,27 +562,28 @@ const styles = StyleSheet.create({
     genderBtn: {
         flex: 1,
         borderWidth: 1.5,
-        borderColor: '#D9E4F7',
-        borderRadius: moderateScale(16),
-        backgroundColor: '#FFFFFF',
+        borderColor: colors.border,
+        borderRadius: moderateScale(11),
+        backgroundColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: verticalScale(12),
+        minHeight: verticalScale(45),
+        paddingVertical: verticalScale(4),
     },
     genderBtnActive: {
         borderColor: colors.primary,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: colors.primaryBg,
     },
     genderIcon: {
-        marginBottom: verticalScale(4),
+        marginBottom: verticalScale(3),
     },
     genderLabel: {
         fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(13),
+        fontSize: scaleFont(12.5),
         color: colors.text2,
     },
     genderLabelActive: {
-        color: colors.primary,
+        color: colors.text,
     },
     dualRow: {
         flexDirection: 'row',
@@ -610,10 +594,11 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     metricInput: {
+        ...inputSystem.text,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(15),
-        color: colors.text,
-        paddingVertical: verticalScale(10),
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
     },
     metricUnit: {
         fontFamily: typography.font.bold,
@@ -622,6 +607,33 @@ const styles = StyleSheet.create({
     },
     btnWrap: {
         marginTop: verticalScale(2),
+    },
+    btnSave: {
+        width: '100%',
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(45),
+        borderRadius: moderateScale(11),
+        overflow: 'hidden',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 5,
+    },
+    btnSaveLoading: {
+        backgroundColor: 'rgba(15, 110, 86, 0.72)',
+        opacity: 0.88,
+    },
+    btnSaveContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+    },
+    btnSaveText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
     },
     btn: {
         borderRadius: moderateScale(20),
