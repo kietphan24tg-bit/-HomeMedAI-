@@ -1,5 +1,6 @@
 import LaunchScreen from '@/src/components/LaunchScreen';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
     Inter_400Regular,
     Inter_500Medium,
@@ -42,6 +43,7 @@ export default function RootLayout() {
         Inter_600SemiBold,
         Inter_700Bold,
         Inter_900Black,
+        ...MaterialCommunityIcons.font,
     });
 
     useEffect(() => {

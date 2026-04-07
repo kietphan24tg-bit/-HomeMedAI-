@@ -79,22 +79,17 @@ export default function FeaturesPage({
             <View style={styles.sBtn}>
                 <Pressable
                     style={({ pressed }) => [
-                        shared.btnFilled,
-                        {
-                            backgroundColor: colors.secondary,
-                            shadowColor: colors.secondary,
-                        },
+                        styles.onboardPrimaryBtn,
                         pressed && shared.pressed,
                     ]}
                     onPress={() => goTo(2)}
                 >
-                    <Text style={shared.btnFilledText}>Tiếp theo</Text>
-                    <Feather
-                        name='arrow-right'
-                        size={16}
-                        color='#fff'
-                        style={{ marginLeft: 8 }}
-                    />
+                    <View style={styles.onboardPrimaryBtnContent}>
+                        <Text style={styles.onboardPrimaryBtnText}>
+                            Tiếp theo
+                        </Text>
+                        <Feather name='arrow-right' size={16} color='#fff' />
+                    </View>
                 </Pressable>
             </View>
         </View>

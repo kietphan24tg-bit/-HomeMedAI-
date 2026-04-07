@@ -9,10 +9,10 @@ export const FEATURES: FeatureItem[] = [
             <MaterialCommunityIcons
                 name='file-document-edit-outline'
                 size={20}
-                color={colors.cMedical}
+                color={colors.primary}
             />
         ),
-        bg: colors.cMedicalBg,
+        bg: colors.primaryBg,
         title: 'Hồ sơ bệnh án',
         desc: 'Lưu & tra cứu lịch sử khám cho cả gia đình',
     },
@@ -21,10 +21,10 @@ export const FEATURES: FeatureItem[] = [
             <MaterialCommunityIcons
                 name='file-document-outline'
                 size={20}
-                color={colors.cDanger}
+                color={colors.danger}
             />
         ),
-        bg: colors.cDangerBg,
+        bg: colors.dangerBg,
         title: 'Lịch tiêm chủng',
         desc: 'Theo dõi vaccine, nhắc lịch tiêm đúng hạn',
     },
@@ -33,10 +33,10 @@ export const FEATURES: FeatureItem[] = [
             <MaterialCommunityIcons
                 name='pill'
                 size={20}
-                color={colors.cReminder}
+                color={colors.warning}
             />
         ),
-        bg: colors.cReminderBg,
+        bg: colors.warningBg,
         title: 'Nhắc uống thuốc',
         desc: 'Đặt lịch thông minh, không bỏ sót liều nào',
     },
@@ -56,10 +56,10 @@ export const PERMS: PermItem[] = [
             <MaterialCommunityIcons
                 name='pill'
                 size={17}
-                color={colors.cMedical}
+                color={colors.primary}
             />
         ),
-        bg: colors.cMedicalBg,
+        bg: colors.primaryBg,
         title: 'Nhắc uống thuốc',
         desc: 'Thông báo đúng giờ, mỗi ngày',
     },
@@ -68,10 +68,10 @@ export const PERMS: PermItem[] = [
             <MaterialCommunityIcons
                 name='file-document-outline'
                 size={17}
-                color={colors.cDanger}
+                color={colors.danger}
             />
         ),
-        bg: colors.cDangerBg,
+        bg: colors.dangerBg,
         title: 'Lịch tiêm chủng',
         desc: 'Nhắc trước 1 ngày khi đến hạn',
     },

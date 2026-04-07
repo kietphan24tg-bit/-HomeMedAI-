@@ -1,9 +1,8 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Animated,
     Platform,
     Pressable,
     ScrollView,
@@ -57,8 +56,6 @@ export default function AuthScreen({
         confirmPassword?: string;
     }>({});
 
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-
     useEffect(() => {
         setMode(initialMode);
     }, [initialMode]);
@@ -96,22 +93,8 @@ export default function AuthScreen({
 
     const switchMode = (newMode: 'signin' | 'signup') => {
         if (newMode === mode) return;
-
-        Animated.sequence([
-            Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 120,
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-            }),
-        ]).start();
-
         clearForm();
-        setTimeout(() => setMode(newMode), 120);
+        setMode(newMode);
     };
 
     const handleAction = async () => {
@@ -214,6 +197,7 @@ export default function AuthScreen({
             <ForgotPasswordFlow
                 initialEmail={email}
                 onBackToAuth={() => setView('auth')}
+                embedded={embedded}
             />
         );
 
@@ -319,9 +303,10 @@ export default function AuthScreen({
                     </Pressable>
                 </View>
 
-                <Animated.View style={{ opacity: fadeAnim }}>
+                <View>
                     {mode === 'signin' ? (
                         <SignInForm
+                            key='signin'
                             email={email}
                             setEmail={setEmail}
                             password={password}
@@ -335,6 +320,7 @@ export default function AuthScreen({
                         />
                     ) : (
                         <RegisterForm
+                            key='signup'
                             email={email}
                             setEmail={setEmail}
                             phoneNumber={phoneNumber}
@@ -354,7 +340,7 @@ export default function AuthScreen({
                             errors={errors}
                         />
                     )}
-                </Animated.View>
+                </View>
             </ScrollView>
         </Wrapper>
     );

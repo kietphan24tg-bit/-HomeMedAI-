@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -11,9 +10,14 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    useInviteUserByPhoneMutation,
+    useSearchUserByPhoneMutation,
+} from '@/src/features/family/mutations';
+import { appToast } from '@/src/lib/toast';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
-import { colors, gradients, typography } from '@/src/styles/tokens';
+import { colors, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
 import type { SearchState } from './familyShared';
 import {
@@ -34,21 +38,51 @@ export default function FamilySearchPhoneScreen({
     const [selectedInviteRole, setSelectedInviteRole] = useState<string | null>(
         null,
     );
+    const [foundUser, setFoundUser] = useState<any>(null);
 
-    const handleSearchPhone = () => {
+    const searchUserMutation = useSearchUserByPhoneMutation();
+    const inviteUserMutation = useInviteUserByPhoneMutation();
+
+    const handleSearchPhone = async () => {
         const cleanPhone = searchPhone.replace(/\D/g, '');
         if (cleanPhone.length < 9) return;
 
         setSelectedInviteRole(null);
         setSearchState('loading');
+        setFoundUser(null);
 
-        setTimeout(() => {
-            if (cleanPhone.startsWith('090') || cleanPhone.startsWith('091')) {
+        try {
+            const result = await searchUserMutation.mutateAsync({
+                familyId: family.id,
+                phoneNumber: cleanPhone,
+                dryRun: true,
+            });
+            if (result.found && result.user) {
+                setFoundUser(result.user);
                 setSearchState('found');
             } else {
                 setSearchState('notFound');
             }
-        }, 900);
+        } catch {
+            setSearchState('notFound');
+        }
+    };
+
+    const handleInviteUser = async (role: string) => {
+        if (!foundUser) return;
+        try {
+            await inviteUserMutation.mutateAsync({
+                familyId: family.id,
+                phoneNumber: foundUser.phone_number,
+                userId: foundUser.id,
+                role: role,
+                dryRun: false,
+            });
+            setShowRoleSheet(false);
+            router.back();
+        } catch {
+            appToast.showError('Lỗi', 'Không thể gởi lời mời.');
+        }
     };
 
     return (
@@ -64,7 +98,7 @@ export default function FamilySearchPhoneScreen({
                     <Pressable
                         onPress={() => router.back()}
                         style={[
-                            shared.iconBtn,
+                            shared.iconBtnFlat,
                             {
                                 width: scale(36),
                                 height: scale(36),
@@ -82,7 +116,7 @@ export default function FamilySearchPhoneScreen({
                     <View>
                         <Text style={styles.memberName}>Tìm thành viên</Text>
                         <Text style={styles.memberMeta}>
-                            {family.name} · nhập số điện thoại người thân
+                            Nhập số điện thoại người thân
                         </Text>
                     </View>
                 </View>
@@ -98,7 +132,13 @@ export default function FamilySearchPhoneScreen({
                     },
                 ]}
             >
-                <View style={{ flexDirection: 'row', gap: scale(10) }}>
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        gap: scale(8),
+                        alignItems: 'center',
+                    }}
+                >
                     <View
                         style={[
                             styles.stepperContainer,
@@ -137,12 +177,7 @@ export default function FamilySearchPhoneScreen({
                             style={{ marginLeft: 'auto' }}
                         />
                     </View>
-                    <View
-                        style={[
-                            styles.stepperContainer,
-                            { flex: 1, marginBottom: verticalScale(10) },
-                        ]}
-                    >
+                    <View style={[styles.stepperContainer, { flex: 1 }]}>
                         <TextInput
                             style={styles.stepperInput}
                             placeholder='090 123 4567'
@@ -158,19 +193,19 @@ export default function FamilySearchPhoneScreen({
                     </View>
                     <Pressable
                         style={{
-                            width: scale(54),
-                            height: verticalScale(52),
-                            borderRadius: scale(16),
+                            width: scale(52),
+                            height: verticalScale(50),
+                            borderRadius: scale(14),
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: colors.primary,
+                            backgroundColor: '#EFF6FF',
                         }}
                         onPress={handleSearchPhone}
                     >
                         <Ionicons
                             name='search-outline'
                             size={22}
-                            color='#fff'
+                            color='#3B82F6'
                         />
                     </Pressable>
                 </View>
@@ -191,10 +226,8 @@ export default function FamilySearchPhoneScreen({
                                 style={{
                                     width: scale(80),
                                     height: scale(80),
-                                    borderRadius: scale(24),
-                                    backgroundColor: colors.primaryBg,
-                                    borderWidth: 1.5,
-                                    borderColor: colors.primaryLight,
+                                    borderRadius: scale(26),
+                                    backgroundColor: '#EFF6FF',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     marginBottom: verticalScale(18),
@@ -202,8 +235,8 @@ export default function FamilySearchPhoneScreen({
                             >
                                 <Ionicons
                                     name='call-outline'
-                                    size={34}
-                                    color={colors.primary}
+                                    size={36}
+                                    color='#3B82F6'
                                 />
                             </View>
                             <Text
@@ -226,13 +259,15 @@ export default function FamilySearchPhoneScreen({
                                     paddingHorizontal: scale(16),
                                 }}
                             >
-                                Nhập số điện thoại đã đăng ký để mời tài khoản
-                                hiện có tham gia gia đình.
+                                Nhập số điện thoại đã đăng ký CareSync để tìm và
+                                thêm vào gia đình.
                             </Text>
                         </View>
 
                         <Text style={styles.formLabel}>Gần đây</Text>
-                        <View style={shared.cardBlock}>
+                        <View
+                            style={[shared.cardBlock, { marginHorizontal: 0 }]}
+                        >
                             {RECENT_CONTACTS.map((contact, index) => (
                                 <Pressable
                                     key={contact.phone}
@@ -247,16 +282,31 @@ export default function FamilySearchPhoneScreen({
                                         setSearchState('idle');
                                     }}
                                 >
-                                    <LinearGradient
-                                        colors={
-                                            contact.gradient as LinearGradientProps['colors']
-                                        }
-                                        style={styles.mav}
+                                    <View
+                                        style={[
+                                            styles.mav,
+                                            {
+                                                backgroundColor:
+                                                    index === 0
+                                                        ? '#F3E8FF'
+                                                        : '#ECFDF5',
+                                            },
+                                        ]}
                                     >
-                                        <Text style={styles.mavText}>
+                                        <Text
+                                            style={[
+                                                styles.mavText,
+                                                {
+                                                    color:
+                                                        index === 0
+                                                            ? '#9333EA'
+                                                            : '#10B981',
+                                                },
+                                            ]}
+                                        >
                                             {contact.initials}
                                         </Text>
-                                    </LinearGradient>
+                                    </View>
                                     <View style={styles.minfo}>
                                         <Text style={styles.mname}>
                                             {contact.name}
@@ -319,14 +369,14 @@ export default function FamilySearchPhoneScreen({
                             ]}
                         >
                             <View style={{ flexDirection: 'row', gap: 12 }}>
-                                <LinearGradient
-                                    colors={gradients.warning}
+                                <View
                                     style={{
                                         width: scale(56),
                                         height: scale(56),
                                         borderRadius: scale(28),
                                         alignItems: 'center',
                                         justifyContent: 'center',
+                                        backgroundColor: '#D97706',
                                     }}
                                 >
                                     <Text
@@ -338,7 +388,7 @@ export default function FamilySearchPhoneScreen({
                                     >
                                         NB
                                     </Text>
-                                </LinearGradient>
+                                </View>
                                 <View style={{ flex: 1 }}>
                                     <Text
                                         style={{
@@ -347,7 +397,8 @@ export default function FamilySearchPhoneScreen({
                                             color: colors.text,
                                         }}
                                     >
-                                        Nguyễn Thị Bình
+                                        {foundUser?.full_name ||
+                                            'Người dùng CareSync'}
                                     </Text>
                                     <Text
                                         style={{
@@ -459,9 +510,14 @@ export default function FamilySearchPhoneScreen({
                             Số điện thoại này chưa đăng ký tài khoản. Bạn có thể
                             dùng link mời để họ đăng ký rồi liên kết hồ sơ.
                         </Text>
-                        <LinearGradient
-                            colors={gradients.brandDuo}
-                            style={[styles.createBtn, { width: '100%' }]}
+                        <View
+                            style={[
+                                styles.createBtn,
+                                {
+                                    width: '100%',
+                                    backgroundColor: colors.primary,
+                                },
+                            ]}
                         >
                             <Pressable
                                 style={{ width: '100%', alignItems: 'center' }}
@@ -475,7 +531,7 @@ export default function FamilySearchPhoneScreen({
                                     Quay lại tạo link mời
                                 </Text>
                             </Pressable>
-                        </LinearGradient>
+                        </View>
                     </View>
                 ) : null}
             </ScrollView>
@@ -483,7 +539,10 @@ export default function FamilySearchPhoneScreen({
             <RoleSelectionModal
                 visible={showRoleSheet}
                 selectedRole={selectedInviteRole}
-                onSelectRole={setSelectedInviteRole}
+                onSelectRole={(role) => {
+                    setSelectedInviteRole(role);
+                    handleInviteUser(role);
+                }}
                 onClose={() => setShowRoleSheet(false)}
             />
         </SafeAreaView>

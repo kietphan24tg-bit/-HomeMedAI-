@@ -2,6 +2,8 @@
 
 export interface FamilyMember {
     id: string;
+    /** OWNER | ADMIN | MEMBER từ API */
+    familyRole?: string;
     initials: string;
     name: string;
     role: string;
@@ -39,10 +41,16 @@ export interface FamilyGroup {
     id: string;
     name: string;
     memberCount: number;
+    /** Vai trò hiển thị (quan hệ / nhãn) */
     role: string;
+    /** OWNER | ADMIN | MEMBER — quyền từ API */
+    familyRole?: string;
     roleEmoji: string;
     gradientColors: [string, string, string];
     iconName: string;
     members: FamilyMember[];
     createdDate: string;
+    invite_code?: string;
+    address?: string;
+    avatarUrl?: string | null;
 }

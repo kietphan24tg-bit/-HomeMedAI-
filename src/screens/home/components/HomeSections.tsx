@@ -51,20 +51,30 @@ export function OverviewSection(): React.JSX.Element {
                                 </Text>
                             </View>
                         </View>
-                        <Text
-                            style={[
-                                styles.statValue,
-                                card.valueColor && { color: card.valueColor },
-                                card.valueSize
-                                    ? {
-                                          fontSize: card.valueSize,
-                                          fontWeight: '700',
-                                      }
-                                    : null,
-                            ]}
-                        >
-                            {card.value}
-                        </Text>
+                        <View style={styles.statValueRow}>
+                            <Text
+                                style={[
+                                    styles.statValue,
+                                    card.valueColor && {
+                                        color: card.valueColor,
+                                    },
+                                ]}
+                            >
+                                {card.value}
+                            </Text>
+                            {card.valueSuffix ? (
+                                <Text
+                                    style={[
+                                        styles.statValueSuffix,
+                                        card.valueColor && {
+                                            color: card.valueColor,
+                                        },
+                                    ]}
+                                >
+                                    {card.valueSuffix}
+                                </Text>
+                            ) : null}
+                        </View>
                         <Text style={styles.statLabel}>{card.label}</Text>
                         {card.sub ? (
                             <Text style={styles.statSub}>{card.sub}</Text>

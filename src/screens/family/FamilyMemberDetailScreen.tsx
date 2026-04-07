@@ -1,30 +1,614 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import {
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Linking,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Circle, Svg } from 'react-native-svg';
+import {
+    CardBlock,
+    CountStrip,
+    DateField,
+    SectionHeader,
+} from '@/src/components/ui';
+import { MED_ROWS, RECORDS } from '@/src/data/health-data';
+import {
+    useDeleteMemberMutation,
+    usePatchMemberMutation,
+} from '@/src/features/family/mutations';
+import MedicineScreen from '@/src/screens/health/MedicineScreen';
+import { RecordDetail } from '@/src/screens/health/RecordsScreen';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
-import { colors } from '@/src/styles/tokens';
+import { colors, typography } from '@/src/styles/tokens';
 import type { FamilyGroup, FamilyMember } from '@/src/types/family';
-import { ActionRow, ProfileRow, SectionLabel, bmiValue } from './familyShared';
+import type { RecordItem } from '@/src/types/health';
+import { ProfileRow, SectionLabel, bmiValue } from './familyShared';
 import { styles } from './styles';
 
-type MemberTab = 'info' | 'health';
+type MemberTab = 'personal' | 'health' | 'history';
+type HealthSheetKey =
+    | 'blood'
+    | 'chronicIllness'
+    | 'drugAllergies'
+    | 'foodAllergies'
+    | null;
+
+type TagPreviewState = {
+    title: string;
+    tags: string[];
+} | null;
+
+type SheetType = 'simple' | 'select' | 'date' | null;
+interface SheetState {
+    type: SheetType;
+    key: string;
+    title: string;
+    value: string;
+    icon: string;
+    suffix?: string;
+    keyboard?: 'default' | 'numeric';
+    options?: string[];
+    isStepper?: boolean;
+}
+
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+
+const DEFAULT_EMERGENCY_CONTACTS = [
+    {
+        id: 'ec-1',
+        name: 'Nguyen Van An',
+        relation: 'Chong',
+        phone: '0909 123 456',
+    },
+    {
+        id: 'ec-2',
+        name: 'Tran Thi Lan',
+        relation: 'Me ruot',
+        phone: '0912 345 678',
+    },
+];
+
+const MetricCard = ({
+    title,
+    iconName,
+    iconColor,
+    iconBg,
+    statusText,
+    statusColor,
+    statusBg,
+    trendType,
+    trendData,
+    latestValue,
+    latestValueColor,
+    lastUpdate,
+    memberBasePath,
+}: any) => {
+    return (
+        <View style={styles.metricCard}>
+            <View style={styles.metricCardHeader}>
+                <View
+                    style={[styles.metricIconWrap, { backgroundColor: iconBg }]}
+                >
+                    <Ionicons name={iconName} size={18} color={iconColor} />
+                </View>
+                <Text style={styles.metricTitle}>{title}</Text>
+                {statusText ? (
+                    <View
+                        style={[
+                            styles.metricStatus,
+                            { backgroundColor: statusBg },
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.metricStatusText,
+                                { color: statusColor },
+                            ]}
+                        >
+                            {statusText}
+                        </Text>
+                    </View>
+                ) : null}
+                <View style={{ flex: 1 }} />
+                <Pressable
+                    onPress={() =>
+                        router.push(`${memberBasePath}/history/metrics` as any)
+                    }
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <Text style={styles.metricDetailLink}>Chi tiết</Text>
+                    <Ionicons
+                        name='chevron-forward'
+                        size={14}
+                        color={colors.primary}
+                    />
+                </Pressable>
+            </View>
+
+            <View style={styles.metricChartWrap}>
+                {trendData.map((item: any, index: number) => (
+                    <View key={index} style={styles.metricChartCol}>
+                        {trendType === 'bar' ? (
+                            <View
+                                style={[
+                                    styles.metricBarFill,
+                                    {
+                                        height: item.barHeight,
+                                        backgroundColor: item.color,
+                                    },
+                                ]}
+                            />
+                        ) : (
+                            <View style={styles.metricTextWrap}>
+                                <Text
+                                    style={[
+                                        styles.metricTextVal,
+                                        { color: item.color },
+                                    ]}
+                                >
+                                    {item.formattedValue}
+                                </Text>
+                            </View>
+                        )}
+                        <Text style={styles.metricChartLabel}>
+                            {item.label}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+
+            <View style={styles.metricFooter}>
+                <Text style={styles.metricUpdateText}>
+                    Cập nhật {lastUpdate}
+                </Text>
+                <Text
+                    style={[
+                        styles.metricLatestVal,
+                        { color: latestValueColor },
+                    ]}
+                >
+                    {latestValue}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+const DEFAULT_MEDICATIONS = [
+    {
+        name: 'Amlodipine 5mg',
+        schedule: 'Sang 1 vien',
+        note: 'sau an',
+    },
+    {
+        name: 'Omeprazole 20mg',
+        schedule: 'Sang 1 vien',
+        note: 'truoc an',
+    },
+    {
+        name: 'Candesartan 8mg',
+        schedule: 'Toi 1 vien',
+        note: 'sau an',
+    },
+];
+
+function bmiStatusLabel(bmi: number): string {
+    if (!bmi) return 'Chua du du lieu';
+    if (bmi < 18.5) return 'Can nang thap';
+    if (bmi < 23) return 'Binh thuong';
+    if (bmi < 25) return 'Thua can';
+    return 'Can theo doi';
+}
+
+function normalizeMedicationSchedule(desc?: string): {
+    schedule: string;
+    note: string;
+} {
+    if (!desc) {
+        return {
+            schedule: 'Chua ro lich dung',
+            note: 'cap nhat them thong tin',
+        };
+    }
+
+    const parts = desc
+        .split('·')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    return {
+        schedule: parts[1]
+            ? `${parts[1]} 1 vien`
+            : (parts[0] ?? 'Chua ro lich dung'),
+        note: parts[2]?.toLowerCase() ?? 'cap nhat them thong tin',
+    };
+}
+
+function getBmiPosition(bmiValue: number) {
+    if (!bmiValue) return '0%';
+    const min = 15;
+    const max = 35;
+    const percentage = ((bmiValue - min) / (max - min)) * 100;
+    return `${Math.min(Math.max(percentage, 0), 100)}%`;
+}
+
+function parseHealthList(value?: string | null): string[] {
+    if (!value || value === 'Không') return [];
+    return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function summarizeHealthTags(values: string[]): {
+    lead: string | null;
+    remaining: number;
+} {
+    if (!values.length) {
+        return { lead: null, remaining: 0 };
+    }
+
+    return {
+        lead: values[0],
+        remaining: Math.max(0, values.length - 1),
+    };
+}
+
+function truncateHealthTag(label: string | null, maxLength = 22): string {
+    if (!label) return '';
+    if (label.length <= maxLength) return label;
+    return `${label.slice(0, maxLength - 1).trimEnd()}...`;
+}
 
 export default function FamilyMemberDetailScreen({
     family,
     member,
+    initialTab,
 }: {
     family: FamilyGroup;
     member: FamilyMember;
+    initialTab?: MemberTab;
 }): React.JSX.Element {
-    const [memberTab, setMemberTab] = useState<MemberTab>('info');
+    const [memberTab, setMemberTab] = useState<MemberTab>(
+        initialTab || 'personal',
+    );
+    const [sheet, setSheet] = useState<SheetState | null>(null);
+    const [draft, setDraft] = useState('');
+    const [_roleModalOpen, _setRoleModalOpen] = useState(false);
+    const [addContactModal, setAddContactModal] = useState(false);
+    const [draftContactName, setDraftContactName] = useState('');
+    const [draftContactRelation, setDraftContactRelation] =
+        useState('Vợ/chồng');
+    const [draftContactPhone, setDraftContactPhone] = useState('');
+    const [healthSheetKey, setHealthSheetKey] = useState<HealthSheetKey>(null);
+    const [healthSheetDraftBlood, setHealthSheetDraftBlood] = useState(
+        member.bloodType || 'O+',
+    );
+    const [healthSheetDraftTags, setHealthSheetDraftTags] = useState<string[]>(
+        [],
+    );
+    const [healthTagText, setHealthTagText] = useState('');
+    const [tagPreview, setTagPreview] = useState<TagPreviewState>(null);
+    const [memberBloodType, setMemberBloodType] = useState(
+        member.bloodType || 'O+',
+    );
+    const [memberChronicIllnesses, setMemberChronicIllnesses] = useState(
+        parseHealthList(member.chronicIllness),
+    );
+    const [memberDrugAllergies, setMemberDrugAllergies] = useState(
+        parseHealthList(member.allergies),
+    );
+    const [memberFoodAllergies, setMemberFoodAllergies] = useState<string[]>(
+        parseHealthList((member as any).foodAllergies).length > 0
+            ? parseHealthList((member as any).foodAllergies)
+            : ['Hải sản'],
+    );
+    const [memberHealthNotes, setMemberHealthNotes] = useState(
+        (member as any).importantMedicalNote || 'Tiền sử mổ ruột thừa 2018',
+    );
+
+    const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(
+        null,
+    );
+    const [showMedicinesScreen, setShowMedicinesScreen] = useState(false);
+    const [recordMenuId, setRecordMenuId] = useState<string | null>(null);
+
     const bmi = bmiValue(member.height, member.weight);
+    const _deleteMemberMutation = useDeleteMemberMutation();
+    const patchMemberMutation = usePatchMemberMutation();
+
+    const _canManageMembers =
+        family.familyRole === 'OWNER' || family.familyRole === 'ADMIN';
+    const _showChangeRole =
+        _canManageMembers && !member.isSelf && !member.isOwner;
+    const _showRemoveOther =
+        _canManageMembers && !member.isSelf && !member.isOwner;
+    const memberBasePath = `/(tabs)/family/${family.id}/member/${member.id}`;
+    const emergencyContacts = DEFAULT_EMERGENCY_CONTACTS;
+    const healthInfoItems = [
+        {
+            key: 'bloodType',
+            label: 'Nhóm máu',
+            value: memberBloodType || '--',
+            icon: 'water-outline',
+            color: '#EF4444',
+            bg: '#FEF2F2',
+            type: 'blood',
+        },
+        {
+            key: 'chronicIllness',
+            label: 'Bệnh nền',
+            value: memberChronicIllnesses,
+            icon: 'heart-outline',
+            color: '#F59E0B',
+            bg: '#FFF7ED',
+            type: 'chips',
+            suggestions: [
+                'Tăng huyết áp',
+                'Tiểu đường type 2',
+                'Tim mạch',
+                'Hen suyễn',
+                'Viêm khớp',
+                'Gout',
+                'Mỡ máu cao',
+                'Suy thận',
+            ],
+        },
+        {
+            key: 'drugAllergies',
+            label: 'Dị ứng thuốc',
+            value: memberDrugAllergies,
+            icon: 'bandage-outline',
+            color: '#F43F5E',
+            bg: '#FFF1F2',
+            type: 'chips',
+            suggestions: ['Penicillin', 'Ibuprofen', 'Aspirin', 'Sulfa'],
+        },
+        {
+            key: 'foodAllergies',
+            label: 'Dị ứng thực phẩm',
+            value: memberFoodAllergies,
+            icon: 'leaf-outline',
+            color: '#10B981',
+            bg: '#ECFDF5',
+            type: 'chips',
+            suggestions: [
+                'Hải sản',
+                'Đậu phộng',
+                'Sữa bò',
+                'Trứng',
+                'Đậu nành',
+            ],
+        },
+        {
+            key: 'notes',
+            label: 'Ghi chú y tế quan trọng',
+            value: memberHealthNotes,
+            icon: 'document-text-outline',
+            color: '#8B5CF6',
+            bg: '#F5F3FF',
+            type: 'note',
+        },
+    ];
+    const medications = (
+        member.medications?.length
+            ? member.medications.map((item) => ({
+                  name: item.name,
+                  ...normalizeMedicationSchedule(item.desc),
+              }))
+            : DEFAULT_MEDICATIONS
+    ).slice(0, 3);
+    const previewRecords = ['rec-cardiology', 'rec-internal']
+        .map((recordId) => RECORDS.find((record) => record.id === recordId))
+        .filter((record): record is RecordItem => Boolean(record));
+
+    const openHealthSheet = (key: HealthSheetKey) => {
+        Keyboard.dismiss();
+        setHealthTagText('');
+        setHealthSheetKey(key);
+        if (key === 'blood') {
+            setHealthSheetDraftBlood(memberBloodType || 'O+');
+            return;
+        }
+        if (key === 'chronicIllness') {
+            setHealthSheetDraftTags([...memberChronicIllnesses]);
+            return;
+        }
+        if (key === 'drugAllergies') {
+            setHealthSheetDraftTags([...memberDrugAllergies]);
+            return;
+        }
+        if (key === 'foodAllergies') {
+            setHealthSheetDraftTags([...memberFoodAllergies]);
+        }
+    };
+
+    const openDate = (key: string, title: string, value: string) => {
+        Keyboard.dismiss();
+        setDraft(value);
+        setSheet({ type: 'date', key, title, value, icon: 'calendar' });
+    };
+
+    const openSimple = (
+        key: string,
+        title: string,
+        value: string,
+        icon: string,
+        suffix?: string,
+        keyboard?: 'default' | 'numeric',
+        isStepper?: boolean,
+    ) => {
+        Keyboard.dismiss();
+        setDraft(value);
+        setSheet({
+            type: 'simple',
+            key,
+            title,
+            value,
+            icon,
+            suffix,
+            keyboard,
+            isStepper,
+        });
+    };
+
+    const openSelect = (
+        key: string,
+        title: string,
+        value: string,
+        icon: string,
+        options: string[],
+    ) => {
+        Keyboard.dismiss();
+        setDraft(value);
+        setSheet({ type: 'select', key, title, value, icon, options });
+    };
+
+    const addHealthTag = () => {
+        const trimmed = healthTagText.trim();
+        if (!trimmed || healthSheetDraftTags.includes(trimmed)) return;
+        setHealthSheetDraftTags((prev) => [...prev, trimmed]);
+        setHealthTagText('');
+    };
+
+    const removeHealthTag = (tag: string) => {
+        setHealthSheetDraftTags((prev) => prev.filter((item) => item !== tag));
+    };
+
+    const saveHealthSheet = async () => {
+        if (!healthSheetKey) return;
+        try {
+            if (healthSheetKey === 'blood') {
+                await patchMemberMutation.mutateAsync({
+                    membershipId: member.id,
+                    bloodType: healthSheetDraftBlood,
+                } as any);
+                setMemberBloodType(healthSheetDraftBlood);
+            } else if (healthSheetKey === 'chronicIllness') {
+                const value = healthSheetDraftTags.join(', ');
+                await patchMemberMutation.mutateAsync({
+                    membershipId: member.id,
+                    chronicIllness: value,
+                } as any);
+                setMemberChronicIllnesses([...healthSheetDraftTags]);
+            } else if (healthSheetKey === 'drugAllergies') {
+                const value = healthSheetDraftTags.join(', ');
+                await patchMemberMutation.mutateAsync({
+                    membershipId: member.id,
+                    allergies: value,
+                } as any);
+                setMemberDrugAllergies([...healthSheetDraftTags]);
+            } else if (healthSheetKey === 'foodAllergies') {
+                const value = healthSheetDraftTags.join(', ');
+                await patchMemberMutation.mutateAsync({
+                    membershipId: member.id,
+                    foodAllergies: value,
+                } as any);
+                setMemberFoodAllergies([...healthSheetDraftTags]);
+            }
+        } catch {
+            // mutation toast handles error
+        }
+        setHealthSheetKey(null);
+    };
+
+    const saveSheet = async () => {
+        if (!sheet) return;
+        try {
+            await patchMemberMutation.mutateAsync({
+                membershipId: member.id,
+                [sheet.key]: draft,
+            } as any);
+            if (sheet.key === 'importantMedicalNote') {
+                setMemberHealthNotes(draft);
+            }
+        } catch {
+            // error is handled by mutation toast
+        }
+        setSheet(null);
+    };
+
+    const _confirmRemoveMember = () => {
+        Alert.alert('Xóa thành viên', `Xóa ${member.name} khỏi gia đình?`, [
+            { text: 'Hủy', style: 'cancel' },
+            {
+                text: 'Xóa',
+                style: 'destructive',
+                onPress: () => {
+                    _deleteMemberMutation.mutate(
+                        { membershipId: member.id },
+                        {
+                            onSuccess: () => {
+                                router.back();
+                            },
+                        },
+                    );
+                },
+            },
+        ]);
+    };
+
+    const _applyMembershipRole = async (role: 'ADMIN' | 'MEMBER') => {
+        try {
+            await patchMemberMutation.mutateAsync({
+                membershipId: member.id,
+                role,
+            });
+            _setRoleModalOpen(false);
+        } catch {
+            /* toast trong mutation */
+        }
+    };
+
+    const handleCallContact = (phone: string) => {
+        Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => {
+            // ignore when dialer is unavailable
+        });
+    };
+
+    if (showMedicinesScreen) {
+        return (
+            <MedicineScreen
+                onClose={() => setShowMedicinesScreen(false)}
+                headerTitle='Đơn thuốc'
+            />
+        );
+    }
+
+    if (selectedRecord) {
+        return (
+            <RecordDetail
+                record={selectedRecord}
+                onClose={() => setSelectedRecord(null)}
+            />
+        );
+    }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+        <SafeAreaView
+            edges={['left', 'right', 'bottom']}
+            style={styles.container}
+        >
+            <StatusBar barStyle='dark-content' backgroundColor={colors.card} />
+            <SafeAreaView
+                edges={['top']}
+                style={{ backgroundColor: colors.card }}
+            />
 
             <View style={styles.memberHeader}>
                 <View style={styles.memberHeaderTop}>
@@ -42,28 +626,28 @@ export default function FamilyMemberDetailScreen({
                 </View>
 
                 <View style={{ flexDirection: 'row', gap: 14 }}>
-                    <LinearGradient
-                        colors={
-                            member.gradientColors as LinearGradientProps['colors']
-                        }
-                        style={styles.memberAv}
+                    <View
+                        style={[
+                            styles.memberAv,
+                            {
+                                backgroundColor:
+                                    member.gradientColors?.[0] ?? '#2563EB',
+                            },
+                        ]}
                     >
                         <Text style={styles.memberAvText}>
                             {member.initials}
                         </Text>
-                    </LinearGradient>
+                    </View>
 
                     <View style={{ flex: 1, justifyContent: 'center' }}>
                         <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberMeta}>
-                            {member.age} tuổi · {member.gender} · {member.city}
-                        </Text>
                         <Text
                             style={[
                                 styles.roleBadge,
                                 {
-                                    backgroundColor: '#F5F3FF',
-                                    color: '#7C3AED',
+                                    backgroundColor: '#EEF2FF',
+                                    color: '#6366F1',
                                 },
                             ]}
                         >
@@ -77,17 +661,19 @@ export default function FamilyMemberDetailScreen({
                 <Pressable
                     style={[
                         styles.tab,
-                        memberTab === 'info' ? styles.tabActive : null,
+                        memberTab === 'personal' ? styles.tabActive : null,
                     ]}
-                    onPress={() => setMemberTab('info')}
+                    onPress={() => setMemberTab('personal')}
                 >
                     <Text
                         style={[
                             styles.tabText,
-                            memberTab === 'info' ? styles.tabTextActive : null,
+                            memberTab === 'personal'
+                                ? styles.tabTextActive
+                                : null,
                         ]}
                     >
-                        Thông tin cá nhân
+                        Cá nhân
                     </Text>
                 </Pressable>
                 <Pressable
@@ -105,7 +691,25 @@ export default function FamilyMemberDetailScreen({
                                 : null,
                         ]}
                     >
-                        Sức khỏe
+                        Y tế
+                    </Text>
+                </Pressable>
+                <Pressable
+                    style={[
+                        styles.tab,
+                        memberTab === 'history' ? styles.tabActive : null,
+                    ]}
+                    onPress={() => setMemberTab('history')}
+                >
+                    <Text
+                        style={[
+                            styles.tabText,
+                            memberTab === 'history'
+                                ? styles.tabTextActive
+                                : null,
+                        ]}
+                    >
+                        Lịch sử
                     </Text>
                 </Pressable>
             </View>
@@ -117,98 +721,1610 @@ export default function FamilyMemberDetailScreen({
                 ]}
                 showsVerticalScrollIndicator={false}
             >
-                {memberTab === 'info' ? (
+                {memberTab === 'personal' ? (
                     <>
                         <SectionLabel title='Thông tin cá nhân' />
                         <View style={shared.cardBlock}>
                             <ProfileRow
                                 icon='calendar-outline'
                                 color={colors.primary}
-                                bg='#EFF6FF'
+                                bg={colors.primaryBg}
                                 label='Ngày sinh'
                                 value={member.dob ?? '--'}
+                                onPress={() =>
+                                    openDate(
+                                        'dob',
+                                        'Ngày sinh',
+                                        member.dob ?? '',
+                                    )
+                                }
                             />
                             <ProfileRow
                                 icon='person-outline'
-                                color='#8B5CF6'
-                                bg='#F5F3FF'
+                                color='#6366F1'
+                                bg='#EEF2FF'
                                 label='Giới tính'
                                 value={member.gender}
+                                onPress={() =>
+                                    openSelect(
+                                        'gender',
+                                        'Giới tính',
+                                        member.gender,
+                                        'person',
+                                        ['Nam', 'Nữ', 'Khác'],
+                                    )
+                                }
                             />
                             <ProfileRow
                                 icon='resize-outline'
-                                color='#22C55E'
-                                bg='#F0FDF4'
+                                color={colors.success}
+                                bg={colors.successBg}
                                 label='Chiều cao'
                                 value={`${member.height ?? '--'} cm`}
+                                onPress={() =>
+                                    openSimple(
+                                        'height',
+                                        'Chiều cao',
+                                        member.height
+                                            ? String(member.height)
+                                            : '',
+                                        'resize',
+                                        'cm',
+                                        'numeric',
+                                    )
+                                }
                             />
                             <ProfileRow
-                                icon='barbell-outline'
-                                color='#0D9488'
-                                bg='#F0FDFA'
+                                icon='speedometer-outline'
+                                color={colors.success}
+                                bg={colors.successBg}
                                 label='Cân nặng'
                                 value={`${member.weight ?? '--'} kg`}
                                 badge={`BMI ${bmi.toFixed(1)}`}
+                                onPress={() =>
+                                    openSimple(
+                                        'weight',
+                                        'Cân nặng',
+                                        member.weight
+                                            ? String(member.weight)
+                                            : '',
+                                        'speedometer-outline',
+                                        'kg',
+                                        'numeric',
+                                        true,
+                                    )
+                                }
                             />
                             <ProfileRow
                                 icon='location-outline'
-                                color='#F59E0B'
-                                bg='#FFFBEB'
+                                color={colors.warning}
+                                bg={colors.warningBg}
                                 label='Địa chỉ'
                                 value={member.address ?? 'Chưa cập nhật'}
+                                onPress={() =>
+                                    openSimple(
+                                        'address',
+                                        'Địa chỉ',
+                                        member.address ?? '',
+                                        'location',
+                                    )
+                                }
                                 isLast
                             />
+                        </View>
+                    </>
+                ) : memberTab === 'health' ? (
+                    <>
+                        <SectionLabel title='Chỉ số sức khỏe' />
+                        <View style={styles.healthSummaryCard}>
+                            <View style={styles.bmiRow}>
+                                <View style={styles.bmiIcon}>
+                                    <Ionicons
+                                        name='heart-outline'
+                                        size={20}
+                                        color={colors.primary}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.bmiLabel}>
+                                        Chỉ số BMI
+                                    </Text>
+                                    <View style={styles.bmiValueRow}>
+                                        <Text style={styles.bmiValue}>
+                                            {bmi ? bmi.toFixed(1) : '--'}
+                                        </Text>
+                                        {bmi ? (
+                                            <Text style={styles.bmiUnit}>
+                                                kg/m²
+                                            </Text>
+                                        ) : null}
+                                    </View>
+                                    <Text style={styles.bmiSub}>
+                                        {member.height ?? '--'} cm ·{' '}
+                                        {member.weight ?? '--'} kg
+                                    </Text>
+                                </View>
+                                {bmi ? (
+                                    <Text style={styles.bmiBadge}>
+                                        {bmiStatusLabel(bmi)}
+                                    </Text>
+                                ) : null}
+                            </View>
+                            <View style={styles.bmiGaugeWrap}>
+                                <LinearGradient
+                                    colors={[
+                                        colors.info,
+                                        colors.success,
+                                        colors.warning,
+                                        colors.danger,
+                                    ]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.bmiGaugeTrack}
+                                >
+                                    <View
+                                        style={[
+                                            styles.bmiGaugeThumb,
+                                            {
+                                                left: getBmiPosition(
+                                                    bmi,
+                                                ) as any,
+                                            },
+                                        ]}
+                                    />
+                                </LinearGradient>
+                                <View style={styles.bmiGaugeLabels}>
+                                    <Text
+                                        style={[
+                                            styles.bmiGaugeLabel,
+                                            { color: colors.info },
+                                        ]}
+                                    >
+                                        Thiếu cân
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.bmiGaugeLabel,
+                                            { color: colors.success },
+                                        ]}
+                                    >
+                                        Bình thường
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.bmiGaugeLabel,
+                                            { color: colors.warning },
+                                        ]}
+                                    >
+                                        Thừa cân
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.bmiGaugeLabel,
+                                            { color: colors.danger },
+                                        ]}
+                                    >
+                                        Béo phì
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.bmiNoteRow}>
+                                <Ionicons
+                                    name='information-circle-outline'
+                                    size={16}
+                                    color={colors.text3}
+                                />
+                                <Text style={styles.bmiNoteText}>
+                                    BMI chỉ dựa trên chiều cao và cân nặng, chưa
+                                    phản ánh tỷ lệ cơ/mỡ hay sức khỏe toàn diện.
+                                </Text>
+                            </View>
+                        </View>
+
+                        <SectionLabel title='Thông tin y tế cơ bản' />
+                        <View style={styles.healthInfoCard}>
+                            {healthInfoItems.map((item, index) => (
+                                <Pressable
+                                    key={item.label}
+                                    style={[
+                                        styles.healthInfoRowObj,
+                                        index === healthInfoItems.length - 1
+                                            ? styles.healthInfoRowLast
+                                            : null,
+                                    ]}
+                                    onPress={() => {
+                                        if (item.type === 'blood') {
+                                            openHealthSheet('blood');
+                                            return;
+                                        }
+                                        if (item.type === 'chips') {
+                                            openHealthSheet(
+                                                item.key as HealthSheetKey,
+                                            );
+                                            return;
+                                        }
+                                        openSimple(
+                                            'importantMedicalNote',
+                                            'Ghi chú y tế quan trọng',
+                                            memberHealthNotes,
+                                            'document-text-outline',
+                                        );
+                                    }}
+                                >
+                                    <View
+                                        style={[
+                                            styles.hiIconWrap,
+                                            { backgroundColor: item.bg },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name={item.icon as any}
+                                            size={18}
+                                            color={item.color}
+                                        />
+                                    </View>
+                                    <View style={styles.hiBody}>
+                                        {item.type === 'blood' && (
+                                            <View>
+                                                <Text style={styles.hiLabel}>
+                                                    {item.label}
+                                                </Text>
+                                                <Text
+                                                    style={[
+                                                        styles.hiValueInline,
+                                                        { color: item.color },
+                                                    ]}
+                                                >
+                                                    {item.value || '--'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {item.type === 'chips' && (
+                                            <View>
+                                                <Text
+                                                    style={styles.hiLabelTitle}
+                                                >
+                                                    {item.label}
+                                                </Text>
+                                                <View
+                                                    style={styles.hiChipsWrap}
+                                                >
+                                                    {Array.isArray(
+                                                        item.value,
+                                                    ) &&
+                                                    item.value.length > 0 ? (
+                                                        (() => {
+                                                            const tagSummary =
+                                                                summarizeHealthTags(
+                                                                    item.value,
+                                                                );
+                                                            return (
+                                                                <>
+                                                                    <View
+                                                                        style={
+                                                                            styles.hiChip
+                                                                        }
+                                                                    >
+                                                                        <Text
+                                                                            style={[
+                                                                                styles.hiChipText,
+                                                                                styles.hiChipTextTruncated,
+                                                                            ]}
+                                                                            numberOfLines={
+                                                                                1
+                                                                            }
+                                                                        >
+                                                                            {truncateHealthTag(
+                                                                                tagSummary.lead,
+                                                                            )}
+                                                                        </Text>
+                                                                    </View>
+                                                                    {tagSummary.remaining >
+                                                                    0 ? (
+                                                                        <Pressable
+                                                                            style={
+                                                                                styles.hiChipMutedBtn
+                                                                            }
+                                                                            onPress={(
+                                                                                event,
+                                                                            ) => {
+                                                                                event.stopPropagation();
+                                                                                setTagPreview(
+                                                                                    {
+                                                                                        title: item.label,
+                                                                                        tags: item.value,
+                                                                                    },
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <View
+                                                                                style={
+                                                                                    styles.hiChipMuted
+                                                                                }
+                                                                            >
+                                                                                <Text
+                                                                                    style={
+                                                                                        styles.hiChipMutedText
+                                                                                    }
+                                                                                >
+                                                                                    +
+                                                                                    {
+                                                                                        tagSummary.remaining
+                                                                                    }{' '}
+                                                                                    mục
+                                                                                    khác
+                                                                                </Text>
+                                                                            </View>
+                                                                        </Pressable>
+                                                                    ) : null}
+                                                                </>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <Text
+                                                            style={
+                                                                styles.hiEmptyText
+                                                            }
+                                                        >
+                                                            Chưa có thông tin
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                            </View>
+                                        )}
+                                        {item.type === 'note' && (
+                                            <View
+                                                style={{
+                                                    width: '100%',
+                                                    paddingRight: 10,
+                                                }}
+                                            >
+                                                <Text
+                                                    style={styles.hiLabelTitle}
+                                                >
+                                                    {item.label}
+                                                </Text>
+                                                <View
+                                                    style={styles.hiBlockWrap}
+                                                >
+                                                    <Text
+                                                        style={
+                                                            item.value
+                                                                ? styles.hiBlockText
+                                                                : styles.hiEmptyText
+                                                        }
+                                                    >
+                                                        {item.value ||
+                                                            'Chưa có thông tin'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Ionicons
+                                        name='chevron-forward'
+                                        size={16}
+                                        color={colors.text3}
+                                    />
+                                </Pressable>
+                            ))}
+                        </View>
+
+                        <SectionHeader
+                            title='Đơn thuốc'
+                            action='Tất cả'
+                            onAction={() => setShowMedicinesScreen(true)}
+                        />
+                        <CardBlock>
+                            <CountStrip
+                                icon={
+                                    <MaterialCommunityIcons
+                                        name='pill'
+                                        size={16}
+                                        color={colors.secondary}
+                                    />
+                                }
+                                iconBg={colors.secondaryBg}
+                                title='Đơn thuốc'
+                                count={`${medications.length} đang dùng`}
+                                countStyle={{ color: colors.secondary }}
+                            />
+                            {medications.map((item, index) => {
+                                const styleDef =
+                                    MED_ROWS[index % MED_ROWS.length];
+                                return (
+                                    <Pressable
+                                        key={`${item.name}-${index}`}
+                                        onPress={() =>
+                                            setShowMedicinesScreen(true)
+                                        }
+                                        style={[
+                                            styles.medicineListRow,
+                                            index === medications.length - 1
+                                                ? styles.medicineListRowLast
+                                                : null,
+                                        ]}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.medicineListIcon,
+                                                {
+                                                    backgroundColor:
+                                                        styleDef.bg,
+                                                },
+                                            ]}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name='pill'
+                                                size={16}
+                                                color={styleDef.iconColor}
+                                            />
+                                        </View>
+                                        <View style={styles.medicineListBody}>
+                                            <Text
+                                                style={
+                                                    styles.medicineListTitleCompact
+                                                }
+                                            >
+                                                {item.name}
+                                            </Text>
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </CardBlock>
+
+                        <SectionLabel title='Liên hệ khẩn cấp' />
+                        <View style={styles.healthInfoCard}>
+                            {emergencyContacts.map((contact, index) => {
+                                const initial = contact.name
+                                    .charAt(0)
+                                    .toUpperCase();
+                                const bgColors = [
+                                    '#EFF6FF',
+                                    '#FAF5FF',
+                                    '#F0FDF4',
+                                    '#FFFBEB',
+                                ];
+                                const textColors = [
+                                    '#2563EB',
+                                    '#9333EA',
+                                    '#16A34A',
+                                    '#D97706',
+                                ];
+                                const avatarBg =
+                                    bgColors[index % bgColors.length];
+                                const avatarColor =
+                                    textColors[index % textColors.length];
+                                return (
+                                    <View
+                                        key={contact.id}
+                                        style={styles.emergencyContactRow}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.ecAvatar,
+                                                { backgroundColor: avatarBg },
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.ecAvatarText,
+                                                    { color: avatarColor },
+                                                ]}
+                                            >
+                                                {initial}
+                                            </Text>
+                                        </View>
+                                        <View
+                                            style={styles.emergencyContactBody}
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.emergencyContactName
+                                                }
+                                            >
+                                                {contact.name}
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    styles.emergencyContactMeta
+                                                }
+                                            >
+                                                {contact.relation} •{' '}
+                                                {contact.phone}
+                                            </Text>
+                                        </View>
+                                        <Pressable
+                                            style={styles.emergencyCallButton}
+                                            onPress={() =>
+                                                handleCallContact(contact.phone)
+                                            }
+                                        >
+                                            <Ionicons
+                                                name='call-outline'
+                                                size={16}
+                                                color='#16A34A'
+                                            />
+                                        </Pressable>
+                                    </View>
+                                );
+                            })}
+                            <Pressable
+                                style={[
+                                    styles.emergencyContactRow,
+                                    styles.healthInfoRowLast,
+                                ]}
+                                onPress={() => setAddContactModal(true)}
+                            >
+                                <View
+                                    style={[
+                                        styles.ecAvatar,
+                                        {
+                                            backgroundColor: '#EFF6FF',
+                                            borderStyle: 'dashed',
+                                            borderWidth: 1,
+                                            borderColor: '#BFDBFE',
+                                        },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='add'
+                                        size={18}
+                                        color='#2563EB'
+                                    />
+                                </View>
+                                <Text style={styles.ecAddText}>
+                                    Thêm người liên hệ
+                                </Text>
+                            </Pressable>
                         </View>
                     </>
                 ) : (
                     <>
-                        <SectionLabel title='Tổng quan sức khỏe' />
-                        <View style={shared.cardBlock}>
-                            <ProfileRow
-                                icon='water-outline'
-                                color='#DC2626'
-                                bg='#FEF2F2'
-                                label='Nhóm máu'
-                                value={member.bloodType ?? 'Chưa có'}
-                            />
-                            <ProfileRow
-                                icon='warning-outline'
-                                color='#D97706'
-                                bg='#FFFBEB'
-                                label='Bệnh nền'
-                                value={member.chronicIllness ?? 'Chưa ghi nhận'}
-                            />
-                            <ProfileRow
-                                icon='alert-circle-outline'
-                                color='#E11D48'
-                                bg='#FFF1F2'
-                                label='Dị ứng'
-                                value={member.allergies ?? 'Chưa ghi nhận'}
-                                isLast
-                            />
+                        <View style={styles.healthSectionHeader}>
+                            <SectionLabel title='Hồ sơ khám bệnh' />
+                            <Pressable
+                                onPress={() =>
+                                    router.push(
+                                        `${memberBasePath}/history/records` as any,
+                                    )
+                                }
+                            >
+                                <Text style={styles.healthSectionAction}>
+                                    Tất cả
+                                </Text>
+                            </Pressable>
+                        </View>
+                        {previewRecords.map((record) => (
+                            <Pressable
+                                key={record.id}
+                                style={styles.recordCard}
+                                onPress={() => {
+                                    setRecordMenuId(null);
+                                    setSelectedRecord(record);
+                                }}
+                            >
+                                <View style={styles.recordCardTop}>
+                                    <View
+                                        style={[
+                                            styles.recordIconCard,
+                                            {
+                                                backgroundColor: record.bg,
+                                            },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                record.iconName as keyof typeof Ionicons.glyphMap
+                                            }
+                                            size={18}
+                                            color={record.iconColor}
+                                        />
+                                    </View>
+                                    <View style={styles.recordContent}>
+                                        <Text
+                                            style={styles.recordTitle}
+                                            numberOfLines={2}
+                                        >
+                                            {record.title}
+                                        </Text>
+                                        <Text
+                                            style={styles.recordMetaLine}
+                                            numberOfLines={1}
+                                        >
+                                            {record.hospital}
+                                            {record.doctor
+                                                ? ` • ${record.doctor}`
+                                                : ''}
+                                        </Text>
+                                        {record.diagnosis ? (
+                                            <View style={styles.recordDiagRow}>
+                                                <View
+                                                    style={styles.recordDiagDot}
+                                                />
+                                                <Text
+                                                    style={
+                                                        styles.recordDiagText
+                                                    }
+                                                    numberOfLines={2}
+                                                >
+                                                    {record.diagnosis}
+                                                </Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    <View style={{ position: 'relative' }}>
+                                        <Pressable
+                                            style={styles.recordMoreBtn}
+                                            onPress={(event) => {
+                                                event.stopPropagation();
+                                                setRecordMenuId((prev) =>
+                                                    prev === record.id
+                                                        ? null
+                                                        : record.id,
+                                                );
+                                            }}
+                                        >
+                                            <Ionicons
+                                                name='ellipsis-vertical'
+                                                size={16}
+                                                color={colors.text2}
+                                            />
+                                        </Pressable>
+                                        {recordMenuId === record.id ? (
+                                            <View style={styles.ctxMenu}>
+                                                <Pressable
+                                                    style={styles.ctxItem}
+                                                    onPress={(event) => {
+                                                        event.stopPropagation();
+                                                        setRecordMenuId(null);
+                                                        setSelectedRecord(
+                                                            record,
+                                                        );
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='create-outline'
+                                                        size={14}
+                                                        color={colors.primary}
+                                                    />
+                                                    <Text
+                                                        style={
+                                                            styles.ctxItemText
+                                                        }
+                                                    >
+                                                        Chỉnh sửa
+                                                    </Text>
+                                                </Pressable>
+                                                <View
+                                                    style={styles.ctxDivider}
+                                                />
+                                                <Pressable
+                                                    style={styles.ctxItemDel}
+                                                    onPress={(event) => {
+                                                        event.stopPropagation();
+                                                        setRecordMenuId(null);
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='trash-outline'
+                                                        size={14}
+                                                        color={colors.danger}
+                                                    />
+                                                    <Text
+                                                        style={
+                                                            styles.ctxItemDelText
+                                                        }
+                                                    >
+                                                        Xoá hồ sơ
+                                                    </Text>
+                                                </Pressable>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                </View>
+                                <View style={styles.recordCardFooter}>
+                                    <Text
+                                        style={[
+                                            styles.recordTag,
+                                            {
+                                                backgroundColor: record.tagBg,
+                                                color: record.tagColor,
+                                            },
+                                        ]}
+                                    >
+                                        {record.tag}
+                                    </Text>
+                                    {record.location ? (
+                                        <View style={styles.recordMetaRight}>
+                                            <Ionicons
+                                                name='location-outline'
+                                                size={11}
+                                                color={colors.text3}
+                                            />
+                                            <Text style={styles.recordMetaText}>
+                                                {record.location}
+                                            </Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                            </Pressable>
+                        ))}
+
+                        <View style={styles.healthSectionHeader}>
+                            <SectionLabel title='Tiêm chủng' />
+                            <Pressable
+                                onPress={() =>
+                                    router.push(
+                                        `${memberBasePath}/history/vaccines` as any,
+                                    )
+                                }
+                            >
+                                <Text
+                                    style={[
+                                        styles.healthSectionAction,
+                                        { color: '#0F766E' },
+                                    ]}
+                                >
+                                    Xem chi tiết
+                                </Text>
+                            </Pressable>
+                        </View>
+                        <View style={styles.vaccineCard}>
+                            <View style={styles.vaccineCardTop}>
+                                <View style={styles.vaccineProgWrap}>
+                                    <Svg
+                                        style={{ position: 'absolute' }}
+                                        width={56}
+                                        height={56}
+                                    >
+                                        <Circle
+                                            cx='28'
+                                            cy='28'
+                                            r={24}
+                                            stroke='#E2E8F0'
+                                            strokeWidth={5}
+                                            fill='none'
+                                        />
+                                        <Circle
+                                            cx='28'
+                                            cy='28'
+                                            r={24}
+                                            stroke='#D97706'
+                                            strokeWidth={5}
+                                            fill='none'
+                                            strokeDasharray={2 * Math.PI * 24}
+                                            strokeDashoffset={
+                                                2 * Math.PI * 24 * 0.25
+                                            }
+                                            strokeLinecap='round'
+                                            rotation='-90'
+                                            origin='28, 28'
+                                        />
+                                    </Svg>
+                                    <Text style={styles.vaccineProgText}>
+                                        75%
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.vaccineTitle}>
+                                        Hoàn thành{' '}
+                                        <Text style={{ color: '#D97706' }}>
+                                            75%
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.vaccineSub}>
+                                        6 / 8 mũi khuyến nghị
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.vaccineDivider} />
+                            <View style={styles.vaccineCardBottom}>
+                                <Ionicons
+                                    name='information-circle-outline'
+                                    size={16}
+                                    color={colors.text3}
+                                    style={{ marginTop: 2, marginLeft: 2 }}
+                                />
+                                <Text style={styles.vaccineInfoText}>
+                                    Khuyến nghị dựa theo WHO & CDC. Bạn có thể
+                                    nhập mũi đã tiêm để hệ thống tính lại.
+                                </Text>
+                            </View>
                         </View>
 
-                        <SectionLabel title='Hồ sơ y tế' />
-                        <View style={shared.cardBlock}>
-                            <ActionRow
-                                icon='document-text-outline'
-                                color={colors.primary}
-                                bg='#EFF6FF'
-                                title={`${member.recordCount ?? 0} hồ sơ khám`}
-                                subtitle='Lịch sử khám và kết quả xét nghiệm'
-                            />
-                            <ActionRow
-                                icon='shield-checkmark-outline'
-                                color='#16A34A'
-                                bg='#F0FDF4'
-                                title={`${member.vaccineDoseCount ?? 0}/${member.vaccineTotalCount ?? 0} mũi vaccine`}
-                                subtitle='Tiến độ tiêm chủng hiện tại'
-                                isLast
-                            />
+                        <View style={styles.healthSectionHeader}>
+                            <SectionLabel title='Chỉ số theo thời gian' />
+                            <Pressable
+                                onPress={() =>
+                                    router.push(
+                                        `${memberBasePath}/history/metrics` as any,
+                                    )
+                                }
+                            >
+                                <Text style={styles.healthSectionAction}>
+                                    Tất cả
+                                </Text>
+                            </Pressable>
                         </View>
+
+                        <MetricCard
+                            title='Huyết áp'
+                            iconName='water-outline'
+                            iconColor={colors.danger}
+                            iconBg='#FEE2E2'
+                            statusText='Hơi cao'
+                            statusColor={colors.danger}
+                            statusBg='#FEE2E2'
+                            trendType='bar'
+                            trendData={[
+                                {
+                                    label: 'T1',
+                                    barHeight: 24,
+                                    color: '#FECACA',
+                                },
+                                {
+                                    label: 'T2',
+                                    barHeight: 20,
+                                    color: '#FECACA',
+                                },
+                                {
+                                    label: 'T3',
+                                    barHeight: 40,
+                                    color: colors.danger,
+                                },
+                            ]}
+                            latestValue='130/85 mmHg'
+                            latestValueColor={colors.danger}
+                            lastUpdate='15/03/2026'
+                            memberBasePath={memberBasePath}
+                        />
+
+                        <MetricCard
+                            title='Cân nặng'
+                            iconName='barbell-outline'
+                            iconColor={colors.primary}
+                            iconBg='#DBEAFE'
+                            statusText='Bình thường'
+                            statusColor={colors.success}
+                            statusBg='#DCFCE7'
+                            trendType='text'
+                            trendData={[
+                                {
+                                    label: '01',
+                                    formattedValue: '55',
+                                    color: colors.text2,
+                                },
+                                {
+                                    label: '02',
+                                    formattedValue: '54',
+                                    color: colors.text2,
+                                },
+                                {
+                                    label: '03',
+                                    formattedValue: '55',
+                                    color: colors.primary,
+                                },
+                            ]}
+                            latestValue='55 kg'
+                            latestValueColor={colors.primary}
+                            lastUpdate='15/03/2026'
+                            memberBasePath={memberBasePath}
+                        />
+
+                        <MetricCard
+                            title='Đường huyết'
+                            iconName='document-text-outline'
+                            iconColor='#D97706'
+                            iconBg='#FEF3C7'
+                            statusText='Bình thường'
+                            statusColor={colors.success}
+                            statusBg='#DCFCE7'
+                            trendType='bar'
+                            trendData={[
+                                {
+                                    label: 'T1',
+                                    barHeight: 26,
+                                    color: '#FDE68A',
+                                },
+                                {
+                                    label: 'T2',
+                                    barHeight: 26,
+                                    color: '#FDE68A',
+                                },
+                                {
+                                    label: 'T3',
+                                    barHeight: 22,
+                                    color: '#D97706',
+                                },
+                            ]}
+                            latestValue='5.4 mmol/L'
+                            latestValueColor='#D97706'
+                            lastUpdate='10/03/2026'
+                            memberBasePath={memberBasePath}
+                        />
                     </>
                 )}
             </ScrollView>
+
+            <Modal
+                visible={sheet !== null}
+                transparent
+                animationType='fade'
+                onRequestClose={() => setSheet(null)}
+            >
+                <Pressable
+                    style={shared.overlay}
+                    onPress={() => setSheet(null)}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={styles.sheetKeyboard}
+                    >
+                        <Pressable
+                            style={shared.sheetContainer}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={shared.sheetHandle}>
+                                <View style={shared.sheetBar} />
+                            </View>
+
+                            <View style={shared.sheetHeader}>
+                                <Text style={shared.sheetTitle}>
+                                    {sheet?.title}
+                                </Text>
+                                <Pressable onPress={() => setSheet(null)}>
+                                    <Ionicons
+                                        name='close'
+                                        size={20}
+                                        color={colors.text2}
+                                    />
+                                </Pressable>
+                            </View>
+
+                            {sheet?.type === 'date' && (
+                                <View style={shared.sheetBody}>
+                                    <DateField
+                                        value={(() => {
+                                            const parts = draft.split('/');
+                                            if (parts.length === 3) {
+                                                const d = parseInt(
+                                                    parts[0],
+                                                    10,
+                                                );
+                                                const m = parseInt(
+                                                    parts[1],
+                                                    10,
+                                                );
+                                                const y = parseInt(
+                                                    parts[2],
+                                                    10,
+                                                );
+                                                const date = new Date(
+                                                    y,
+                                                    m - 1,
+                                                    d,
+                                                );
+                                                if (!isNaN(date.getTime())) {
+                                                    return date;
+                                                }
+                                            }
+                                            return null;
+                                        })()}
+                                        onChange={(date) => {
+                                            const dd = String(
+                                                date.getDate(),
+                                            ).padStart(2, '0');
+                                            const mm = String(
+                                                date.getMonth() + 1,
+                                            ).padStart(2, '0');
+                                            const yyyy = date.getFullYear();
+                                            setDraft(`${dd}/${mm}/${yyyy}`);
+                                        }}
+                                    />
+                                    <Text
+                                        style={{
+                                            fontSize: 11,
+                                            color: colors.text3,
+                                            marginTop: 12,
+                                            textAlign: 'center',
+                                        }}
+                                    >
+                                        Bạn có thể nhập ngày trực tiếp
+                                        (dd/mm/yyyy) hoặc nhấn biểu tượng lịch.
+                                    </Text>
+                                </View>
+                            )}
+
+                            {sheet?.type === 'simple' && (
+                                <View style={shared.sheetBody}>
+                                    {sheet.isStepper ? (
+                                        <View
+                                            style={styles.sheetStepperContainer}
+                                        >
+                                            <TextInput
+                                                style={styles.sheetStepperInput}
+                                                value={draft}
+                                                onChangeText={setDraft}
+                                                keyboardType='numeric'
+                                                autoFocus
+                                            />
+                                            <View
+                                                style={
+                                                    styles.sheetStepperControls
+                                                }
+                                            >
+                                                <Pressable
+                                                    style={styles.sheetStepBtn}
+                                                    onPress={() => {
+                                                        const val =
+                                                            parseInt(
+                                                                draft || '0',
+                                                            ) + 5;
+                                                        setDraft(String(val));
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='add'
+                                                        size={20}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                                <Pressable
+                                                    style={styles.sheetStepBtn}
+                                                    onPress={() => {
+                                                        const val = Math.max(
+                                                            0,
+                                                            parseInt(
+                                                                draft || '0',
+                                                            ) - 5,
+                                                        );
+                                                        setDraft(String(val));
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name='remove'
+                                                        size={20}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                            </View>
+                                            {sheet.suffix && (
+                                                <Text
+                                                    style={
+                                                        styles.sheetStepperUnit
+                                                    }
+                                                >
+                                                    {sheet.suffix}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    ) : (
+                                        <View style={shared.sheetInputWrap}>
+                                            <Ionicons
+                                                name={
+                                                    (sheet.icon ||
+                                                        'create') as any
+                                                }
+                                                size={18}
+                                                color={colors.primary}
+                                            />
+                                            <TextInput
+                                                style={shared.sheetInput}
+                                                value={draft}
+                                                onChangeText={setDraft}
+                                                keyboardType={
+                                                    sheet.keyboard || 'default'
+                                                }
+                                                placeholder={sheet.title}
+                                                placeholderTextColor={
+                                                    colors.text3
+                                                }
+                                                autoFocus
+                                            />
+                                            {sheet.suffix && (
+                                                <Text
+                                                    style={styles.sheetSuffix}
+                                                >
+                                                    {sheet.suffix}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
+                            {sheet?.type === 'select' && (
+                                <View style={shared.sheetBody}>
+                                    {sheet.options?.map((opt) => {
+                                        const active = draft === opt;
+                                        return (
+                                            <Pressable
+                                                key={opt}
+                                                style={[
+                                                    styles.sheetSelectOption,
+                                                    active &&
+                                                        styles.sheetSelectActive,
+                                                ]}
+                                                onPress={() => setDraft(opt)}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.sheetSelectText,
+                                                        active &&
+                                                            styles.sheetSelectTextActive,
+                                                    ]}
+                                                >
+                                                    {opt}
+                                                </Text>
+                                                {active && (
+                                                    <Ionicons
+                                                        name='checkmark-circle'
+                                                        size={20}
+                                                        color={colors.primary}
+                                                    />
+                                                )}
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            )}
+
+                            <View style={shared.sheetBtnRow}>
+                                <Pressable
+                                    style={shared.sheetBtnGhost}
+                                    onPress={() => setSheet(null)}
+                                >
+                                    <Text style={shared.sheetBtnGhostText}>
+                                        Huỷ
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={shared.sheetBtnPrimaryWrap}
+                                    onPress={saveSheet}
+                                >
+                                    <View
+                                        style={[
+                                            shared.sheetBtnPrimary,
+                                            { backgroundColor: colors.primary },
+                                        ]}
+                                    >
+                                        <View
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 4,
+                                            }}
+                                        >
+                                            <Ionicons
+                                                name='checkmark'
+                                                size={16}
+                                                color='#fff'
+                                            />
+                                            <Text
+                                                style={
+                                                    shared.sheetBtnPrimaryText
+                                                }
+                                            >
+                                                Lưu
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </Pressable>
+                            </View>
+                        </Pressable>
+                    </KeyboardAvoidingView>
+                </Pressable>
+            </Modal>
+            <Modal
+                visible={addContactModal}
+                transparent
+                animationType='fade'
+                onRequestClose={() => setAddContactModal(false)}
+            >
+                <Pressable
+                    style={shared.overlay}
+                    onPress={() => setAddContactModal(false)}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={{ justifyContent: 'flex-end', flex: 1 }}
+                    >
+                        <Pressable
+                            style={[
+                                shared.sheetContainer,
+                                { paddingHorizontal: 0 },
+                            ]}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={styles.addContactHeader}>
+                                <View style={styles.addContactHeaderTop}>
+                                    <View>
+                                        <Text style={styles.addContactTitle}>
+                                            Thêm người liên hệ
+                                        </Text>
+                                        <Text style={styles.addContactSub}>
+                                            Liên hệ khẩn cấp khi cần thiết
+                                        </Text>
+                                    </View>
+                                    <Pressable
+                                        style={styles.addContactClose}
+                                        onPress={() =>
+                                            setAddContactModal(false)
+                                        }
+                                    >
+                                        <Ionicons
+                                            name='close'
+                                            size={18}
+                                            color={colors.text2}
+                                        />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            <ScrollView
+                                style={styles.addContactBody}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <View style={styles.addContactAvatarWrap}>
+                                    <View style={styles.addContactAvatar}>
+                                        <Text
+                                            style={styles.addContactAvatarText}
+                                        >
+                                            ?
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <Text style={styles.addContactLabel}>
+                                    Họ và tên *
+                                </Text>
+                                <View style={styles.addContactInputBox}>
+                                    <TextInput
+                                        style={styles.addContactInput}
+                                        placeholder='Nguyễn Văn A'
+                                        placeholderTextColor={colors.text3}
+                                        value={draftContactName}
+                                        onChangeText={setDraftContactName}
+                                    />
+                                </View>
+
+                                <Text style={styles.addContactLabel}>
+                                    Quan hệ *
+                                </Text>
+                                <View style={styles.addContactRelations}>
+                                    {[
+                                        'Vợ/chồng',
+                                        'Bố',
+                                        'Mẹ',
+                                        'Con',
+                                        'Anh/chị/em',
+                                        'Bạn bè',
+                                        'Khác',
+                                    ].map((rel) => {
+                                        const isActive =
+                                            draftContactRelation === rel;
+                                        return (
+                                            <Pressable
+                                                key={rel}
+                                                style={[
+                                                    styles.addContactRelChip,
+                                                    isActive &&
+                                                        styles.addContactRelChipActive,
+                                                ]}
+                                                onPress={() =>
+                                                    setDraftContactRelation(rel)
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.addContactRelText,
+                                                        isActive &&
+                                                            styles.addContactRelTextActive,
+                                                    ]}
+                                                >
+                                                    {rel}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+
+                                <Text style={styles.addContactLabel}>
+                                    Số điện thoại *
+                                </Text>
+                                <View style={styles.addContactInputBox}>
+                                    <Text style={styles.addContactPrefix}>
+                                        VN +84
+                                    </Text>
+                                    <View style={styles.addContactDivider} />
+                                    <TextInput
+                                        style={styles.addContactInput}
+                                        placeholder='901 234 567'
+                                        placeholderTextColor={colors.text3}
+                                        value={draftContactPhone}
+                                        onChangeText={setDraftContactPhone}
+                                        keyboardType='phone-pad'
+                                    />
+                                </View>
+                            </ScrollView>
+
+                            <View style={styles.addContactFooter}>
+                                <Pressable
+                                    style={styles.addContactSaveBtn}
+                                    onPress={() => setAddContactModal(false)}
+                                >
+                                    <Text style={styles.addContactSaveText}>
+                                        Lưu liên hệ
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </Pressable>
+                    </KeyboardAvoidingView>
+                </Pressable>
+            </Modal>
+            <Modal
+                visible={healthSheetKey !== null}
+                transparent
+                animationType='fade'
+                onRequestClose={() => setHealthSheetKey(null)}
+            >
+                <Pressable
+                    style={shared.overlay}
+                    onPress={() => setHealthSheetKey(null)}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={{ justifyContent: 'flex-end' }}
+                    >
+                        <Pressable
+                            style={shared.sheetContainer}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={shared.sheetHandle}>
+                                <View style={shared.sheetBar} />
+                            </View>
+
+                            <View style={shared.sheetHeader}>
+                                <Text style={shared.sheetTitle}>
+                                    {healthSheetKey === 'blood'
+                                        ? 'Nhóm máu'
+                                        : healthSheetKey === 'chronicIllness'
+                                          ? 'Bệnh nền'
+                                          : healthSheetKey === 'drugAllergies'
+                                            ? 'Dị ứng thuốc'
+                                            : 'Dị ứng thực phẩm'}
+                                </Text>
+                            </View>
+
+                            <View style={shared.sheetBody}>
+                                {healthSheetKey === 'blood' ? (
+                                    <View style={styles.btGrid}>
+                                        {BLOOD_TYPES.map((bloodType) => (
+                                            <Pressable
+                                                key={bloodType}
+                                                style={[
+                                                    styles.btOpt,
+                                                    healthSheetDraftBlood ===
+                                                        bloodType &&
+                                                        styles.btOptSel,
+                                                ]}
+                                                onPress={() =>
+                                                    setHealthSheetDraftBlood(
+                                                        bloodType,
+                                                    )
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.btOptText,
+                                                        healthSheetDraftBlood ===
+                                                            bloodType &&
+                                                            styles.btOptTextSel,
+                                                    ]}
+                                                >
+                                                    {bloodType}
+                                                </Text>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <>
+                                        <View style={styles.tagInputWrap}>
+                                            {healthSheetDraftTags.map((tag) => (
+                                                <View
+                                                    key={tag}
+                                                    style={styles.tagChip}
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.tagChipText
+                                                        }
+                                                    >
+                                                        {tag}
+                                                    </Text>
+                                                    <Pressable
+                                                        onPress={() =>
+                                                            removeHealthTag(tag)
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.tagChipX
+                                                            }
+                                                        >
+                                                            ×
+                                                        </Text>
+                                                    </Pressable>
+                                                </View>
+                                            ))}
+                                            <TextInput
+                                                style={styles.tagInput}
+                                                value={healthTagText}
+                                                onChangeText={setHealthTagText}
+                                                onSubmitEditing={addHealthTag}
+                                                blurOnSubmit={false}
+                                                returnKeyType='done'
+                                            />
+                                        </View>
+                                        <Text style={styles.tagHint}>
+                                            Nhấn Enter để thêm mục mới
+                                        </Text>
+                                    </>
+                                )}
+                            </View>
+
+                            <View style={shared.sheetBtnRow}>
+                                <Pressable
+                                    style={[
+                                        shared.sheetBtnPrimaryWrap,
+                                        {
+                                            backgroundColor: colors.primary,
+                                            borderRadius: 14,
+                                        },
+                                    ]}
+                                    onPress={saveHealthSheet}
+                                >
+                                    <View style={shared.sheetBtnPrimary}>
+                                        <Text
+                                            style={shared.sheetBtnPrimaryText}
+                                        >
+                                            Lưu thay đổi
+                                        </Text>
+                                    </View>
+                                </Pressable>
+                            </View>
+                        </Pressable>
+                    </KeyboardAvoidingView>
+                </Pressable>
+            </Modal>
+
+            <Modal
+                visible={tagPreview !== null}
+                transparent
+                animationType='fade'
+                onRequestClose={() => setTagPreview(null)}
+            >
+                <Pressable
+                    style={shared.overlay}
+                    onPress={() => setTagPreview(null)}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={{ justifyContent: 'flex-end' }}
+                    >
+                        <Pressable
+                            style={shared.sheetContainer}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={shared.sheetHandle}>
+                                <View style={shared.sheetBar} />
+                            </View>
+
+                            <View style={shared.sheetHeader}>
+                                <Text style={shared.sheetTitle}>
+                                    {tagPreview?.title}
+                                </Text>
+                            </View>
+
+                            <View style={shared.sheetBody}>
+                                <View style={styles.tagPreviewWrap}>
+                                    {tagPreview?.tags.map((tag) => (
+                                        <View
+                                            key={tag}
+                                            style={styles.tagPreviewChip}
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.tagPreviewChipText
+                                                }
+                                            >
+                                                {tag}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+
+                            <View style={shared.sheetBtnRow}>
+                                <Pressable
+                                    style={shared.sheetBtnPrimaryWrap}
+                                    onPress={() => setTagPreview(null)}
+                                >
+                                    <View
+                                        style={[
+                                            shared.sheetBtnPrimary,
+                                            { backgroundColor: colors.primary },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={shared.sheetBtnPrimaryText}
+                                        >
+                                            Đóng
+                                        </Text>
+                                    </View>
+                                </Pressable>
+                            </View>
+                        </Pressable>
+                    </KeyboardAvoidingView>
+                </Pressable>
+            </Modal>
         </SafeAreaView>
     );
 }
+
+const _roleModalStyles = {
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15,23,42,0.45)',
+        justifyContent: 'flex-end' as const,
+    },
+    sheet: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(16),
+        paddingBottom: verticalScale(28),
+        borderTopWidth: 1,
+        borderColor: colors.border,
+    },
+    sheetTitle: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(17),
+        color: colors.text,
+        marginBottom: verticalScale(6),
+    },
+    sheetHint: {
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(13),
+        color: colors.text2,
+        marginBottom: verticalScale(14),
+    },
+    option: {
+        backgroundColor: colors.primaryBg,
+        borderRadius: 14,
+        paddingVertical: verticalScale(14),
+        paddingHorizontal: scale(16),
+        marginBottom: verticalScale(10),
+        borderWidth: 1,
+        borderColor: colors.primaryLight,
+    },
+    optionText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(15),
+        color: colors.primary,
+        textAlign: 'center' as const,
+    },
+    cancel: {
+        marginTop: verticalScale(6),
+        paddingVertical: verticalScale(12),
+        alignItems: 'center' as const,
+    },
+    cancelText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+        color: colors.text2,
+    },
+};

@@ -11,24 +11,32 @@ import {
 } from 'react-native';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
-import { shared } from '@/src/styles/shared';
-import { colors, radius, shadows, typography } from '@/src/styles/tokens';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import {
+    buttonSystem,
+    formSystem,
+    inputSystem,
+    shared,
+} from '@/src/styles/shared';
+import { colors, radius, typography } from '@/src/styles/tokens';
 
-type ForgotErrors = {
+interface ForgotErrors {
     email?: string;
     otp?: string;
     password?: string;
     confirmPassword?: string;
-};
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ForgotPasswordFlow({
     initialEmail,
     onBackToAuth,
+    embedded = false,
 }: {
     initialEmail: string;
     onBackToAuth: () => void;
+    embedded?: boolean;
 }): React.JSX.Element {
     const [step, setStep] = useState<'email' | 'reset'>('email');
     const [email, setEmail] = useState(initialEmail);
@@ -87,7 +95,7 @@ export default function ForgotPasswordFlow({
                 );
             }
         } catch (error) {
-            console.log(error);
+            console.error(error);
             appToast.showError(
                 'Lỗi',
                 'Email không tồn tại hoặc có lỗi xảy ra. Vui lòng thử lại.',
@@ -191,7 +199,7 @@ export default function ForgotPasswordFlow({
             resetPasswordState();
             onBackToAuth();
         } catch (error) {
-            console.log(error);
+            console.error(error);
             appToast.showError(
                 'Lỗi',
                 'Đặt lại mật khẩu thất bại. Vui lòng kiểm tra lại OTP và thử lại.',
@@ -212,16 +220,16 @@ export default function ForgotPasswordFlow({
                 onPress={
                     step === 'email' ? onBackToAuth : () => setStep('email')
                 }
-                style={styles.backButton}
+                style={[shared.iconBtn, styles.backButtonTransparent]}
             >
-                <Ionicons name='chevron-back' size={20} color={colors.text2} />
+                <Ionicons name='chevron-back' size={16} color={colors.text2} />
             </Pressable>
 
             <View style={styles.body}>
                 <View
                     style={[
                         styles.iconWrap,
-                        {
+                        !embedded && {
                             backgroundColor:
                                 step === 'email' ? colors.primaryBg : '#F0FDF4',
                         },
@@ -254,7 +262,7 @@ export default function ForgotPasswordFlow({
                                 <Ionicons
                                     name='mail-outline'
                                     size={18}
-                                    color={colors.text2}
+                                    color={colors.text3}
                                     style={styles.leadingIcon}
                                 />
                                 <TextInput
@@ -280,23 +288,25 @@ export default function ForgotPasswordFlow({
 
                         <Pressable
                             style={[
-                                shared.btnFilled,
                                 styles.primaryButton,
                                 isLoading && styles.loadingButton,
                             ]}
                             onPress={handleSendOtp}
                             disabled={isLoading}
                         >
-                            {isLoading ? (
-                                <ActivityIndicator
-                                    size='small'
-                                    color='#fff'
-                                    style={{ marginRight: 8 }}
-                                />
-                            ) : null}
-                            <Text style={shared.btnFilledText}>
-                                {isLoading ? 'Đang gửi...' : 'Gửi mã OTP'}
-                            </Text>
+                            <View style={styles.primaryButtonContent}>
+                                {isLoading ? (
+                                    <ActivityIndicator
+                                        size='small'
+                                        color='#fff'
+                                    />
+                                ) : null}
+                                <Text style={styles.primaryButtonText}>
+                                    {isLoading
+                                        ? '\u0110ang g\u1EEDi...'
+                                        : 'G\u1EEDi m\u00E3 OTP'}
+                                </Text>
+                            </View>
                         </Pressable>
                     </>
                 ) : (
@@ -371,7 +381,7 @@ export default function ForgotPasswordFlow({
                                 <Ionicons
                                     name='lock-closed-outline'
                                     size={18}
-                                    color={colors.text2}
+                                    color={colors.text3}
                                     style={styles.leadingIcon}
                                 />
                                 <TextInput
@@ -418,7 +428,7 @@ export default function ForgotPasswordFlow({
                                 <Ionicons
                                     name='lock-closed-outline'
                                     size={18}
-                                    color={colors.text2}
+                                    color={colors.text3}
                                     style={styles.leadingIcon}
                                 />
                                 <TextInput
@@ -460,26 +470,26 @@ export default function ForgotPasswordFlow({
 
                         <Pressable
                             style={[
-                                shared.btnFilled,
                                 styles.primaryButton,
-                                { marginTop: 20 },
+                                styles.primaryButtonLargeGap,
                                 isLoading && styles.loadingButton,
                             ]}
                             onPress={handleResetPassword}
                             disabled={isLoading}
                         >
-                            {isLoading ? (
-                                <ActivityIndicator
-                                    size='small'
-                                    color='#fff'
-                                    style={{ marginRight: 8 }}
-                                />
-                            ) : null}
-                            <Text style={shared.btnFilledText}>
-                                {isLoading
-                                    ? 'Đang xử lý...'
-                                    : 'Đặt lại mật khẩu'}
-                            </Text>
+                            <View style={styles.primaryButtonContent}>
+                                {isLoading ? (
+                                    <ActivityIndicator
+                                        size='small'
+                                        color='#fff'
+                                    />
+                                ) : null}
+                                <Text style={styles.primaryButtonText}>
+                                    {isLoading
+                                        ? '\u0110ang x\u1EED l\u00FD...'
+                                        : '\u0110\u1EB7t l\u1EA1i m\u1EADt kh\u1EA9u'}
+                                </Text>
+                            </View>
                         </Pressable>
                     </>
                 )}
@@ -491,19 +501,17 @@ export default function ForgotPasswordFlow({
 const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: 4,
-        paddingBottom: 32,
+        paddingHorizontal: scale(24),
+        paddingTop: verticalScale(4),
+        paddingBottom: verticalScale(32),
     },
-    backButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.card,
-        alignItems: 'center',
-        justifyContent: 'center',
+    backButtonTransparent: {
+        borderWidth: 0,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
     },
     body: {
         paddingTop: 40,
@@ -526,56 +534,75 @@ const styles = StyleSheet.create({
     },
     description: {
         fontFamily: typography.font.regular,
-        fontSize: 13,
-        lineHeight: 21,
+        fontSize: scaleFont(13),
+        lineHeight: verticalScale(21),
         color: colors.text2,
-        marginBottom: 28,
+        marginBottom: verticalScale(28),
     },
     inputGroup: {
-        marginBottom: 18,
+        marginBottom: verticalScale(16),
     },
     inputLabel: {
-        fontFamily: typography.font.bold,
-        fontSize: 11,
-        lineHeight: 16,
-        color: colors.text2,
-        letterSpacing: 0.4,
-        marginBottom: 8,
+        ...formSystem.fieldLabel,
+        lineHeight: verticalScale(16),
+        marginBottom: verticalScale(7),
     },
     inputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: radius.md,
-        borderWidth: 1,
+        ...inputSystem.fieldIcon,
+        backgroundColor: colors.card,
+        minHeight: verticalScale(45),
+        borderRadius: radius.sm,
+        borderWidth: 1.5,
         borderColor: colors.border,
-        backgroundColor: colors.bg,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        ...shadows.card,
+        paddingHorizontal: scale(13),
     },
     leadingIcon: {
-        marginRight: 10,
+        marginRight: scale(10),
     },
     input: {
-        flex: 1,
-        padding: 0,
+        ...inputSystem.text,
         fontFamily: typography.font.medium,
-        fontSize: 14,
-        color: colors.text,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
     },
     primaryButton: {
+        width: '100%',
+        ...buttonSystem.primary,
         backgroundColor: colors.primary,
+        minHeight: verticalScale(45),
+        overflow: 'hidden',
         shadowColor: colors.primary,
-        marginTop: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 5,
+        marginTop: verticalScale(8),
+    },
+    primaryButtonLargeGap: {
+        marginTop: verticalScale(20),
+    },
+    primaryButtonText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
+        letterSpacing: 0.1,
+        backgroundColor: 'transparent',
+        includeFontPadding: false,
+    },
+    primaryButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
     },
     loadingButton: {
-        backgroundColor: 'rgba(37, 99, 235, 0.72)',
+        backgroundColor: 'rgba(15, 110, 86, 0.72)',
         opacity: 0.88,
     },
     errorText: {
         marginTop: 6,
         marginLeft: 2,
-        color: colors.cDanger,
+        color: colors.danger,
         fontFamily: typography.font.medium,
         fontSize: 12,
         lineHeight: 18,
@@ -619,8 +646,8 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: colors.primary,
-        backgroundColor: colors.primaryBg,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -635,12 +662,12 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.semiBold,
         fontSize: 12,
         lineHeight: 16,
-        color: colors.primary,
+        color: colors.text2,
     },
     errorTiny: {
         flex: 1,
         minHeight: 16,
-        color: colors.cDanger,
+        color: colors.danger,
         fontFamily: typography.font.medium,
         fontSize: 11,
         lineHeight: 16,

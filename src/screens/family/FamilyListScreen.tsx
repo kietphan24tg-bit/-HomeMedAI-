@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient, type LinearGradientProps } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Animated,
+    Image,
     Pressable,
     ScrollView,
     StatusBar,
@@ -21,13 +21,21 @@ import Svg, {
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
 import StatePanel from '@/src/components/state/StatePanel';
+import { useCreateFamilyMutation } from '@/src/features/family/mutations';
 import {
     useFamilyInvitesQuery,
     useMyFamiliesQuery,
 } from '@/src/features/family/queries';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { shared } from '@/src/styles/shared';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { cardSystem, shared } from '@/src/styles/shared';
 import { colors, shadows, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import { CreateFamilyModal, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
@@ -233,8 +241,8 @@ export default function FamilyListScreen(): React.JSX.Element {
 
         if (!permission.granted) {
             Alert.alert(
-                'Chưa có quyền truy cập ảnh',
-                'Hãy cho phép ứng dụng truy cập thư viện ảnh để chọn ảnh đại diện gia đình.',
+                'Ch\u01B0a c\u00F3 quy\u1EC1n truy c\u1EADp \u1EA3nh',
+                'H\u00E3y cho ph\u00E9p \u1EE9ng d\u1EE5ng truy c\u1EADp th\u01B0 vi\u1EC7n \u1EA3nh \u0111\u1EC3 ch\u1ECDn \u1EA3nh \u0111\u1EA1i di\u1EC7n gia \u0111\u00ECnh.',
             );
             return;
         }
@@ -251,8 +259,46 @@ export default function FamilyListScreen(): React.JSX.Element {
         }
     };
 
+    const { data: meOverview } = useMeOverviewQuery();
+    const createFamilyMutation = useCreateFamilyMutation();
+
+    const handleCreateFamily = () => {
+        if (!familyName.trim()) {
+            Alert.alert(
+                'Thi\u1EBFu th\u00F4ng tin',
+                'Vui l\u00F2ng nh\u1EADp t\u00EAn gia \u0111\u00ECnh.',
+            );
+            return;
+        }
+
+        const fullName =
+            (meOverview?.profile as any)?.full_name ||
+            'Ch\u1EE7 gia \u0111\u00ECnh';
+
+        createFamilyMutation.mutate(
+            {
+                name: familyName,
+                address: familyAddress || null,
+                avatar_url: familyAvatarUri || null,
+                owner_profile_full_name: fullName,
+            },
+            {
+                onSuccess: () => {
+                    setShowCreateSheet(false);
+                    setFamilyName('');
+                    setFamilyAddress('');
+                    setFamilyAvatarUri(null);
+                },
+            },
+        );
+    };
+
     const handleCloseCreateSheet = () => {
         setShowCreateSheet(false);
+    };
+
+    const navigateToFamily = (familyId: string) => {
+        router.push(`/(tabs)/family/${familyId}`);
     };
 
     return (
@@ -264,18 +310,23 @@ export default function FamilyListScreen(): React.JSX.Element {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={localStyles.topbar}>
-                    <Text style={localStyles.topbarTitle}>Gia Đình</Text>
+                    <View>
+                        <Text style={localStyles.topbarTitle}>
+                            {'Gia \u0110\u00ECnh'}
+                        </Text>
+                    </View>
 
                     <View style={localStyles.topbarRight}>
-                        {isEmpty ? (
-                            <View style={[shared.iconBtn, localStyles.gridBtn]}>
-                                <Ionicons
-                                    name='grid-outline'
-                                    size={16}
-                                    color='#F59E0B'
-                                />
-                            </View>
-                        ) : null}
+                        <Pressable
+                            style={shared.iconBtn}
+                            onPress={() => setShowCreateSheet(true)}
+                        >
+                            <Ionicons
+                                name='add'
+                                size={18}
+                                color={colors.primary}
+                            />
+                        </Pressable>
 
                         <Pressable
                             style={shared.iconBtn}
@@ -287,7 +338,7 @@ export default function FamilyListScreen(): React.JSX.Element {
                                 <Ionicons
                                     name='notifications-outline'
                                     size={16}
-                                    color={colors.text2}
+                                    color={colors.text3}
                                 />
                                 {pendingInvites.length > 0 ? (
                                     <View style={localStyles.badge}>
@@ -303,27 +354,34 @@ export default function FamilyListScreen(): React.JSX.Element {
 
                 {!isEmpty ? (
                     <>
-                        <Text style={localStyles.headSub}>
-                            Quản lý gia đình và kết nối hồ sơ sức khỏe chung.
-                        </Text>
-                        <SectionLabel title='Gia đình của tôi' />
+                        <SectionLabel
+                            title={'Gia \u0111\u00ECnh c\u1EE7a t\u00F4i'}
+                        />
                     </>
                 ) : null}
 
                 {isLoading ? (
                     <StatePanel
                         variant='loading'
-                        title='Đang tải danh sách gia đình'
-                        message='Vui lòng chờ trong giây lát để đồng bộ dữ liệu mới nhất.'
+                        title={
+                            '\u0110ang t\u1EA3i danh s\u00E1ch gia \u0111\u00ECnh'
+                        }
+                        message={
+                            'Vui l\u00F2ng ch\u1EDD trong gi\u00E2y l\u00E1t \u0111\u1EC3 \u0111\u1ED3ng b\u1ED9 d\u1EEF li\u1EC7u m\u1EDBi nh\u1EA5t.'
+                        }
                     />
                 ) : null}
 
                 {isError ? (
                     <StatePanel
                         variant='error'
-                        title='Không tải được danh sách gia đình'
-                        message='Có lỗi xảy ra khi lấy dữ liệu gia đình. Vui lòng thử lại.'
-                        actionLabel='Thử lại'
+                        title={
+                            'Kh\u00F4ng t\u1EA3i \u0111\u01B0\u1EE3c danh s\u00E1ch gia \u0111\u00ECnh'
+                        }
+                        message={
+                            'C\u00F3 l\u1ED7i x\u1EA3y ra khi l\u1EA5y d\u1EEF li\u1EC7u gia \u0111\u00ECnh. Vui l\u00F2ng th\u1EED l\u1EA1i.'
+                        }
+                        actionLabel={'Th\u1EED l\u1EA1i'}
                         onAction={() => {
                             refetch();
                         }}
@@ -335,11 +393,18 @@ export default function FamilyListScreen(): React.JSX.Element {
                         <EmptyFamilyIllustration />
 
                         <Text style={localStyles.emptyTitle}>
-                            Bạn chưa có gia đình nào
+                            {
+                                'B\u1EA1n ch\u01B0a c\u00F3 gia \u0111\u00ECnh n\u00E0o'
+                            }
                         </Text>
                         <Text style={localStyles.emptyMessage}>
-                            Tạo gia đình mới hoặc tham gia bằng mã mời để bắt
-                            đầu theo dõi sức khỏe cho cả nhà.
+                            {
+                                'T\u1EA1o gia \u0111\u00ECnh m\u1EDBi ho\u1EB7c tham gia b\u1EB1ng m\u00E3 m\u1EDDi \u0111\u1EC3 b\u1EAFt'
+                            }
+                            {'\n'}
+                            {
+                                '\u0111\u1EA7u theo d\u00F5i s\u1EE9c kh\u1ECFe cho c\u1EA3 nh\u00E0.'
+                            }
                         </Text>
 
                         <Pressable
@@ -360,10 +425,12 @@ export default function FamilyListScreen(): React.JSX.Element {
 
                                 <View style={localStyles.primaryCardBody}>
                                     <Text style={localStyles.primaryCardTitle}>
-                                        Tạo gia đình mới
+                                        {'T\u1EA1o gia \u0111\u00ECnh m\u1EDBi'}
                                     </Text>
                                     <Text style={localStyles.primaryCardSub}>
-                                        Bạn sẽ là chủ gia đình
+                                        {
+                                            'B\u1EA1n s\u1EBD l\u00E0 ch\u1EE7 gia \u0111\u00ECnh'
+                                        }
                                     </Text>
                                 </View>
 
@@ -390,10 +457,12 @@ export default function FamilyListScreen(): React.JSX.Element {
                             </View>
                             <View style={localStyles.secondaryCardBody}>
                                 <Text style={localStyles.secondaryCardTitle}>
-                                    Tham gia gia đình
+                                    {'Tham gia gia \u0111\u00ECnh'}
                                 </Text>
                                 <Text style={localStyles.secondaryCardSub}>
-                                    Nhập mã mời từ người thân
+                                    {
+                                        'Nh\u1EADp m\u00E3 m\u1EDDi t\u1EEB ng\u01B0\u1EDDi th\u00E2n'
+                                    }
                                 </Text>
                             </View>
                             <Ionicons
@@ -405,7 +474,9 @@ export default function FamilyListScreen(): React.JSX.Element {
 
                         <View style={localStyles.featureCard}>
                             <Text style={localStyles.featureTitle}>
-                                Sau khi tạo gia đình bạn có thể
+                                {
+                                    'Sau khi t\u1EA1o gia \u0111\u00ECnh b\u1EA1n c\u00F3 th\u1EC3'
+                                }
                             </Text>
 
                             <View style={localStyles.featureList}>
@@ -423,7 +494,9 @@ export default function FamilyListScreen(): React.JSX.Element {
                                         />
                                     </View>
                                     <Text style={localStyles.featureText}>
-                                        Quản lý tủ thuốc chung cả nhà
+                                        {
+                                            'Qu\u1EA3n l\u00FD t\u1EE7 thu\u1ED1c chung c\u1EA3 nh\u00E0'
+                                        }
                                     </Text>
                                 </View>
 
@@ -441,7 +514,9 @@ export default function FamilyListScreen(): React.JSX.Element {
                                         />
                                     </View>
                                     <Text style={localStyles.featureText}>
-                                        Xem hồ sơ sức khỏe từng thành viên
+                                        {
+                                            'Xem h\u1ED3 s\u01A1 s\u1EE9c kh\u1ECFe t\u1EEBng th\u00E0nh vi\u00EAn'
+                                        }
                                     </Text>
                                 </View>
 
@@ -459,7 +534,9 @@ export default function FamilyListScreen(): React.JSX.Element {
                                         />
                                     </View>
                                     <Text style={localStyles.featureText}>
-                                        Nhắc uống thuốc cho người thân
+                                        {
+                                            'Nh\u1EAFc u\u1ED1ng thu\u1ED1c cho ng\u01B0\u1EDDi th\u00E2n'
+                                        }
                                     </Text>
                                 </View>
                             </View>
@@ -468,102 +545,171 @@ export default function FamilyListScreen(): React.JSX.Element {
                 ) : null}
 
                 {!isLoading && !isError
-                    ? families.map((family) => (
-                          <Pressable
-                              key={family.id}
-                              style={styles.fcard}
-                              onPress={() =>
-                                  router.push(`/(tabs)/family/${family.id}`)
-                              }
-                          >
-                              <LinearGradient
-                                  colors={
-                                      family.gradientColors as LinearGradientProps['colors']
-                                  }
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 1, y: 1 }}
-                                  style={styles.fcardBg}
+                    ? families.map((family: FamilyGroup, idx: number) => {
+                          const nameParts = (family.name || 'G\u0110')
+                              .split(' ')
+                              .filter(Boolean);
+                          const initials =
+                              nameParts.length >= 2
+                                  ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+                                  : (family.name || 'G\u0110')
+                                        .slice(0, 2)
+                                        .toUpperCase();
+                          // Mock reminder count - replace with real API data when ready
+                          const reminderCount = idx === 0 ? 3 : 0;
+                          return (
+                              <Pressable
+                                  key={family.id}
+                                  style={[
+                                      styles.fcard,
+                                      reminderCount > 0
+                                          ? localStyles.familyCardAlertWrap
+                                          : localStyles.familyCardCalmWrap,
+                                  ]}
+                                  onPress={() => navigateToFamily(family.id)}
                               >
                                   <View
-                                      style={{
-                                          position: 'absolute',
-                                          top: -verticalScale(80),
-                                          right: -scale(40),
-                                          width: scale(200),
-                                          height: scale(200),
-                                          borderRadius: scale(100),
-                                          backgroundColor:
-                                              'rgba(255,255,255,0.07)',
-                                      }}
-                                  />
-                                  <View
-                                      style={{
-                                          position: 'absolute',
-                                          bottom: -verticalScale(40),
-                                          left: scale(20),
-                                          width: scale(110),
-                                          height: scale(110),
-                                          borderRadius: scale(55),
-                                          backgroundColor:
-                                              'rgba(255,255,255,0.04)',
-                                      }}
-                                  />
-                                  <View style={styles.fcardInner}>
-                                      <View style={styles.fcardIcon}>
-                                          <Ionicons
-                                              name={family.iconName as never}
-                                              size={22}
-                                              color='#fff'
-                                          />
+                                      style={[
+                                          localStyles.fcardCard,
+                                          reminderCount > 0
+                                              ? localStyles.fcardCardAlert
+                                              : localStyles.fcardCardCalm,
+                                      ]}
+                                  >
+                                      {/* Top row: avatar + name + arrow */}
+                                      <View style={localStyles.fcardTopRow}>
+                                          <View
+                                              style={[
+                                                  localStyles.fcardInitials,
+                                                  reminderCount > 0
+                                                      ? localStyles.fcardInitialsAlert
+                                                      : localStyles.fcardInitialsCalm,
+                                              ]}
+                                          >
+                                              {family.avatarUrl ? (
+                                                  <Image
+                                                      source={{
+                                                          uri: family.avatarUrl,
+                                                      }}
+                                                      style={
+                                                          localStyles.fcardAvatarImage
+                                                      }
+                                                      resizeMode='cover'
+                                                  />
+                                              ) : (
+                                                  <Text
+                                                      style={[
+                                                          localStyles.fcardInitialsText,
+                                                          reminderCount > 0
+                                                              ? localStyles.fcardInitialsTextAlert
+                                                              : localStyles.fcardInitialsTextCalm,
+                                                      ]}
+                                                  >
+                                                      {initials}
+                                                  </Text>
+                                              )}
+                                          </View>
+                                          <View style={{ flex: 1 }}>
+                                              <Text
+                                                  style={[
+                                                      styles.fcardName,
+                                                      reminderCount > 0
+                                                          ? localStyles.fcardNameAlert
+                                                          : localStyles.fcardNameCalm,
+                                                  ]}
+                                              >
+                                                  {family.name}
+                                              </Text>
+                                              <Text
+                                                  style={[
+                                                      styles.fcardMeta,
+                                                      reminderCount > 0
+                                                          ? localStyles.fcardMetaAlert
+                                                          : localStyles.fcardMetaCalm,
+                                                  ]}
+                                              >
+                                                  {family.memberCount}{' '}
+                                                  {'th\u00E0nh vi\u00EAn'}
+                                              </Text>
+                                          </View>
+                                          <Pressable
+                                              style={[
+                                                  styles.fcardArrow,
+                                                  reminderCount > 0
+                                                      ? localStyles.fcardArrowAlert
+                                                      : localStyles.fcardArrowCalm,
+                                              ]}
+                                              onPress={() =>
+                                                  navigateToFamily(family.id)
+                                              }
+                                          >
+                                              <Ionicons
+                                                  name='chevron-forward'
+                                                  size={14}
+                                                  color={colors.text2}
+                                              />
+                                          </Pressable>
                                       </View>
-                                      <View style={styles.fcardInfo}>
-                                          <Text style={styles.fcardName}>
-                                              {family.name}
-                                          </Text>
-                                          <Text style={styles.fcardMeta}>
-                                              {family.memberCount} thành viên
-                                          </Text>
-                                          <Text style={styles.fcardRole}>
-                                              Vai trò của bạn:{' '}
-                                              {family.roleEmoji} {family.role}
-                                          </Text>
-                                      </View>
-                                      <View style={styles.fcardArrow}>
-                                          <Ionicons
-                                              name='chevron-forward'
-                                              size={14}
-                                              color='#fff'
-                                          />
+
+                                      {/* Divider */}
+                                      <View
+                                          style={[
+                                              localStyles.fcardDivider,
+                                              reminderCount > 0
+                                                  ? localStyles.fcardDividerAlert
+                                                  : localStyles.fcardDividerCalm,
+                                          ]}
+                                      />
+
+                                      {/* Reminder row only */}
+                                      <View
+                                          style={[
+                                              localStyles.fcardReminderRow,
+                                              reminderCount > 0
+                                                  ? localStyles.fcardReminderRowHighlight
+                                                  : localStyles.fcardReminderRowQuiet,
+                                          ]}
+                                      >
+                                          <View
+                                              style={
+                                                  localStyles.fcardReminderLead
+                                              }
+                                          >
+                                              <Ionicons
+                                                  name={
+                                                      reminderCount > 0
+                                                          ? 'notifications'
+                                                          : 'notifications-outline'
+                                                  }
+                                                  size={12}
+                                                  color={
+                                                      reminderCount > 0
+                                                          ? colors.warning
+                                                          : colors.text3
+                                                  }
+                                              />
+                                              <Text
+                                                  style={[
+                                                      localStyles.fcardSummaryText,
+                                                      reminderCount > 0
+                                                          ? localStyles.fcardSummaryHighlight
+                                                          : localStyles.fcardSummaryMuted,
+                                                  ]}
+                                              >
+                                                  {reminderCount > 0
+                                                      ? `C\u00F3 ${reminderCount} nh\u1EAFc nh\u1EDF h\u00F4m nay`
+                                                      : 'Ch\u01B0a c\u00F3 nh\u1EAFc nh\u1EDF h\u00F4m nay'}
+                                              </Text>
+                                          </View>
                                       </View>
                                   </View>
-                              </LinearGradient>
-                          </Pressable>
-                      ))
+                              </Pressable>
+                          );
+                      })
                     : null}
 
                 {!isLoading && !isError && families.length > 0 ? (
-                    <Pressable
-                        style={styles.addFcard}
-                        onPress={() => setShowCreateSheet(true)}
-                    >
-                        <View style={styles.addFcardInner}>
-                            <View style={styles.addFcardIc}>
-                                <Ionicons
-                                    name='add'
-                                    size={18}
-                                    color={colors.primary}
-                                />
-                            </View>
-                            <View>
-                                <Text style={styles.addFcardTitle}>
-                                    Thêm gia đình
-                                </Text>
-                                <Text style={styles.addFcardSub}>
-                                    Tạo hoặc tham gia một gia đình mới
-                                </Text>
-                            </View>
-                        </View>
-                    </Pressable>
+                    <View style={localStyles.bottomSpacer} />
                 ) : null}
             </ScrollView>
 
@@ -575,14 +721,62 @@ export default function FamilyListScreen(): React.JSX.Element {
                 onChangeFamilyName={setFamilyName}
                 onChangeFamilyAddress={setFamilyAddress}
                 onPickFamilyAvatar={handlePickFamilyAvatar}
-                onSubmit={handleCloseCreateSheet}
+                onSubmit={handleCreateFamily}
                 onClose={handleCloseCreateSheet}
             />
+
+            {createFamilyMutation.isPending && (
+                <View style={localStyles.overlay}>
+                    <View style={localStyles.loadingBox}>
+                        <StatusBar
+                            barStyle='light-content'
+                            backgroundColor='rgba(0,0,0,0.5)'
+                        />
+                        <View style={localStyles.loadingSpinner} />
+                        <Text style={localStyles.loadingText}>
+                            {'\u0110ang t\u1EA1o gia \u0111\u00ECnh...'}
+                        </Text>
+                    </View>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
 
 const localStyles = StyleSheet.create({
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+    },
+    loadingBox: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        paddingHorizontal: 24,
+        paddingVertical: 20,
+        borderRadius: 20,
+        alignItems: 'center',
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 10,
+    },
+    loadingSpinner: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        borderWidth: 3,
+        borderColor: 'rgba(255,255,255,0.2)',
+        borderTopColor: '#fff',
+    },
+    loadingText: {
+        color: '#fff',
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+    },
     scrollContent: {
         paddingBottom: verticalScale(30),
     },
@@ -590,29 +784,50 @@ const localStyles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: scale(14),
-        paddingTop: verticalScale(4),
-        paddingBottom: verticalScale(4),
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(10),
+        paddingBottom: verticalScale(8),
     },
     topbarTitle: {
         fontFamily: typography.font.black,
-        fontSize: scaleFont(27),
-        color: colors.text,
-        letterSpacing: -0.35,
+        fontSize: scaleFont(28),
+        color: '#0F2D27',
+        letterSpacing: -0.5,
+        lineHeight: scaleFont(34),
+    },
+    topbarSub: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11),
+        color: colors.text3,
+        marginTop: verticalScale(1),
+        letterSpacing: 0.1,
     },
     topbarRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(10),
+        gap: scale(8),
+    },
+    addFamilyTopBtn: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOpacity: 0.16,
+    },
+    bottomSpacer: {
+        height: verticalScale(12),
+    },
+    bellBtn: {
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     headSub: {
-        paddingHorizontal: scale(14),
-        marginTop: verticalScale(2),
+        paddingHorizontal: scale(20),
+        marginBottom: verticalScale(4),
         fontFamily: typography.font.medium,
         fontSize: scaleFont(12),
-        lineHeight: verticalScale(19),
+        lineHeight: verticalScale(18),
         color: colors.text3,
-        maxWidth: scale(280),
     },
     gridBtn: {
         backgroundColor: '#FFF7ED',
@@ -667,6 +882,226 @@ const localStyles = StyleSheet.create({
         height: scale(108),
         borderRadius: 999,
         backgroundColor: '#DBEAFE',
+    },
+
+    // Family card avatar/initials
+    familyCardActiveWrap: {
+        shadowColor: colors.primary,
+    },
+    familyCardAlertWrap: {
+        shadowColor: '#8CCFB5',
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 3,
+    },
+    familyCardCalmWrap: {
+        shadowColor: '#A9B8B1',
+        shadowOpacity: 0.04,
+    },
+    fcardCard: {
+        ...cardSystem.shell,
+        paddingHorizontal: scale(18),
+        paddingVertical: verticalScale(16),
+        overflow: 'hidden',
+    },
+    fcardCardAlert: {
+        backgroundColor: '#FFFFFF',
+        borderWidth: 0,
+        borderColor: 'transparent',
+    },
+    fcardCardCalm: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#E7EFEB',
+    },
+    fcardTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(12),
+        minHeight: verticalScale(42),
+    },
+    fcardDivider: {
+        height: 0,
+        marginVertical: 0,
+    },
+    fcardDividerAlert: {
+        backgroundColor: '#DCEFE6',
+    },
+    fcardDividerCalm: {
+        backgroundColor: '#E4ECE8',
+    },
+    fcardReminderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: scale(10),
+        borderRadius: moderateScale(14),
+        minHeight: verticalScale(32),
+        paddingHorizontal: scale(10),
+        paddingVertical: verticalScale(6),
+        alignSelf: 'flex-start',
+        marginLeft: scale(54),
+        marginTop: verticalScale(8),
+    },
+    fcardReminderRowHighlight: {
+        backgroundColor: '#FFF7EC',
+    },
+    fcardReminderRowQuiet: {
+        backgroundColor: '#F3F6FA',
+    },
+    fcardReminderLead: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(7),
+        flex: 1,
+    },
+    fcardReminderCount: {
+        minWidth: moderateScale(24),
+        height: moderateScale(24),
+        paddingHorizontal: scale(7),
+        borderRadius: moderateScale(999),
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FDE7C4',
+    },
+    fcardReminderCountText: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(10.5),
+        color: '#C77700',
+    },
+    fcardSummaryText: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(10.75),
+        lineHeight: verticalScale(14),
+    },
+    fcardSummaryHighlight: {
+        color: '#C77700',
+    },
+    fcardSummaryMuted: {
+        color: '#93A0AF',
+    },
+    fcardInitials: {
+        ...cardSystem.rowIcon,
+        width: moderateScale(48),
+        height: moderateScale(48),
+        borderRadius: moderateScale(15),
+        borderWidth: 1.25,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    fcardInitialsAlert: {
+        borderColor: '#B7E3CF',
+        backgroundColor: '#ECF8F2',
+    },
+    fcardInitialsCalm: {
+        borderColor: '#DCE8E1',
+        backgroundColor: '#F5F8F6',
+    },
+    fcardInitialsText: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(16),
+        letterSpacing: -0.4,
+    },
+    fcardInitialsTextAlert: {
+        color: colors.primary,
+    },
+    fcardInitialsTextCalm: {
+        color: '#5E736B',
+    },
+    fcardAvatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: moderateScale(14),
+        backgroundColor: '#E8EFEC',
+    },
+    fcardNameAlert: {
+        color: '#12342E',
+    },
+    fcardNameCalm: {
+        color: colors.text,
+    },
+    fcardMetaAlert: {
+        color: '#68847A',
+    },
+    fcardMetaCalm: {
+        color: '#73817C',
+    },
+    fcardArrowAlert: {
+        backgroundColor: '#EEF6F2',
+        borderColor: '#D8E8E0',
+    },
+    fcardArrowCalm: {
+        backgroundColor: '#F4F7FB',
+    },
+    fcardAction: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(4),
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(8),
+        borderRadius: moderateScale(999),
+        backgroundColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOpacity: 0.16,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        elevation: 3,
+    },
+    fcardActionText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11),
+        color: '#fff',
+    },
+    familyTipsCard: {
+        marginHorizontal: scale(20),
+        marginTop: verticalScale(12),
+        backgroundColor: colors.card,
+        borderRadius: moderateScale(20),
+        borderWidth: 1,
+        borderColor: '#E6EEEA',
+        paddingHorizontal: scale(18),
+        paddingVertical: verticalScale(18),
+        ...shadows.card,
+    },
+    familyTipsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(10),
+        marginBottom: verticalScale(14),
+    },
+    familyTipsIcon: {
+        width: scale(34),
+        height: scale(34),
+        borderRadius: scale(12),
+        backgroundColor: '#EEF8F3',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    familyTipsTitle: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(14),
+        color: colors.text,
+    },
+    familyTipsList: {
+        gap: verticalScale(12),
+    },
+    familyTipRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: scale(10),
+    },
+    familyTipDot: {
+        width: scale(9),
+        height: scale(9),
+        borderRadius: scale(4.5),
+        backgroundColor: colors.primaryLight,
+        marginTop: verticalScale(6),
+    },
+    familyTipText: {
+        flex: 1,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        lineHeight: verticalScale(20),
+        color: colors.text2,
     },
     houseWrap: {
         position: 'absolute',

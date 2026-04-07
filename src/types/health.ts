@@ -11,6 +11,18 @@ export interface VisitItem {
 }
 
 /** Extended record for the records-list detail screen */
+export interface RecordPrescriptionItem {
+    name: string;
+    dose?: string;
+    schedule?: string;
+}
+
+export interface RecordAttachmentItem {
+    id: string;
+    type: 'pdf' | 'image';
+    name: string;
+}
+
 export interface RecordItem {
     id: string;
     category: string; // cardiology | general | internal | dermatology | pediatrics …
@@ -28,6 +40,12 @@ export interface RecordItem {
     date: string; // dd/mm/yyyy
     isoDate: string; // yyyy-mm-dd
     location?: string;
+    department?: string;
+    symptoms?: string[];
+    testResults?: string;
+    doctorAdvice?: string;
+    prescriptions?: RecordPrescriptionItem[];
+    attachments?: RecordAttachmentItem[];
 }
 
 export interface VaccineItem {
@@ -95,6 +113,24 @@ export interface TipItem {
 
 export type NotiType = 'med' | 'vax' | 'appt';
 export type NotiDay = 'today' | 'yesterday' | 'before';
+export type NotiTone =
+    | 'primary'
+    | 'secondary'
+    | 'violet'
+    | 'success'
+    | 'warning'
+    | 'danger'
+    | 'neutral';
+
+export interface NotificationChip {
+    label: string;
+    tone: NotiTone;
+}
+
+export interface NotificationAction {
+    label: string;
+    tone: 'primary' | 'secondary';
+}
 
 export interface NotificationItem {
     id: string;
@@ -102,6 +138,13 @@ export interface NotificationItem {
     type: NotiType;
     unread: boolean;
     title: string;
-    body: string;
+    body?: string;
+    summary?: string;
+    detail?: string;
     time: string;
+    context?: string;
+    statusLabel?: string;
+    statusTone?: NotiTone;
+    chips?: NotificationChip[];
+    actions?: NotificationAction[];
 }

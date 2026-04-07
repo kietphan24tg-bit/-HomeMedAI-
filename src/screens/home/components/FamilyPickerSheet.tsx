@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Animated, Modal, Pressable, Text, View } from 'react-native';
 import StatePanel from '@/src/components/state/StatePanel';
+import { colors } from '@/src/styles/tokens';
 import type { FamilyOption } from '../home.types';
 import { styles } from '../styles';
 
@@ -63,7 +63,7 @@ export default function FamilyPickerSheet({
             <Pressable
                 style={{
                     width: '100%',
-                    backgroundColor: '#2563EB',
+                    backgroundColor: colors.primary,
                     borderRadius: 16,
                     paddingVertical: 14,
                     alignItems: 'center',
@@ -85,8 +85,8 @@ export default function FamilyPickerSheet({
                 style={{
                     width: '100%',
                     borderWidth: 1.5,
-                    borderColor: '#DBEAFE',
-                    backgroundColor: '#F8FBFF',
+                    borderColor: colors.primaryLight,
+                    backgroundColor: colors.primaryBg,
                     borderRadius: 16,
                     paddingVertical: 14,
                     alignItems: 'center',
@@ -96,7 +96,7 @@ export default function FamilyPickerSheet({
             >
                 <Text
                     style={{
-                        color: '#2563EB',
+                        color: colors.primary,
                         fontFamily: 'Inter_600SemiBold',
                         fontSize: 14,
                     }}
@@ -167,17 +167,15 @@ export default function FamilyPickerSheet({
                                   ]}
                                   onPress={() => onSelectFamily(family.id)}
                               >
-                                  <LinearGradient
-                                      colors={
-                                          family.gradientColors ?? [
-                                              '#1D4ED8',
-                                              '#2563EB',
-                                              '#0D9488',
-                                          ]
-                                      }
-                                      start={{ x: 0, y: 0 }}
-                                      end={{ x: 1, y: 1 }}
-                                      style={styles.fpIcon}
+                                  <View
+                                      style={[
+                                          styles.fpIcon,
+                                          {
+                                              backgroundColor:
+                                                  family.gradientColors?.[0] ??
+                                                  '#1D4ED8',
+                                          },
+                                      ]}
                                   >
                                       <Ionicons
                                           name={
@@ -187,7 +185,7 @@ export default function FamilyPickerSheet({
                                           size={22}
                                           color='#fff'
                                       />
-                                  </LinearGradient>
+                                  </View>
                                   <View style={{ flex: 1 }}>
                                       <Text style={styles.fpName}>
                                           {family.name}

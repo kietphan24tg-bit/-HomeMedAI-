@@ -24,7 +24,7 @@ export function useHomeFamilies(mode: 'personal' | 'family') {
     return {
         familyOptions,
         isLoading,
-        error: isError ? 'Kh�ng t?i du?c danh s�ch gia d�nh.' : null,
+        error: isError ? 'Không tải được danh sách gia đình.' : null,
         refetch: async () => {
             await refetch();
         },

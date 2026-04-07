@@ -1,7 +1,6 @@
 // src/data/family-data.ts
-import { gradients } from '../styles/tokens';
 import type { FamilyGroup } from '../types/family';
-import { getAvatarGradient } from '../utils/color-palette';
+import { FAMILY_CARD_COLORS, getAvatarGradient } from '../utils/color-palette';
 
 export const FAMILIES: FamilyGroup[] = [
     {
@@ -10,7 +9,11 @@ export const FAMILIES: FamilyGroup[] = [
         memberCount: 5,
         role: 'Chủ gia đình',
         roleEmoji: '👑',
-        gradientColors: [...gradients.family] as [string, string, string],
+        gradientColors: [
+            FAMILY_CARD_COLORS[0],
+            FAMILY_CARD_COLORS[0],
+            FAMILY_CARD_COLORS[0],
+        ] as [string, string, string],
         iconName: 'home-outline',
         createdDate: '03/2024',
         members: [
@@ -142,9 +145,15 @@ export const FAMILIES: FamilyGroup[] = [
         memberCount: 3,
         role: 'Cháu',
         roleEmoji: '👦',
-        gradientColors: [...gradients.family] as [string, string, string],
+        gradientColors: [
+            FAMILY_CARD_COLORS[1],
+            FAMILY_CARD_COLORS[1],
+            FAMILY_CARD_COLORS[1],
+        ] as [string, string, string],
         iconName: 'people-outline',
         createdDate: '06/2024',
+        avatarUrl:
+            'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=320&q=80',
         members: [],
     },
 ];

@@ -1,0 +1,27 @@
+/families
+  [GET] List my families
+  [POST] Create family
+/families/invite/preview
+  [GET] Preview invite code
+/families/invites
+  [GET] List My Family Invites
+/families/join
+  [POST] Join Family
+/families/{family_id}/invite-by-phone
+  [POST] Invite Member By Phone
+/families/{family_id}
+  [GET] Get Family
+  [PATCH] Patch Family
+/families/{family_id}/invite/rotate
+  [POST] Rotate Invite
+/families/{family_id}/members
+  [GET] List Members
+/families/{family_id}/profiles
+  [POST] Create profile in family
+  [GET] List family profiles
+/families/{family_id}/medicine-inventory
+  [GET] List medicine inventory
+  [POST] Add medicine to family inventory
+/family-memberships/{membership_id}
+  [PATCH] Patch Member Role
+  [DELETE] Delete Member

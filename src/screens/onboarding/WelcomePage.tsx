@@ -25,11 +25,10 @@ interface Props {
 export default function WelcomePage({
     width,
     goTo,
-    setAuthTab,
+    setAuthTab: _setAuthTab,
     renderDots,
 }: Props): React.JSX.Element {
     const ringRotate = useRef(new Animated.Value(0)).current;
-    const bellPulse = useRef(new Animated.Value(1)).current;
     const chip1Anim = useRef(new Animated.Value(0)).current;
     const chip2Anim = useRef(new Animated.Value(0)).current;
     const chip3Anim = useRef(new Animated.Value(0)).current;
@@ -55,7 +54,7 @@ export default function WelcomePage({
                 useNativeDriver: true,
             }).start();
         });
-    }, []);
+    }, [chip1Anim, chip2Anim, chip3Anim, chip4Anim, ringRotate]);
 
     const ringSpin = ringRotate.interpolate({
         inputRange: [0, 1],
@@ -120,7 +119,7 @@ export default function WelcomePage({
                             <MaterialCommunityIcons
                                 name='pill'
                                 size={14}
-                                color={colors.cReminder}
+                                color={colors.warning}
                             />,
                             'Nhắc thuốc',
                             'đúng giờ',
@@ -131,7 +130,7 @@ export default function WelcomePage({
                             <MaterialCommunityIcons
                                 name='file-document-outline'
                                 size={14}
-                                color={colors.cDanger}
+                                color={colors.danger}
                             />,
                             'Vaccine',
                             'đúng lịch',
@@ -142,7 +141,7 @@ export default function WelcomePage({
                             <Ionicons
                                 name='calendar-outline'
                                 size={14}
-                                color={colors.cMedical}
+                                color={colors.primary}
                             />,
                             'Tái khám',
                             'đúng hẹn',
@@ -153,7 +152,7 @@ export default function WelcomePage({
                             <Ionicons
                                 name='people-outline'
                                 size={14}
-                                color={colors.cFamily}
+                                color={colors.secondary}
                             />,
                             'Gia đình',
                             'đầy đủ',
@@ -197,27 +196,21 @@ export default function WelcomePage({
             <View style={styles.sBtn}>
                 <Pressable
                     style={({ pressed }) => [
-                        shared.btnFilled,
-                        {
-                            backgroundColor: colors.primary,
-                            shadowColor: colors.primary,
-                        },
+                        styles.onboardPrimaryBtn,
                         pressed && shared.pressed,
                     ]}
                     onPress={() => goTo(1)}
                 >
-                    <Text style={shared.btnFilledText}>Bắt đầu ngay</Text>
-                    <Feather
-                        name='arrow-right'
-                        size={16}
-                        color='#fff'
-                        style={{ marginLeft: 8 }}
-                    />
+                    <View style={styles.onboardPrimaryBtnContent}>
+                        <Text style={styles.onboardPrimaryBtnText}>
+                            Bắt đầu ngay
+                        </Text>
+                        <Feather name='arrow-right' size={16} color='#fff' />
+                    </View>
                 </Pressable>
                 <Pressable
                     style={({ pressed }) => [
-                        shared.btnOutline,
-                        { marginTop: 10 },
+                        styles.onboardOutlineBtn,
                         pressed && shared.pressed,
                     ]}
                     onPress={() => {
@@ -226,7 +219,7 @@ export default function WelcomePage({
                         });
                     }}
                 >
-                    <Text style={shared.btnOutlineText}>
+                    <Text style={styles.onboardOutlineBtnText}>
                         Tôi đã có tài khoản
                     </Text>
                 </Pressable>

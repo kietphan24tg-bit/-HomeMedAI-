@@ -1,7 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatePanel from '@/src/components/state/StatePanel';
 import {
@@ -32,9 +40,19 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
         rejectInviteMutation.mutate({ inviteId });
     };
 
+    const isMutating =
+        acceptInviteMutation.isPending || rejectInviteMutation.isPending;
+
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+        <SafeAreaView
+            edges={['left', 'right', 'bottom']}
+            style={styles.container}
+        >
+            <StatusBar barStyle='dark-content' backgroundColor={colors.card} />
+            <SafeAreaView
+                edges={['top']}
+                style={{ backgroundColor: colors.card }}
+            />
             <View style={styles.memberHeader}>
                 <View style={styles.memberHeaderTop}>
                     <Pressable
@@ -46,7 +64,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                             size={16}
                             color={colors.primary}
                         />
-                        <Text style={styles.memberBackText}>Gia d�nh</Text>
+                        <Text style={styles.memberBackText}>Gia đình</Text>
                     </Pressable>
                 </View>
                 <Text
@@ -55,10 +73,10 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                         { fontSize: scaleFont(22), marginBottom: 6 },
                     ]}
                 >
-                    L?i m?i tham gia
+                    Lời mời tham gia
                 </Text>
                 <Text style={styles.memberMeta}>
-                    {inviteList.length} l?i m?i dang ch? ph?n h?i
+                    {inviteList.length} lời mời đang chờ phản hồi
                 </Text>
             </View>
 
@@ -76,17 +94,17 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                 {isLoading ? (
                     <StatePanel
                         variant='loading'
-                        title='�ang t?i l?i m?i gia d�nh'
-                        message='Vui l�ng ch? trong gi�y l�t d? d?ng b? l?i m?i m?i nh?t.'
+                        title='Đang tải lời mời gia đình'
+                        message='Vui lòng chờ trong giây lát để đồng bộ lời mời mới nhất.'
                     />
                 ) : null}
 
                 {isError ? (
                     <StatePanel
                         variant='error'
-                        title='Kh�ng t?i du?c l?i m?i'
-                        message='�� c� l?i khi l?y danh s�ch l?i m?i. Vui l�ng th? l?i.'
-                        actionLabel='Th? l?i'
+                        title='Không tải được lời mời'
+                        message='Đã có lỗi khi lấy danh sách lời mời. Vui lòng thử lại.'
+                        actionLabel='Thử lại'
                         onAction={() => {
                             refetch();
                         }}
@@ -110,7 +128,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 width: scale(64),
                                 height: scale(64),
                                 borderRadius: scale(20),
-                                backgroundColor: colors.bgHealth,
+                                backgroundColor: '#F0F9FF',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: verticalScale(12),
@@ -130,7 +148,7 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 marginBottom: verticalScale(6),
                             }}
                         >
-                            Kh�ng c� l?i m?i
+                            Không có lời mời
                         </Text>
                         <Text
                             style={{
@@ -141,8 +159,8 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                                 lineHeight: verticalScale(18),
                             }}
                         >
-                            Khi ai d� m?i b?n tham gia gia d�nh, l?i m?i s? xu?t
-                            hi?n ? d�y.
+                            Khi ai đó mời bạn tham gia gia đình, lời mời sẽ xuất
+                            hiện ở đây.
                         </Text>
                     </View>
                 ) : null}
@@ -160,6 +178,20 @@ export default function FamilyInviteListScreen(): React.JSX.Element {
                       ))
                     : null}
             </ScrollView>
+
+            {isMutating && (
+                <View
+                    style={{
+                        ...StyleSheet.absoluteFillObject,
+                        backgroundColor: 'rgba(255,255,255,0.6)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 999,
+                    }}
+                >
+                    <ActivityIndicator size='large' color={colors.primary} />
+                </View>
+            )}
         </SafeAreaView>
     );
 }

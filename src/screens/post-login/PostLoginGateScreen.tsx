@@ -1,6 +1,13 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
@@ -31,7 +38,11 @@ export default function PostLoginGateScreen(): React.JSX.Element {
         <SafeAreaView style={styles.page}>
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
 
-            <View style={styles.content}>
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.hero}>
                     <View style={styles.badge}>
                         <Text style={styles.badgeText}>Thiết lập ban đầu</Text>
@@ -44,8 +55,13 @@ export default function PostLoginGateScreen(): React.JSX.Element {
                         chưa?
                     </Text>
                     <Text style={styles.subtitle}>
-                        Chọn tình huống phù hợp để HomeMedAI thiết lập hồ sơ sức
-                        khỏe cho bạn đúng cách.
+                        {
+                            'Ch\u1ECDn t\u00ECnh hu\u1ED1ng ph\u00F9 h\u1EE3p \u0111\u1EC3 '
+                        }
+                        <Text style={styles.subtitleHighlight}>HomeMedAI</Text>
+                        {
+                            ' thi\u1EBFt l\u1EADp h\u1ED3 s\u01A1 s\u1EE9c kh\u1ECFe cho b\u1EA1n \u0111\u00FAng c\u00E1ch.'
+                        }
                     </Text>
                 </View>
 
@@ -80,7 +96,7 @@ export default function PostLoginGateScreen(): React.JSX.Element {
                         </Pressable>
                     ))}
                 </View>
-            </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -91,14 +107,13 @@ const styles = StyleSheet.create({
         backgroundColor: colors.bg,
     },
     content: {
-        flex: 1,
         paddingHorizontal: scale(24),
-        paddingTop: verticalScale(10),
+        paddingTop: verticalScale(72),
         paddingBottom: verticalScale(28),
-        justifyContent: 'center',
+        flexGrow: 1,
     },
     hero: {
-        marginBottom: verticalScale(28),
+        marginBottom: verticalScale(26),
     },
     badge: {
         alignSelf: 'flex-start',
@@ -116,42 +131,46 @@ const styles = StyleSheet.create({
     title: {
         color: colors.text,
         fontFamily: typography.font.black,
-        fontSize: scaleFont(28),
-        lineHeight: verticalScale(36),
+        fontSize: scaleFont(24),
+        lineHeight: verticalScale(31),
         letterSpacing: -0.4,
-        marginBottom: verticalScale(10),
+        marginBottom: verticalScale(8),
     },
     subtitle: {
         color: colors.text2,
         fontFamily: typography.font.regular,
-        fontSize: scaleFont(15),
-        lineHeight: verticalScale(24),
-        maxWidth: scale(330),
+        fontSize: scaleFont(13.5),
+        lineHeight: verticalScale(22),
+        maxWidth: scale(320),
+    },
+    subtitleHighlight: {
+        color: colors.primary,
+        fontFamily: typography.font.bold,
     },
     optionWrap: {
-        gap: verticalScale(16),
+        gap: verticalScale(14),
     },
     optionCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(14),
+        gap: scale(12),
         backgroundColor: colors.card,
-        borderRadius: scale(24),
-        paddingHorizontal: scale(16),
-        paddingVertical: verticalScale(18),
+        borderRadius: scale(20),
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(14),
         borderWidth: 1,
         borderColor: colors.border,
         ...shadows.card,
     },
     optionIcon: {
-        width: scale(56),
-        height: scale(56),
-        borderRadius: scale(18),
+        width: scale(50),
+        height: scale(50),
+        borderRadius: scale(16),
         alignItems: 'center',
         justifyContent: 'center',
     },
     optionEmoji: {
-        fontSize: scaleFont(28),
+        fontSize: scaleFont(24),
     },
     optionBody: {
         flex: 1,
@@ -159,13 +178,13 @@ const styles = StyleSheet.create({
     optionTitle: {
         color: colors.text,
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(18),
-        marginBottom: verticalScale(4),
+        fontSize: scaleFont(16),
+        marginBottom: verticalScale(3),
     },
     optionDesc: {
         color: colors.text2,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(14),
-        lineHeight: verticalScale(21),
+        fontSize: scaleFont(13),
+        lineHeight: verticalScale(20),
     },
 });

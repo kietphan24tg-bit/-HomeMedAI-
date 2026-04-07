@@ -99,7 +99,7 @@ export default function LaunchScreen() {
     return (
         <LinearGradient
             colors={gradients.brand}
-            locations={[0, 0.5, 1]}
+            locations={[0, 1]}
             style={styles.container}
         >
             {/* Decorative Circles */}

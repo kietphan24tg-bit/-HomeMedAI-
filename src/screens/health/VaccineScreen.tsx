@@ -1,37 +1,44 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';
 import {
     Modal,
     Pressable,
     ScrollView,
     StatusBar,
+    Switch,
     Text,
     TextInput,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    Circle,
+    Defs,
+    Stop,
+    Svg,
+    LinearGradient as SvgLinearGradient,
+} from 'react-native-svg';
 import { styles } from './styles';
-import { DateField } from '../../components/ui';
+import type { AttachmentUploadItem } from '../../components/ui';
+import { AttachmentUploadBlock, DateField } from '../../components/ui';
 import { VACCINE_DETAILS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors, gradients } from '../../styles/tokens';
-import type { VaccineDetailItem } from '../../types';
+import { colors } from '../../styles/tokens';
+import type { VaccineDetailItem, VaccineDose } from '../../types/health';
 
-interface Props {
-    onClose: () => void;
-}
+interface Props {}
 
 type VaxView = 'list' | 'detail';
 
 function doneMuiCount(v: VaccineDetailItem) {
-    return v.doses.filter((d) => d.date).length;
+    return v.doses.filter((d: VaccineDose) => d.date).length;
 }
 
 export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
     const [view, setView] = useState<VaxView>('list');
     const [detailVax, setDetailVax] = useState<VaccineDetailItem | null>(null);
     const [showAddVax, setShowAddVax] = useState(false);
+    const [showVaxInfo, setShowVaxInfo] = useState(false);
 
     const openDetail = useCallback((v: VaccineDetailItem) => {
         setDetailVax(v);
@@ -53,37 +60,86 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
     const totalMui = VACCINE_DETAILS.reduce((s, v) => s + v.total, 0);
     const pct = Math.round((totalDone / totalMui) * 100);
     const pending = totalMui - totalDone;
+    const donutSize = 62;
+    const donutStroke = 6;
+    const donutRadius = (donutSize - donutStroke) / 2;
+    const donutCircumference = 2 * Math.PI * donutRadius;
+    const donutOffset =
+        donutCircumference -
+        (Math.max(0, Math.min(100, pct)) / 100) * donutCircumference;
 
     const complete = VACCINE_DETAILS.filter((v) => doneMuiCount(v) >= v.total);
     const soon = VACCINE_DETAILS.filter(
         (v) =>
             doneMuiCount(v) < v.total &&
-            v.doses.some((d) => d.scheduled && !d.date),
+            v.doses.some((d: VaccineDose) => d.scheduled && !d.date),
     );
     const soonIds = new Set(soon.map((v) => v.id));
     const incomplete = VACCINE_DETAILS.filter(
         (v) => doneMuiCount(v) < v.total && !soonIds.has(v.id),
     );
 
-    // Find next scheduled shot
-    const nextShot = soon.length > 0 ? soon[0] : null;
-    const nextDose = nextShot?.doses.find((d) => d.scheduled && !d.date);
-
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
 
             {/* TOP BAR */}
-            <View style={styles.subTopbar}>
-                <Pressable style={styles.subBackBtn} onPress={onClose}>
+            <View style={[styles.subTopbar, styles.vaxSubTopbar]}>
+                <Pressable
+                    style={[styles.subBackBtn, styles.vaxBackBtn]}
+                    onPress={onClose}
+                >
                     <Ionicons
                         name='chevron-back'
-                        size={16}
+                        size={18}
                         color={colors.text2}
                     />
                 </Pressable>
                 <Text style={styles.subTopbarTitle}>Tiêm chủng</Text>
-                <View style={{ width: 36 }} />
+                <View style={styles.vaxTopbarActions}>
+                    <Pressable
+                        style={styles.vaxAddIconBtn}
+                        onPress={() => setShowAddVax(true)}
+                    >
+                        <Ionicons name='add' size={18} color={colors.primary} />
+                    </Pressable>
+                    <Pressable
+                        style={styles.vaxInfoBtn}
+                        onPress={() => setShowVaxInfo((current) => !current)}
+                        onHoverIn={() => setShowVaxInfo(true)}
+                        onHoverOut={() => setShowVaxInfo(false)}
+                    >
+                        <Ionicons
+                            name='information-circle-outline'
+                            size={18}
+                            color={colors.primary}
+                        />
+                    </Pressable>
+                    {showVaxInfo ? (
+                        <View style={styles.vaxInfoTooltip}>
+                            <View style={styles.vaxInfoTooltipBody}>
+                                <View style={styles.vaxInfoTooltipIconWrap}>
+                                    <Ionicons
+                                        name='information-circle-outline'
+                                        size={14}
+                                        color={colors.primary}
+                                    />
+                                </View>
+                                <Text style={styles.vaxInfoTooltipText}>
+                                    Theo khuyến nghị của{' '}
+                                    <Text
+                                        style={styles.vaxInfoTooltipTextStrong}
+                                    >
+                                        Bộ Y tế Việt Nam
+                                    </Text>
+                                    .{'\n'}
+                                    Nhấn vào từng mũi tiêm để xem lịch sử và chi
+                                    tiết mũi tiêm.
+                                </Text>
+                            </View>
+                        </View>
+                    ) : null}
+                </View>
             </View>
 
             <ScrollView
@@ -92,123 +148,87 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                 showsVerticalScrollIndicator={false}
             >
                 {/* PROGRESS HERO */}
-                <LinearGradient
-                    colors={gradients.family}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.vaxHero}
-                >
+                <View style={styles.vaxHero}>
                     <View style={styles.vaxHeroContent}>
                         {/* Donut */}
                         <View style={styles.vaxDonut}>
                             <View style={styles.vaxDonutTrack}>
-                                <View
-                                    style={[
-                                        styles.vaxDonutFill,
-                                        {
-                                            borderTopColor: '#fff',
-                                            borderRightColor:
-                                                pct >= 25
-                                                    ? '#fff'
-                                                    : 'transparent',
-                                            borderBottomColor:
-                                                pct >= 50
-                                                    ? '#fff'
-                                                    : 'transparent',
-                                            borderLeftColor:
-                                                pct >= 75
-                                                    ? '#fff'
-                                                    : 'transparent',
-                                        },
-                                    ]}
-                                />
+                                <Svg
+                                    width={donutSize}
+                                    height={donutSize}
+                                    style={styles.vaxDonutSvg}
+                                >
+                                    <Defs>
+                                        <SvgLinearGradient
+                                            id='vaxHeroDonutGradient'
+                                            x1='0%'
+                                            y1='0%'
+                                            x2='100%'
+                                            y2='100%'
+                                        >
+                                            <Stop
+                                                offset='0%'
+                                                stopColor='#26C89A'
+                                            />
+                                            <Stop
+                                                offset='100%'
+                                                stopColor='#0A8F74'
+                                            />
+                                        </SvgLinearGradient>
+                                    </Defs>
+                                    <Circle
+                                        cx={donutSize / 2}
+                                        cy={donutSize / 2}
+                                        r={donutRadius}
+                                        stroke='#2F3A3B'
+                                        strokeWidth={donutStroke}
+                                        fill='none'
+                                    />
+                                    <Circle
+                                        cx={donutSize / 2}
+                                        cy={donutSize / 2}
+                                        r={donutRadius}
+                                        stroke='url(#vaxHeroDonutGradient)'
+                                        strokeWidth={donutStroke}
+                                        fill='none'
+                                        strokeLinecap='round'
+                                        strokeDasharray={`${donutCircumference}, ${donutCircumference}`}
+                                        strokeDashoffset={donutOffset}
+                                        transform={`rotate(-90 ${donutSize / 2} ${donutSize / 2})`}
+                                    />
+                                </Svg>
                                 <Text style={styles.vaxDonutText}>{pct}%</Text>
                             </View>
                         </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={styles.vaxHeroBody}>
                             <Text style={styles.vaxHeroSup}>Hoàn thành</Text>
-                            <Text style={styles.vaxHeroNum}>
-                                {totalDone}{' '}
-                                <Text style={styles.vaxHeroNumSub}>
-                                    / {totalMui} mũi đã tiêm
+                            <View style={styles.vaxHeroCountRow}>
+                                <Text style={styles.vaxHeroNum}>
+                                    {totalDone}
                                 </Text>
-                            </Text>
-                            <Text style={styles.vaxHeroPending}>
-                                {pending} MŨI CHƯA HOÀN THÀNH
-                            </Text>
+                                <Text style={styles.vaxHeroNumSub}>
+                                    / {totalMui} mũi
+                                </Text>
+                            </View>
+                            <View style={styles.vaxHeroPendingPill}>
+                                <View style={styles.vaxHeroPendingDot} />
+                                <Text style={styles.vaxHeroPendingText}>
+                                    {pending} mũi chưa hoàn thành
+                                </Text>
+                            </View>
                         </View>
                     </View>
-                    {/* Progress bar */}
-                    <View style={styles.vaxProgressTrack}>
-                        <View
-                            style={[
-                                styles.vaxProgressFill,
-                                { width: `${pct}%` },
-                            ]}
-                        />
-                    </View>
-                </LinearGradient>
-
-                {/* NEXT SHOT */}
-                {nextShot && nextDose && (
-                    <Pressable
-                        style={styles.vaxNextShot}
-                        onPress={() => openDetail(nextShot)}
-                    >
-                        <View style={styles.vaxNextShotIcon}>
-                            <Ionicons
-                                name='calendar-outline'
-                                size={15}
-                                color='#D97706'
-                            />
-                        </View>
-                        <View style={styles.vaxNextShotBody}>
-                            <Text style={styles.vaxNextShotLabel}>
-                                Lịch tiêm tiếp theo
-                            </Text>
-                            <Text style={styles.vaxNextShotName}>
-                                {nextShot.name} · Mũi {nextDose.num}
-                            </Text>
-                        </View>
-                        <Text style={styles.vaxNextShotDate}>
-                            {nextDose.scheduled}
-                        </Text>
-                    </Pressable>
-                )}
-
-                {/* ĐÃ TIÊM ĐỦ */}
-                {complete.length > 0 && (
-                    <>
-                        <VaxSectionHeader
-                            label='Đã tiêm đủ'
-                            count={complete.length}
-                            dotColor='#22C55E'
-                            countBg='#F0FDF4'
-                            countColor='#16A34A'
-                            countBorder='#BBF7D0'
-                        />
-                        <View style={styles.vaxListCard}>
-                            {complete.map((v, i) => (
-                                <VaxRow
-                                    key={v.id}
-                                    item={v}
-                                    isLast={i === complete.length - 1}
-                                    status='done'
-                                    onPress={() => openDetail(v)}
-                                />
-                            ))}
-                        </View>
-                    </>
-                )}
+                </View>
 
                 {/* SẮP TIÊM */}
                 {soon.length > 0 && (
                     <>
                         <VaxSectionHeader
                             label='Sắp tiêm'
-                            count={soon.length}
+                            icon='calendar-outline'
                             dotColor={colors.primary}
                             countBg={colors.primaryBg}
+                            count={soon.length}
                             countColor={colors.primary}
                             countBorder='#BFDBFE'
                         />
@@ -231,10 +251,11 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                     <>
                         <VaxSectionHeader
                             label='Chưa hoàn thành'
+                            icon='alert-circle-outline'
+                            dotColor={colors.warning}
+                            countBg={colors.warningBg}
                             count={incomplete.length}
-                            dotColor='#F59E0B'
-                            countBg='#FFFBEB'
-                            countColor='#D97706'
+                            countColor={colors.warning}
                             countBorder='#FDE68A'
                         />
                         <View style={styles.vaxListCard}>
@@ -251,30 +272,31 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                     </>
                 )}
 
-                {/* ADD BUTTON */}
-                <Pressable
-                    style={styles.vaxAddBtn}
-                    onPress={() => setShowAddVax(true)}
-                >
-                    <Ionicons name='add' size={14} color={colors.text2} />
-                    <Text style={styles.vaxAddBtnText}>Thêm vaccine khác</Text>
-                </Pressable>
-
-                {/* NOTE */}
-                <View style={styles.vaxNote}>
-                    <Ionicons
-                        name='information-circle-outline'
-                        size={13}
-                        color={colors.primary}
-                    />
-                    <Text style={styles.vaxNoteText}>
-                        Dữ liệu theo{' '}
-                        <Text style={{ fontWeight: '800' }}>
-                            Bộ Y tế Việt Nam
-                        </Text>
-                        . Nhấn vào vaccine để xem chi tiết.
-                    </Text>
-                </View>
+                {/* ĐÃ TIÊM ĐỦ */}
+                {complete.length > 0 && (
+                    <>
+                        <VaxSectionHeader
+                            label='Đã tiêm đủ'
+                            icon='checkmark-outline'
+                            dotColor={colors.success}
+                            countBg={colors.successBg}
+                            count={complete.length}
+                            countColor={colors.success}
+                            countBorder='#BBF7D0'
+                        />
+                        <View style={styles.vaxListCard}>
+                            {complete.map((v, i) => (
+                                <VaxRow
+                                    key={v.id}
+                                    item={v}
+                                    isLast={i === complete.length - 1}
+                                    status='done'
+                                    onPress={() => openDetail(v)}
+                                />
+                            ))}
+                        </View>
+                    </>
+                )}
             </ScrollView>
 
             {/* ADD VACCINE SHEET */}
@@ -292,6 +314,7 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
 function VaxSectionHeader({
     label,
     count,
+    icon,
     dotColor,
     countBg,
     countColor,
@@ -299,6 +322,7 @@ function VaxSectionHeader({
 }: {
     label: string;
     count: number;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
     dotColor: string;
     countBg: string;
     countColor: string;
@@ -308,8 +332,13 @@ function VaxSectionHeader({
         <View style={styles.vaxSecRow}>
             <View style={styles.vaxSecLeft}>
                 <View
-                    style={[styles.vaxSecDot, { backgroundColor: dotColor }]}
-                />
+                    style={[
+                        styles.vaxSecIconWrap,
+                        { backgroundColor: countBg, borderColor: countBorder },
+                    ]}
+                >
+                    <Ionicons name={icon} size={13} color={dotColor} />
+                </View>
                 <Text style={styles.vaxSecLabel}>{label}</Text>
             </View>
             <Text
@@ -353,7 +382,7 @@ function VaxRow({
     // For "soon" rows, find the next scheduled dose
     const scheduledDose =
         status === 'soon'
-            ? item.doses.find((d) => d.scheduled && !d.date)
+            ? item.doses.find((d: VaccineDose) => d.scheduled && !d.date)
             : null;
 
     return (
@@ -367,12 +396,12 @@ function VaxRow({
                     {
                         backgroundColor:
                             status === 'done'
-                                ? '#F0FDF4'
+                                ? colors.successBg
                                 : status === 'soon'
                                   ? colors.primaryBg
                                   : done > 0
-                                    ? '#FFFBEB'
-                                    : '#FFF1F2',
+                                    ? colors.warningBg
+                                    : colors.dangerBg,
                     },
                 ]}
             >
@@ -387,17 +416,17 @@ function VaxRow({
                     size={14}
                     color={
                         status === 'done'
-                            ? '#16A34A'
+                            ? colors.success
                             : status === 'soon'
                               ? colors.primary
                               : done > 0
-                                ? '#D97706'
-                                : '#E11D48'
+                                ? colors.warning
+                                : colors.danger
                     }
                 />
             </View>
-            <View style={{ flex: 1 }}>
-                <Text style={styles.vaxRowName}>
+            <View style={styles.vaxRowBody}>
+                <Text style={styles.vaxRowName} numberOfLines={1}>
                     {item.name}
                     {item.abbr ? (
                         <Text style={styles.vaxRowSub}> ({item.abbr})</Text>
@@ -424,13 +453,8 @@ function VaxRow({
                 </View>
                 {/* Scheduled date line for "soon" items */}
                 {scheduledDose && (
-                    <View style={styles.vaxRowSchedLine}>
-                        <Ionicons
-                            name='calendar-outline'
-                            size={11}
-                            color={colors.primary}
-                        />
-                        <Text style={styles.vaxRowSchedText}>
+                    <View style={styles.vaxRowMetaSecondary}>
+                        <Text style={styles.vaxChipLabel}>
                             Mũi {scheduledDose.num} · {scheduledDose.scheduled}
                         </Text>
                     </View>
@@ -447,11 +471,11 @@ function VaxRow({
                                     {
                                         backgroundColor: isDone
                                             ? status === 'done'
-                                                ? '#22C55E'
+                                                ? colors.success
                                                 : status === 'soon'
                                                   ? colors.primary
-                                                  : '#F59E0B'
-                                            : '#E2E8F0',
+                                                  : colors.warning
+                                            : colors.border,
                                     },
                                 ]}
                             />
@@ -487,14 +511,14 @@ function VaxDetailScreen({
     let badgeBorder: string;
     if (isComplete) {
         badgeText = '✓ Hoàn thành';
-        badgeBg = '#F0FDF4';
-        badgeColor = '#16A34A';
-        badgeBorder = '#BBF7D0';
+        badgeBg = colors.successBg;
+        badgeColor = colors.success;
+        badgeBorder = 'rgba(22,163,74,0.3)';
     } else if (done > 0) {
         badgeText = `Còn thiếu ${item.total - done}`;
-        badgeBg = '#FFFBEB';
-        badgeColor = '#D97706';
-        badgeBorder = '#FDE68A';
+        badgeBg = colors.warningBg;
+        badgeColor = colors.warning;
+        badgeBorder = 'rgba(217,119,6,0.35)';
     } else {
         badgeText = 'Chưa tiêm';
         badgeBg = colors.bg;
@@ -507,19 +531,27 @@ function VaxDetailScreen({
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
 
             {/* TOPBAR */}
-            <View style={styles.subTopbar}>
-                <Pressable style={styles.subBackBtn} onPress={onBack}>
+            <View style={[styles.subTopbar, styles.vaxDetailTopbar]}>
+                <Pressable
+                    style={[styles.subBackBtn, styles.vaxDetailBackBtn]}
+                    onPress={onBack}
+                >
                     <Ionicons
                         name='chevron-back'
-                        size={16}
+                        size={17}
                         color={colors.text2}
                     />
                 </Pressable>
-                <Text style={styles.subTopbarTitle} numberOfLines={1}>
+                <Text style={styles.vaxDetailTopbarTitle} numberOfLines={1}>
                     {item.name}
                     {item.abbr ? ` (${item.abbr})` : ''}
                 </Text>
-                <View style={{ width: 36 }} />
+                <Pressable
+                    style={styles.vaxDetailAddBtn}
+                    onPress={() => setShowAddDose(true)}
+                >
+                    <Ionicons name='add' size={17} color={colors.primary} />
+                </Pressable>
             </View>
 
             <ScrollView
@@ -530,7 +562,7 @@ function VaxDetailScreen({
                 {/* SUMMARY CARD */}
                 <View style={styles.vdSummary}>
                     <View>
-                        <Text style={styles.vdSummaryLabel}>TIẾN ĐỘ</Text>
+                        <Text style={styles.vdSummaryLabel}>Tiến độ</Text>
                         <Text style={styles.vdSummaryProgress}>
                             {done} / {item.total} mũi
                         </Text>
@@ -559,9 +591,11 @@ function VaxDetailScreen({
                 </View>
 
                 {/* DOSE LIST */}
-                <View style={styles.vaxListCard}>
+                <View style={styles.vdDoseCard}>
                     {Array.from({ length: item.total }, (_, i) => {
-                        const dose = item.doses.find((d) => d.num === i + 1);
+                        const dose = item.doses.find(
+                            (d: VaccineDose) => d.num === i + 1,
+                        );
                         const isDone =
                             dose?.date !== undefined && dose?.date !== null;
                         const isScheduled =
@@ -601,7 +635,7 @@ function VaxDetailScreen({
                                         size={isDone || isScheduled ? 12 : 10}
                                         color={
                                             isDone
-                                                ? '#16A34A'
+                                                ? colors.success
                                                 : isScheduled
                                                   ? colors.primary
                                                   : colors.text3
@@ -610,7 +644,7 @@ function VaxDetailScreen({
                                 </View>
 
                                 {/* Body */}
-                                <View style={{ flex: 1 }}>
+                                <View style={styles.vdDoseBody}>
                                     <Text style={styles.vdDoseLabel}>
                                         Mũi {i + 1}
                                     </Text>
@@ -686,33 +720,24 @@ function VaxDetailScreen({
                 {/* ACTION BUTTONS */}
                 <View style={{ gap: 8 }}>
                     <Pressable
-                        style={styles.vaxAddBtn}
-                        onPress={() => setShowAddDose(true)}
-                    >
-                        <Ionicons name='add' size={14} color={colors.text2} />
-                        <Text style={styles.vaxAddBtnText}>
-                            Thêm mũi đã tiêm
-                        </Text>
-                    </Pressable>
-                    <Pressable
                         style={styles.vdSchedBtn}
                         onPress={() => setShowSchedule(true)}
                     >
                         <Ionicons
                             name='calendar-outline'
                             size={14}
-                            color={colors.primary}
+                            color={colors.text2}
                         />
                         <Text style={styles.vdSchedBtnText}>Đặt lịch tiêm</Text>
                     </Pressable>
                 </View>
             </ScrollView>
 
-            {/* ADD DOSE SHEET */}
             <AddDoseSheet
                 visible={showAddDose}
                 onClose={() => setShowAddDose(false)}
                 nextNum={Math.min(done + 1, item.total)}
+                vaxName={item.name}
             />
 
             {/* SCHEDULE DOSE SHEET */}
@@ -731,96 +756,164 @@ function AddDoseSheet({
     visible,
     onClose,
     nextNum,
+    vaxName,
 }: {
     visible: boolean;
     onClose: () => void;
     nextNum: number;
+    vaxName?: string;
 }) {
-    const [doseNum, setDoseNum] = useState('');
+    const [doseNum, setDoseNum] = useState(nextNum.toString());
     const [doseDate, setDoseDate] = useState(new Date());
     const [dosePlace, setDosePlace] = useState('');
+    const [reaction, setReaction] = useState('');
+    const [attachments, setAttachments] = useState<AttachmentUploadItem[]>([]);
 
     return (
         <Modal
             visible={visible}
-            transparent
-            animationType='fade'
+            transparent={false}
+            animationType='slide'
             onRequestClose={onClose}
         >
-            <Pressable style={shared.overlay} onPress={onClose}>
-                <Pressable
-                    style={styles.vaxSheet}
-                    onPress={(e) => e.stopPropagation()}
-                >
-                    <View style={shared.sheetHandle}>
-                        <View style={shared.sheetBar} />
-                    </View>
-                    <View style={styles.vdSheetContent}>
-                        <Text style={styles.vdSheetTitle}>
-                            Thêm mũi đã tiêm
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
+                <StatusBar
+                    barStyle='dark-content'
+                    backgroundColor={colors.card}
+                />
+
+                <View style={{ flex: 1, backgroundColor: colors.bg }}>
+                    {/* TOP BAR */}
+                    <View
+                        style={[
+                            styles.subTopbar,
+                            {
+                                justifyContent: 'flex-start',
+                                gap: 12,
+                            },
+                        ]}
+                    >
+                        <Pressable
+                            style={[styles.subBackBtn, styles.vaxBackBtn]}
+                            onPress={onClose}
+                        >
+                            <Ionicons
+                                name='chevron-back'
+                                size={18}
+                                color={colors.text2}
+                            />
+                        </Pressable>
+                        <Text style={[styles.subTopbarTitle, { flex: 0 }]}>
+                            Thêm mũi tiêm
                         </Text>
-                        <View style={{ gap: 10 }}>
-                            <View>
-                                <Text style={styles.vdFieldLabel}>
-                                    Mũi số *
-                                </Text>
-                                <TextInput
-                                    style={styles.vdFieldInput}
-                                    placeholder={`VD: ${nextNum}`}
-                                    placeholderTextColor={colors.text3}
-                                    keyboardType='number-pad'
-                                    value={doseNum}
-                                    onChangeText={setDoseNum}
+                    </View>
+
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{
+                            padding: 20,
+                            paddingBottom: 176,
+                        }}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps='handled'
+                    >
+                        {/* Tên vaccine */}
+                        <View style={styles.arGroup}>
+                            <Text style={styles.arLabel}>Tên vaccine</Text>
+                            <TextInput
+                                style={styles.arInput}
+                                placeholder='VD: COVID-19 (Pfizer)'
+                                placeholderTextColor={colors.text3}
+                                value={vaxName}
+                                editable={false}
+                                selectTextOnFocus={false}
+                            />
+                        </View>
+
+                        {/* Mũi thứ */}
+                        <View style={styles.arGroup}>
+                            <Text style={styles.arLabel}>Mũi thứ</Text>
+                            <TextInput
+                                style={styles.arInput}
+                                placeholder='VD: 3'
+                                placeholderTextColor={colors.text3}
+                                keyboardType='number-pad'
+                                value={doseNum}
+                                onChangeText={setDoseNum}
+                            />
+                        </View>
+
+                        {/* Ngày tiêm */}
+                        <View style={styles.arGroup}>
+                            <Text style={styles.arLabel}>Ngày tiêm</Text>
+                            <DateField
+                                value={doseDate}
+                                onChange={setDoseDate}
+                            />
+                        </View>
+
+                        {/* Nơi tiêm */}
+                        <View style={styles.arGroup}>
+                            <Text style={styles.arLabel}>Nơi tiêm</Text>
+                            <View style={styles.arInputIcon}>
+                                <Ionicons
+                                    name='home-outline'
+                                    size={15}
+                                    color={colors.text3}
                                 />
-                            </View>
-                            <View>
-                                <Text style={styles.vdFieldLabel}>
-                                    Ngày tiêm *
-                                </Text>
-                                <DateField
-                                    value={doseDate}
-                                    onChange={setDoseDate}
-                                />
-                            </View>
-                            <View>
-                                <Text style={styles.vdFieldLabel}>
-                                    Nơi tiêm
-                                </Text>
                                 <TextInput
-                                    style={styles.vdFieldInput}
-                                    placeholder='VD: BV Chợ Rẫy'
+                                    style={styles.arInputBare}
+                                    placeholder='VD: VNVC Quận 1'
                                     placeholderTextColor={colors.text3}
                                     value={dosePlace}
                                     onChangeText={setDosePlace}
                                 />
                             </View>
-                            {/* Photo upload placeholder */}
-                            <Pressable style={styles.vdPhotoUpload}>
-                                <Ionicons
-                                    name='image-outline'
-                                    size={16}
-                                    color={colors.text3}
-                                />
-                                <Text style={styles.vdPhotoUploadText}>
-                                    Ảnh sổ tiêm (tuỳ chọn)
-                                </Text>
-                            </Pressable>
-                            <Pressable style={styles.vdSaveBtn}>
-                                <LinearGradient
-                                    colors={gradients.brandDuo}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.vdSaveBtnGrad}
-                                >
-                                    <Text style={styles.vdSaveBtnText}>
-                                        Lưu mũi tiêm
-                                    </Text>
-                                </LinearGradient>
-                            </Pressable>
                         </View>
+
+                        {/* Phản ứng sau tiêm */}
+                        <View style={styles.arGroup}>
+                            <Text style={styles.arLabel}>
+                                Phản ứng sau tiêm
+                            </Text>
+                            <TextInput
+                                style={styles.arTextarea}
+                                placeholder='VD: Sốt nhẹ, đau tay 1 ngày...'
+                                placeholderTextColor={colors.text3}
+                                value={reaction}
+                                onChangeText={setReaction}
+                                multiline
+                                numberOfLines={2}
+                            />
+                        </View>
+
+                        <View style={styles.arGroup}>
+                            <View
+                                style={[
+                                    styles.arDivider,
+                                    { marginVertical: 24 },
+                                ]}
+                            />
+                            <AttachmentUploadBlock
+                                attachments={attachments}
+                                onChange={setAttachments}
+                            />
+                        </View>
+                    </ScrollView>
+
+                    {/* SAVE BUTTON */}
+                    <View style={styles.arSaveWrap}>
+                        <Pressable
+                            onPress={onClose}
+                            style={styles.vdSaveBtnSolid}
+                        >
+                            <Text style={styles.vdSaveBtnText}>
+                                Lưu mũi tiêm
+                            </Text>
+                        </Pressable>
                     </View>
-                </Pressable>
-            </Pressable>
+                </View>
+            </SafeAreaView>
         </Modal>
     );
 }
@@ -837,7 +930,7 @@ function ScheduleDoseSheet({
 }) {
     const [schedDate, setSchedDate] = useState(new Date());
     const [schedPlace, setSchedPlace] = useState('');
-    const [schedRemind, setSchedRemind] = useState('3 ngày');
+    const [schedRemindOn, setSchedRemindOn] = useState(true);
 
     return (
         <Modal
@@ -882,45 +975,33 @@ function ScheduleDoseSheet({
                                 <Text style={styles.vdFieldLabel}>
                                     Nhắc trước
                                 </Text>
-                                <View style={styles.vdRemindRow}>
-                                    {['1 ngày', '3 ngày', '1 tuần'].map(
-                                        (opt) => (
-                                            <Pressable
-                                                key={opt}
-                                                style={[
-                                                    styles.vdRemindChip,
-                                                    schedRemind === opt &&
-                                                        styles.vdRemindChipActive,
-                                                ]}
-                                                onPress={() =>
-                                                    setSchedRemind(opt)
-                                                }
-                                            >
-                                                <Text
-                                                    style={[
-                                                        styles.vdRemindChipText,
-                                                        schedRemind === opt &&
-                                                            styles.vdRemindChipTextActive,
-                                                    ]}
-                                                >
-                                                    {opt}
-                                                </Text>
-                                            </Pressable>
-                                        ),
-                                    )}
+                                <View style={styles.vdRemindSwitchCard}>
+                                    <View style={styles.vdRemindSwitchContent}>
+                                        <Text style={styles.vdRemindSwitchText}>
+                                            Nhắc nhở trước 1 ngày
+                                        </Text>
+                                        <Text style={styles.vdRemindSwitchHint}>
+                                            Gửi thông báo trước lịch tiêm 24 giờ
+                                        </Text>
+                                    </View>
+                                    <Switch
+                                        value={schedRemindOn}
+                                        onValueChange={setSchedRemindOn}
+                                        trackColor={{
+                                            false: '#E5E7EB',
+                                            true: colors.success,
+                                        }}
+                                        thumbColor='#fff'
+                                        ios_backgroundColor='#E5E7EB'
+                                    />
                                 </View>
                             </View>
                             <Pressable style={styles.vdSaveBtn}>
-                                <LinearGradient
-                                    colors={gradients.brandDuo}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.vdSaveBtnGrad}
-                                >
+                                <View style={styles.vdSaveBtnSolid}>
                                     <Text style={styles.vdSaveBtnText}>
                                         Lưu lịch tiêm
                                     </Text>
-                                </LinearGradient>
+                                </View>
                             </Pressable>
                         </View>
                     </View>
@@ -965,7 +1046,7 @@ function AddVaxSheet({
                         <View style={{ gap: 10 }}>
                             <View>
                                 <Text style={styles.vdFieldLabel}>
-                                    Tên vaccine *
+                                    Tên vaccine
                                 </Text>
                                 <TextInput
                                     style={styles.vdFieldInput}
@@ -988,17 +1069,17 @@ function AddVaxSheet({
                                     onChangeText={setVaxTotal}
                                 />
                             </View>
-                            <Pressable style={styles.vdSaveBtn}>
-                                <LinearGradient
-                                    colors={gradients.brandDuo}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.vdSaveBtnGrad}
-                                >
+                            <Pressable
+                                style={[
+                                    styles.vdSaveBtn,
+                                    styles.vdAddVaxSaveBtnSpacing,
+                                ]}
+                            >
+                                <View style={styles.vdSaveBtnSolid}>
                                     <Text style={styles.vdSaveBtnText}>
                                         Thêm vaccine
                                     </Text>
-                                </LinearGradient>
+                                </View>
                             </Pressable>
                         </View>
                     </View>

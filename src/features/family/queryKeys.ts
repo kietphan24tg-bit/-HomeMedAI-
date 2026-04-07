@@ -9,4 +9,9 @@ export const familyQueryKeys = {
             params?.page ?? 1,
             params?.limit ?? 20,
         ] as const,
+    detail: (id: string) => [...familyQueryKeys.all, 'detail', id] as const,
+    members: (id: string) => [...familyQueryKeys.all, 'members', id] as const,
+    medicineInventory: (id: string) =>
+        [...familyQueryKeys.all, 'medicine-inventory', id] as const,
+    profiles: (id: string) => [...familyQueryKeys.all, 'profiles', id] as const,
 };

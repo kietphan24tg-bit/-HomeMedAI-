@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
     Modal,
-    Platform,
     Pressable,
     ScrollView,
     StatusBar,
@@ -13,20 +12,35 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { getFamilyMedicines } from '@/src/data/family-medicine-data';
+import { MedicineInventoryCard } from '@/src/components/ui';
 import type { FamilyMedicineItem } from '@/src/data/family-medicine-data';
+import { useFamilyMedicineInventoryQuery } from '@/src/features/family/queries';
 import {
     moderateScale,
     scale,
     scaleFont,
     verticalScale,
 } from '@/src/styles/responsive';
-import { colors, gradients, shadows, typography } from '@/src/styles/tokens';
+import { buttonSystem, cardSystem, inputSystem } from '@/src/styles/shared';
+import { colors, shadows, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
+import MedicineDropdownSheet, {
+    FORM_CATEGORIES,
+    STOCK_UNIT_CATEGORIES,
+} from './MedicineDropdownSheet';
 
 type MedicineStatus = 'expiring' | 'low' | 'ok';
+
+// ── Premium Color Palette ──
+const HERO_START = '#0B5D6B';
+const HERO_END = '#1A9BAA';
+const ACCENT = '#0E8A7D';
+const DETAIL_END = colors.danger;
 
 const CIRCUMFERENCE = 188.5;
 
@@ -36,148 +50,57 @@ function getMedicineStatus(item: FamilyMedicineItem): MedicineStatus {
     const daysLeft = Math.ceil(
         (exp.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
     );
-
     if (daysLeft <= 30) return 'expiring';
     if (item.qty <= item.lowThreshold) return 'low';
     return 'ok';
 }
 
 function formatIsoDate(iso: string) {
+    if (!iso) return '--';
     const [year, month, day] = iso.split('-');
     return `${day}/${month}/${year}`;
 }
 
-function getStatusConfig(status: MedicineStatus) {
-    if (status === 'expiring') {
-        return {
-            title: 'Sắp hết hạn',
-            accent: colors.cDanger,
-            dot: '#FDA4AF',
-            cardBg: colors.cDangerBg,
-            cardBorder: '#FDA4AF',
-            iconBg: '#FFE4E6',
-            icon: colors.cDanger,
-            emoji: '⚠️',
-        };
-    }
-
-    if (status === 'low') {
-        return {
-            title: 'Sắp hết',
-            accent: colors.cReminder,
-            dot: '#FCD34D',
-            cardBg: colors.cReminderBg,
-            cardBorder: '#FDE68A',
-            iconBg: '#FEF3C7',
-            icon: colors.cReminder,
-            emoji: '📉',
-        };
-    }
-
-    return {
+const STATUS_CFG = {
+    expiring: {
+        title: 'Sắp hết hạn',
+        bg: '#FEE2E2',
+        text: colors.danger,
+        bar: colors.danger,
+        border: colors.border,
+        dot: colors.danger,
+    },
+    low: {
+        title: 'Sắp hết',
+        bg: '#FEF3C7',
+        text: colors.warning,
+        bar: colors.warning,
+        border: colors.border,
+        dot: colors.warning,
+    },
+    ok: {
         title: 'Còn đủ',
-        accent: colors.cFamily,
-        dot: '#E5E7EB',
-        cardBg: colors.card,
-        cardBorder: colors.border,
-        iconBg: colors.secondaryBg,
-        icon: colors.cFamily,
-        emoji: '✅',
-    };
-}
+        bg: '#DCFCE7',
+        text: colors.success,
+        bar: colors.success,
+        border: colors.border,
+        dot: colors.success,
+    },
+} as const;
 
-function MedicineCard({ item }: { item: FamilyMedicineItem }) {
-    const status = getMedicineStatus(item);
-    const cfg = getStatusConfig(status);
-    const progress = Math.max(
-        8,
-        Math.min(100, Math.round((item.qty / item.originalQty) * 100)),
-    );
-
-    return (
-        <Pressable
-            style={[
-                styles.card,
-                {
-                    backgroundColor: cfg.cardBg,
-                    borderColor: cfg.cardBorder,
-                },
-            ]}
-        >
-            <View style={[styles.cardIcon, { backgroundColor: cfg.iconBg }]}>
-                <Ionicons name='medkit-outline' size={18} color={cfg.icon} />
-            </View>
-
-            <View style={styles.cardBody}>
-                <View style={styles.cardTop}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Ionicons
-                        name='chevron-forward'
-                        size={14}
-                        color={colors.text3}
-                    />
-                </View>
-
-                <Text style={[styles.cardExpiry, { color: cfg.accent }]}>
-                    HSD: {formatIsoDate(item.exp)}
-                </Text>
-
-                <View style={styles.barTrack}>
-                    <View
-                        style={[
-                            styles.barFill,
-                            {
-                                width: `${progress}%`,
-                                backgroundColor: cfg.accent,
-                            },
-                        ]}
-                    />
-                </View>
-
-                <Text style={[styles.cardAmount, { color: cfg.accent }]}>
-                    {item.qty} / {item.originalQty} {item.unit}
-                </Text>
-            </View>
-        </Pressable>
-    );
-}
-
-function MedicineSection({
-    status,
-    items,
-}: {
-    status: MedicineStatus;
-    items: FamilyMedicineItem[];
-}) {
-    if (!items.length) return null;
-    const cfg = getStatusConfig(status);
-
-    return (
-        <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionEmoji}>{cfg.emoji}</Text>
-                <Text style={[styles.sectionTitle, { color: cfg.accent }]}>
-                    {cfg.title}
-                </Text>
-                <Text style={styles.sectionCount}>({items.length})</Text>
-            </View>
-
-            <View style={styles.sectionList}>
-                {items.map((item) => (
-                    <MedicineCard key={item.id} item={item} />
-                ))}
-            </View>
-        </View>
-    );
-}
-
-function AddMedicineSheet({
+// ── Clone Confirmation Sheet ──
+function CloneSheet({
     visible,
+    item,
     onClose,
 }: {
     visible: boolean;
+    item: FamilyMedicineItem | null;
     onClose: () => void;
 }) {
+    const [keepReminder, setKeepReminder] = React.useState(true);
+    const [resetStock, setResetStock] = React.useState(false);
+    if (!item) return null;
     return (
         <Modal
             transparent
@@ -187,162 +110,290 @@ function AddMedicineSheet({
         >
             <View style={styles.sheetBackdrop}>
                 <Pressable style={styles.sheetOverlay} onPress={onClose} />
-                <View style={styles.sheet}>
-                    <View style={styles.sheetHeader}>
-                        <View style={styles.sheetHandle} />
-                        <View style={styles.sheetTitleRow}>
-                            <Text style={styles.sheetTitle}>
-                                Thêm thuốc vào tủ
-                            </Text>
-                            <Pressable
-                                style={styles.sheetCloseBtn}
-                                onPress={onClose}
-                            >
-                                <Ionicons
-                                    name='close'
-                                    size={14}
-                                    color={colors.text2}
-                                />
-                            </Pressable>
-                        </View>
-                    </View>
-
-                    <ScrollView
-                        style={styles.sheetScroll}
-                        contentContainerStyle={styles.sheetScrollContent}
-                        showsVerticalScrollIndicator={false}
+                <View style={styles.confirmSheet}>
+                    <View style={styles.confirmHandle} />
+                    <Text style={styles.confirmTitle}>Nhân bản thuốc?</Text>
+                    <Text style={styles.confirmSub}>Từ: {item.name}</Text>
+                    <View style={styles.confirmDivider} />
+                    <Pressable
+                        style={styles.checkRow}
+                        onPress={() => setKeepReminder(!keepReminder)}
                     >
-                        <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>
-                                Tên thuốc <Text style={styles.req}>*</Text>
-                            </Text>
-                            <TextInput
-                                placeholder='VD: Paracetamol 500mg'
-                                placeholderTextColor={colors.text3}
-                                style={styles.fieldInput}
-                            />
-                        </View>
-
-                        <View style={styles.fieldRow}>
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>
-                                    Nhóm thuốc
-                                </Text>
-                                <TextInput
-                                    placeholder='Giảm đau'
-                                    placeholderTextColor={colors.text3}
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>Vị trí</Text>
-                                <TextInput
-                                    placeholder='Tủ phòng khách'
-                                    placeholderTextColor={colors.text3}
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.fieldRow}>
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>Số lượng</Text>
-                                <TextInput
-                                    placeholder='8'
-                                    placeholderTextColor={colors.text3}
-                                    keyboardType='numeric'
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>Đơn vị</Text>
-                                <TextInput
-                                    placeholder='viên'
-                                    placeholderTextColor={colors.text3}
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.fieldRow}>
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>
-                                    Hạn sử dụng
-                                </Text>
-                                <TextInput
-                                    placeholder='20/04/2026'
-                                    placeholderTextColor={colors.text3}
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-
-                            <View style={[styles.fieldGroup, styles.fieldHalf]}>
-                                <Text style={styles.fieldLabel}>
-                                    Ngưỡng cảnh báo
-                                </Text>
-                                <TextInput
-                                    placeholder='10'
-                                    placeholderTextColor={colors.text3}
-                                    keyboardType='numeric'
-                                    style={styles.fieldInput}
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Liều dùng</Text>
-                            <TextInput
-                                placeholder='VD: 1-2 viên/lần'
-                                placeholderTextColor={colors.text3}
-                                style={styles.fieldInput}
-                            />
-                        </View>
-
-                        <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Ghi chú</Text>
-                            <TextInput
-                                placeholder='Ghi chú bảo quản hoặc cách dùng'
-                                placeholderTextColor={colors.text3}
-                                multiline
-                                textAlignVertical='top'
-                                style={[
-                                    styles.fieldInput,
-                                    styles.fieldTextarea,
-                                ]}
-                            />
-                        </View>
-
+                        <Ionicons
+                            name={keepReminder ? 'checkbox' : 'square-outline'}
+                            size={20}
+                            color={keepReminder ? ACCENT : colors.text3}
+                        />
+                        <Text style={styles.checkText}>Giữ lịch nhắc</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.checkRow}
+                        onPress={() => setResetStock(!resetStock)}
+                    >
+                        <Ionicons
+                            name={resetStock ? 'checkbox' : 'square-outline'}
+                            size={20}
+                            color={resetStock ? ACCENT : colors.text3}
+                        />
+                        <Text style={styles.checkText}>Reset SL + HSD</Text>
+                    </Pressable>
+                    <View style={styles.confirmBtnRow}>
                         <Pressable
-                            style={styles.sheetSubmitBtn}
+                            style={styles.confirmBtnGhost}
                             onPress={onClose}
                         >
-                            <Text style={styles.sheetSubmitText}>
-                                Lưu vào tủ thuốc
+                            <Text style={styles.confirmBtnGhostText}>Hủy</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.confirmBtnPrimary}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.confirmBtnPrimaryText}>
+                                Nhân bản
                             </Text>
                         </Pressable>
-                    </ScrollView>
+                    </View>
                 </View>
             </View>
         </Modal>
     );
 }
 
+// ── Delete Confirmation Sheet ──
+function DeleteSheet({
+    visible,
+    item,
+    onClose,
+}: {
+    visible: boolean;
+    item: FamilyMedicineItem | null;
+    onClose: () => void;
+}) {
+    const [deleteReminder, setDeleteReminder] = React.useState(false);
+    if (!item) return null;
+    return (
+        <Modal
+            transparent
+            visible={visible}
+            animationType='fade'
+            onRequestClose={onClose}
+        >
+            <View style={styles.sheetBackdrop}>
+                <Pressable style={styles.sheetOverlay} onPress={onClose} />
+                <View style={styles.confirmSheet}>
+                    <View style={styles.confirmHandle} />
+                    <Text style={styles.confirmTitle}>Xóa thuốc này?</Text>
+                    <Text style={styles.confirmSub}>
+                        &quot;{item.name}&quot;
+                    </Text>
+                    <View style={styles.confirmDivider} />
+                    <Pressable
+                        style={styles.checkRow}
+                        onPress={() => setDeleteReminder(!deleteReminder)}
+                    >
+                        <Ionicons
+                            name='warning-outline'
+                            size={18}
+                            color={colors.warning}
+                        />
+                        <Text style={styles.checkText}>Xóa luôn lịch nhắc</Text>
+                    </Pressable>
+                    <View style={styles.confirmBtnRow}>
+                        <Pressable
+                            style={styles.confirmBtnGhost}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.confirmBtnGhostText}>Hủy</Text>
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.confirmBtnPrimary,
+                                { backgroundColor: colors.danger },
+                            ]}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.confirmBtnPrimaryText}>
+                                Xóa
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+function UnifiedMedicineCard({
+    item,
+    onPress,
+    style,
+}: {
+    item: FamilyMedicineItem;
+    onPress: () => void;
+    style?: any;
+}) {
+    const status = getMedicineStatus(item);
+    const cfg = STATUS_CFG[status];
+    const safeOriginalQty = item.originalQty > 0 ? item.originalQty : 1;
+    const progress = Math.max(
+        0,
+        Math.min(100, Math.round((item.qty / safeOriginalQty) * 100)),
+    );
+
+    return (
+        <MedicineInventoryCard
+            style={style}
+            title={item.name || 'Chưa có tên'}
+            subtitle={`Dạng: ${item.form || 'Không rõ dạng'}`}
+            icon={(size, color) => (
+                <Ionicons
+                    name={
+                        item.form?.toLowerCase().includes('chai') ||
+                        item.form?.toLowerCase().includes('lọ')
+                            ? 'flask-outline'
+                            : 'medkit-outline'
+                    }
+                    size={size}
+                    color={color}
+                />
+            )}
+            themeColor={cfg.text}
+            themeLight={cfg.bg}
+            quantityLabel={`Còn: ${item.qty} ${item.unit}`}
+            hsdLabel={`HSD ${formatIsoDate(item.exp)}`}
+            progress={progress}
+            onPress={onPress}
+        />
+    );
+}
+
+// ── Section ──
+function MedicineSection({
+    status,
+    items,
+    onCardPress,
+}: {
+    status: MedicineStatus;
+    items: FamilyMedicineItem[];
+    onCardPress: (item: FamilyMedicineItem) => void;
+}) {
+    const cfg = STATUS_CFG[status];
+
+    return (
+        <View style={{ marginBottom: items.length > 0 ? 12 : 24 }}>
+            <View
+                style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: items.length > 0 ? 16 : 0,
+                }}
+            >
+                <View
+                    style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: cfg.dot,
+                        marginRight: 8,
+                    }}
+                />
+                <Text
+                    style={{
+                        fontFamily: typography.font.bold,
+                        fontSize: 12.5,
+                        color: colors.text2,
+                        letterSpacing: 0.3,
+                        marginRight: 10,
+                    }}
+                >
+                    {cfg.title}
+                </Text>
+            </View>
+            <View>
+                {items.map((item, index) => (
+                    <UnifiedMedicineCard
+                        key={item.id}
+                        item={item}
+                        onPress={() => onCardPress(item)}
+                        style={
+                            index < items.length - 1
+                                ? styles.sectionCardGap
+                                : undefined
+                        }
+                    />
+                ))}
+            </View>
+        </View>
+    );
+}
+
+// ── Main Screen ──
 export default function FamilyMedicineInventoryScreen({
     family,
 }: {
     family: FamilyGroup;
 }): React.JSX.Element {
+    const insets = useSafeAreaInsets();
     const [query, setQuery] = useState('');
-    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [addPopupMode, setAddPopupMode] = useState<'create' | 'edit'>(
+        'create',
+    );
+    const [selectedItem, setSelectedItem] = useState<FamilyMedicineItem | null>(
+        null,
+    );
+    const [usageOpen, setUsageOpen] = useState(false);
+    const [usedQty, setUsedQty] = useState('1');
+    const [usedUnit, setUsedUnit] = useState('viên');
+    const [usedUnitDDOpen, setUsedUnitDDOpen] = useState(false);
+    const [cloneItem, setCloneItem] = useState<FamilyMedicineItem | null>(null);
+    const [deleteItem, setDeleteItem] = useState<FamilyMedicineItem | null>(
+        null,
+    );
+    const [addPopupOpen, setAddPopupOpen] = useState(false);
+    const [addFormDDOpen, setAddFormDDOpen] = useState(false);
+    const [addUnitDDOpen, setAddUnitDDOpen] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newForm, setNewForm] = useState('Viên nén');
+    const [newQty, setNewQty] = useState('');
+    const [newUnit, setNewUnit] = useState('viên');
+    const [newExp, setNewExp] = useState('');
+    const [newLocation, setNewLocation] = useState('');
+    const [newNote, setNewNote] = useState('');
 
-    const items = useMemo(() => getFamilyMedicines(family.id), [family.id]);
+    const { data: remoteItems = [] } = useFamilyMedicineInventoryQuery(
+        family.id,
+    );
+
+    const medicineFormOptions = useMemo(
+        () =>
+            FORM_CATEGORIES.flatMap((category) =>
+                category.options.map((option) => option.value),
+            ),
+        [],
+    );
+
+    const items = useMemo(() => {
+        return remoteItems.map((ri: any) => ({
+            id: ri.id,
+            familyId: family.id,
+            name: ri.medicine_name,
+            unit: ri.unit || 'viên',
+            form: ri.medicine_type || 'Viên nén',
+            qty: parseInt(ri.quantity_stock) || 0,
+            originalQty: parseInt(ri.quantity_stock) || 0,
+            lowThreshold: parseInt(ri.min_stock_alert) || 5,
+            exp: ri.expiry_date,
+            note: ri.instruction,
+            reminder: undefined,
+            location: 'Tủ thuốc',
+            group: 'Thuốc của tôi',
+        }));
+    }, [family.id, remoteItems]);
 
     const filteredItems = useMemo(() => {
         const normalized = query.trim().toLowerCase();
         if (!normalized) return items;
-        return items.filter((item) =>
+        return items.filter((item: any) =>
             `${item.name} ${item.group ?? ''} ${item.location} ${item.note ?? ''}`
                 .toLowerCase()
                 .includes(normalized),
@@ -364,6 +415,64 @@ export default function FamilyMedicineInventoryScreen({
     const lowArc = (CIRCUMFERENCE * lowItems.length) / totalCount;
     const expiringArc = (CIRCUMFERENCE * expiringItems.length) / totalCount;
 
+    const handleCardPress = (item: FamilyMedicineItem) => {
+        setSelectedItem(item);
+        setUsedQty('1');
+        setUsedUnit(item.unit || 'viên');
+        setUsageOpen(true);
+    };
+
+    const handleAddNew = () => {
+        setAddPopupMode('create');
+        setAddFormDDOpen(false);
+        setNewName('');
+        setNewForm('Viên nén');
+        setNewQty('');
+        setNewUnit('viên');
+        setNewExp('');
+        setNewLocation('');
+        setNewNote('');
+        setAddPopupOpen(true);
+    };
+
+    const handleSaveNew = () => {
+        setAddPopupOpen(false);
+        setAddFormDDOpen(false);
+        setNewName('');
+        setNewForm('Viên nén');
+        setNewQty('');
+        setNewUnit('viên');
+        setNewExp('');
+        setNewLocation('');
+        setNewNote('');
+    };
+
+    const changeUsedQty = (delta: number) => {
+        setUsedQty((prev) => {
+            const current = parseInt(prev || '0', 10) || 0;
+            return String(Math.max(1, current + delta));
+        });
+    };
+
+    const openEditFromUsage = () => {
+        if (!selectedItem) return;
+        setAddPopupMode('edit');
+        setAddFormDDOpen(false);
+        setNewName(selectedItem.name || '');
+        setNewForm(selectedItem.form || 'Viên nén');
+        setNewQty(String(selectedItem.qty ?? ''));
+        setNewUnit(selectedItem.unit || 'viên');
+        setNewExp(selectedItem.exp || '');
+        setNewLocation(selectedItem.location || 'Tủ thuốc');
+        setNewNote(selectedItem.note || '');
+        setAddPopupOpen(true);
+    };
+
+    const addPopupTitle =
+        addPopupMode === 'edit' ? 'Chỉnh sửa thông tin' : 'Thêm thuốc vào tủ';
+    const addPopupButtonText =
+        addPopupMode === 'edit' ? 'Lưu thay đổi' : 'Lưu vào tủ thuốc';
+
     return (
         <SafeAreaView style={styles.page}>
             <StatusBar
@@ -372,21 +481,22 @@ export default function FamilyMedicineInventoryScreen({
                 translucent
             />
 
+            {/* ── Hero Header ── */}
             <LinearGradient
-                colors={gradients.health}
+                colors={[HERO_START, HERO_END]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.hero}
             >
-                <View style={styles.heroCircleLg} />
-                <View style={styles.heroCircleMd} />
-                <View style={styles.heroCircleSm} />
+                <View style={styles.heroDecor1} />
+                <View style={styles.heroDecor2} />
+                <View style={styles.heroDecor3} />
 
                 <View style={styles.heroTop}>
                     <View style={styles.heroTitleRow}>
                         <Pressable
                             onPress={() => router.back()}
-                            style={styles.heroIconButton}
+                            style={styles.heroIconBtn}
                         >
                             <Ionicons
                                 name='chevron-back'
@@ -403,10 +513,9 @@ export default function FamilyMedicineInventoryScreen({
                             </Text>
                         </View>
                     </View>
-
                     <Pressable
-                        style={styles.heroIconButton}
-                        onPress={() => setIsAddOpen(true)}
+                        style={styles.heroIconBtn}
+                        onPress={handleAddNew}
                     >
                         <Ionicons name='add' size={18} color='#fff' />
                     </Pressable>
@@ -420,7 +529,7 @@ export default function FamilyMedicineInventoryScreen({
                                 cy='40'
                                 r='30'
                                 fill='none'
-                                stroke='rgba(255,255,255,0.15)'
+                                stroke='rgba(255,255,255,0.12)'
                                 strokeWidth='8'
                             />
                             <Circle
@@ -440,7 +549,7 @@ export default function FamilyMedicineInventoryScreen({
                                 cy='40'
                                 r='30'
                                 fill='none'
-                                stroke='#FCD34D'
+                                stroke='#FFD54F'
                                 strokeWidth='8'
                                 strokeLinecap='round'
                                 strokeDasharray={CIRCUMFERENCE}
@@ -452,7 +561,7 @@ export default function FamilyMedicineInventoryScreen({
                                 cy='40'
                                 r='30'
                                 fill='none'
-                                stroke='#FDA4AF'
+                                stroke='#EF9A9A'
                                 strokeWidth='8'
                                 strokeLinecap='round'
                                 strokeDasharray={CIRCUMFERENCE}
@@ -460,9 +569,8 @@ export default function FamilyMedicineInventoryScreen({
                                 transform={`rotate(${((okArc + lowArc) / CIRCUMFERENCE) * 360 - 90} 40 40)`}
                             />
                         </Svg>
-
                         <View style={styles.donutCenter}>
-                            <Text style={styles.donutNumber}>
+                            <Text style={styles.donutNum}>
                                 {filteredItems.length}
                             </Text>
                             <Text style={styles.donutLabel}>LOẠI</Text>
@@ -470,74 +578,81 @@ export default function FamilyMedicineInventoryScreen({
                     </View>
 
                     <View style={styles.legendList}>
-                        <View style={styles.legendRow}>
-                            <View
-                                style={[
-                                    styles.legendDot,
-                                    { backgroundColor: '#FDA4AF' },
-                                ]}
-                            />
-                            <Text style={styles.legendText}>Sắp hết hạn</Text>
-                            <Text style={styles.legendValue}>
-                                {expiringItems.length}
-                            </Text>
-                        </View>
-                        <View style={styles.legendRow}>
-                            <View
-                                style={[
-                                    styles.legendDot,
-                                    { backgroundColor: '#FCD34D' },
-                                ]}
-                            />
-                            <Text style={styles.legendText}>Sắp hết</Text>
-                            <Text style={styles.legendValue}>
-                                {lowItems.length}
-                            </Text>
-                        </View>
-                        <View style={styles.legendRow}>
-                            <View
-                                style={[
-                                    styles.legendDot,
-                                    {
-                                        backgroundColor:
-                                            'rgba(255,255,255,0.85)',
-                                    },
-                                ]}
-                            />
-                            <Text style={styles.legendText}>Còn đủ</Text>
-                            <Text style={styles.legendValue}>
-                                {okItems.length}
-                            </Text>
-                        </View>
+                        {[
+                            {
+                                label: 'Sắp hết hạn',
+                                color: STATUS_CFG.expiring.text,
+                                count: expiringItems.length,
+                            },
+                            {
+                                label: 'Sắp hết',
+                                color: STATUS_CFG.low.text,
+                                count: lowItems.length,
+                            },
+                            {
+                                label: 'Còn đủ',
+                                color: STATUS_CFG.ok.text,
+                                count: okItems.length,
+                            },
+                        ].map((row) => (
+                            <View key={row.label} style={styles.legendRow}>
+                                <View
+                                    style={[
+                                        styles.legendDot,
+                                        { backgroundColor: row.color },
+                                    ]}
+                                />
+                                <Text style={styles.legendText}>
+                                    {row.label}
+                                </Text>
+                                <Text style={styles.legendVal}>
+                                    {row.count}
+                                </Text>
+                            </View>
+                        ))}
                     </View>
                 </View>
             </LinearGradient>
 
+            {/* ── Search ── */}
             <View style={styles.searchShell}>
                 <View style={styles.searchWrap}>
                     <Ionicons
                         name='search-outline'
-                        size={16}
+                        size={18}
                         color={colors.text3}
                     />
                     <TextInput
                         value={query}
                         onChangeText={setQuery}
-                        placeholder='Tìm thuốc trong tủ...'
+                        placeholder='Tìm kiếm tủ thuốc nhà bạn'
                         placeholderTextColor={colors.text3}
                         style={styles.searchInput}
                     />
                 </View>
             </View>
 
+            {/* ── Content ── */}
             <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.contentInner}
                 showsVerticalScrollIndicator={false}
             >
-                <MedicineSection status='expiring' items={expiringItems} />
-                <MedicineSection status='low' items={lowItems} />
-                <MedicineSection status='ok' items={okItems} />
+                <MedicineSection
+                    status='ok'
+                    items={okItems}
+                    onCardPress={handleCardPress}
+                />
+                <MedicineSection
+                    status='low'
+                    items={lowItems}
+                    onCardPress={handleCardPress}
+                />
+                <MedicineSection
+                    status='expiring'
+                    items={expiringItems}
+                    onCardPress={handleCardPress}
+                />
 
                 {!filteredItems.length ? (
                     <View style={styles.emptyState}>
@@ -549,61 +664,742 @@ export default function FamilyMedicineInventoryScreen({
                         <Text style={styles.emptyTitle}>
                             Không tìm thấy thuốc
                         </Text>
-                        <Text style={styles.emptyMessage}>
+                        <Text style={styles.emptyMsg}>
                             Thử tìm theo tên thuốc hoặc vị trí bảo quản khác.
                         </Text>
                     </View>
                 ) : null}
             </ScrollView>
 
-            <AddMedicineSheet
-                visible={isAddOpen}
-                onClose={() => setIsAddOpen(false)}
+            <Modal
+                visible={usageOpen}
+                animationType='slide'
+                onRequestClose={() => setUsageOpen(false)}
+            >
+                <View style={styles.usagePage}>
+                    <StatusBar
+                        barStyle='light-content'
+                        backgroundColor={DETAIL_END}
+                    />
+                    <SafeAreaView style={styles.usageTopSafe} edges={['top']}>
+                        <View style={styles.usageHero}>
+                            <View style={styles.usageHeroTop}>
+                                <Pressable
+                                    onPress={() => setUsageOpen(false)}
+                                    style={styles.usageIconBtn}
+                                >
+                                    <Ionicons
+                                        name='chevron-back'
+                                        size={16}
+                                        color='#fff'
+                                    />
+                                </Pressable>
+                                <Pressable style={styles.usageIconBtn}>
+                                    <Ionicons
+                                        name='medkit-outline'
+                                        size={16}
+                                        color='#fff'
+                                    />
+                                </Pressable>
+                            </View>
+
+                            <Text style={styles.usageTitle} numberOfLines={1}>
+                                {selectedItem?.name || 'Paracetamol 500mg'}
+                            </Text>
+                        </View>
+                    </SafeAreaView>
+
+                    <ScrollView
+                        style={styles.usageContent}
+                        contentContainerStyle={styles.usageContentInner}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <Text style={styles.usageSectionTitle}>
+                            THÔNG TIN THUỐC
+                        </Text>
+                        <View style={styles.usageInfoListCard}>
+                            <View style={styles.usageInfoRow}>
+                                <Text style={styles.usageInfoLabel}>
+                                    Còn lại
+                                </Text>
+                                <Text style={styles.usageInfoValue}>
+                                    {selectedItem?.qty ?? 0}{' '}
+                                    {selectedItem?.unit || 'viên'}
+                                </Text>
+                            </View>
+                            <View style={styles.usageInfoDivider} />
+                            <View style={styles.usageInfoRow}>
+                                <Text style={styles.usageInfoLabel}>
+                                    Hạn dùng
+                                </Text>
+                                <Text style={styles.usageInfoValue}>
+                                    {formatIsoDate(selectedItem?.exp || '')}
+                                </Text>
+                            </View>
+                            <View style={styles.usageInfoDivider} />
+                            <View style={styles.usageInfoRow}>
+                                <Text style={styles.usageInfoLabel}>
+                                    Ghi chú
+                                </Text>
+                                <Text
+                                    style={styles.usageInfoValue}
+                                    numberOfLines={1}
+                                >
+                                    {selectedItem?.note ||
+                                        'Dùng khi sốt, đau đầu'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <Text style={styles.usageSectionTitle}>
+                            XÁC NHẬN SỬ DỤNG
+                        </Text>
+                        <View style={styles.usageConfirmCard}>
+                            <Text style={styles.usageConfirmLabel}>
+                                Nhập số lượng đã dùng:
+                            </Text>
+                            <View style={styles.usageConfirmRow}>
+                                <Pressable
+                                    style={styles.usageQtyBtn}
+                                    onPress={() => changeUsedQty(-1)}
+                                >
+                                    <Ionicons
+                                        name='remove'
+                                        size={16}
+                                        color={colors.text2}
+                                    />
+                                </Pressable>
+                                <TextInput
+                                    value={usedQty}
+                                    onChangeText={setUsedQty}
+                                    keyboardType='numeric'
+                                    style={styles.usageQtyInput}
+                                />
+                                <Pressable
+                                    style={styles.usageUnitSelect}
+                                    onPress={() => setUsedUnitDDOpen(true)}
+                                >
+                                    <Text style={styles.usageUnitText}>
+                                        {usedUnit}
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={styles.usageQtyBtn}
+                                    onPress={() => changeUsedQty(1)}
+                                >
+                                    <Ionicons
+                                        name='add'
+                                        size={16}
+                                        color={colors.text2}
+                                    />
+                                </Pressable>
+                                <Pressable style={styles.usageDoneBtn}>
+                                    <Text style={styles.usageDoneText}>
+                                        ✓ Đã dùng
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        <Pressable
+                            style={styles.usageEditBtn}
+                            onPress={openEditFromUsage}
+                        >
+                            <Ionicons
+                                name='create-outline'
+                                size={18}
+                                color={colors.text}
+                            />
+                            <Text style={styles.usageEditText}>
+                                Chỉnh sửa thông tin
+                            </Text>
+                        </Pressable>
+
+                        <Pressable style={styles.usageDeleteBtn}>
+                            <Ionicons
+                                name='trash-outline'
+                                size={18}
+                                color={colors.danger}
+                            />
+                            <Text style={styles.usageDeleteText}>
+                                Xóa khỏi tủ thuốc
+                            </Text>
+                        </Pressable>
+                    </ScrollView>
+                </View>
+            </Modal>
+
+            <Modal
+                transparent
+                visible={addPopupOpen}
+                animationType='fade'
+                onRequestClose={() => setAddPopupOpen(false)}
+            >
+                <View style={styles.addBackdrop}>
+                    <Pressable
+                        style={styles.addOverlay}
+                        onPress={() => setAddPopupOpen(false)}
+                    />
+                    <View
+                        style={[
+                            styles.addSheet,
+                            {
+                                paddingBottom:
+                                    verticalScale(14) + insets.bottom,
+                            },
+                        ]}
+                    >
+                        <View style={styles.addHandle} />
+
+                        <View style={styles.addHeaderRow}>
+                            <Text style={styles.addTitle}>{addPopupTitle}</Text>
+                            <Pressable
+                                style={styles.addCloseBtn}
+                                onPress={() => setAddPopupOpen(false)}
+                            >
+                                <Ionicons
+                                    name='close'
+                                    size={16}
+                                    color={colors.text2}
+                                />
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.addForm}>
+                            <Text style={styles.addLabel}>
+                                Tên thuốc <Text style={styles.addReq}>*</Text>
+                            </Text>
+                            <TextInput
+                                value={newName}
+                                onChangeText={setNewName}
+                                placeholder='VD: Paracetamol 500mg'
+                                placeholderTextColor={colors.text3}
+                                style={styles.addInput}
+                            />
+
+                            <Text style={styles.addLabel}>
+                                Dạng bào chế{' '}
+                                <Text style={styles.addReq}>*</Text>
+                            </Text>
+                            <Pressable
+                                style={[styles.addInput, styles.addUnitInput]}
+                                onPress={() =>
+                                    setAddFormDDOpen((prev) => !prev)
+                                }
+                            >
+                                <Text style={styles.addUnitText}>
+                                    {newForm}
+                                </Text>
+                                <Ionicons
+                                    name={
+                                        addFormDDOpen
+                                            ? 'chevron-up'
+                                            : 'chevron-down'
+                                    }
+                                    size={16}
+                                    color={colors.text3}
+                                />
+                            </Pressable>
+                            {addFormDDOpen ? (
+                                <View style={styles.addInlineDropdown}>
+                                    <ScrollView
+                                        nestedScrollEnabled
+                                        showsVerticalScrollIndicator={false}
+                                        style={styles.addInlineDropdownList}
+                                    >
+                                        {medicineFormOptions.map((option) => {
+                                            const isActive = option === newForm;
+                                            return (
+                                                <Pressable
+                                                    key={option}
+                                                    style={[
+                                                        styles.addInlineDropdownItem,
+                                                        isActive &&
+                                                            styles.addInlineDropdownItemActive,
+                                                    ]}
+                                                    onPress={() => {
+                                                        setNewForm(option);
+                                                        setAddFormDDOpen(false);
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.addInlineDropdownItemText,
+                                                            isActive &&
+                                                                styles.addInlineDropdownItemTextActive,
+                                                        ]}
+                                                    >
+                                                        {option}
+                                                    </Text>
+                                                    {isActive ? (
+                                                        <Ionicons
+                                                            name='checkmark'
+                                                            size={14}
+                                                            color={
+                                                                colors.primary
+                                                            }
+                                                        />
+                                                    ) : null}
+                                                </Pressable>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                </View>
+                            ) : null}
+
+                            <View style={styles.addRowLabel}>
+                                <Text
+                                    style={[
+                                        styles.addLabel,
+                                        styles.addHalfLabel,
+                                    ]}
+                                >
+                                    Số lượng{' '}
+                                    <Text style={styles.addReq}>*</Text>
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.addLabel,
+                                        styles.addHalfLabel,
+                                    ]}
+                                >
+                                    Đơn vị <Text style={styles.addReq}>*</Text>
+                                </Text>
+                            </View>
+                            <View style={styles.addRowTwoCol}>
+                                <TextInput
+                                    value={newQty}
+                                    onChangeText={setNewQty}
+                                    placeholder='VD: 10'
+                                    placeholderTextColor={colors.text3}
+                                    keyboardType='numeric'
+                                    style={[
+                                        styles.addInput,
+                                        styles.addHalfInput,
+                                    ]}
+                                />
+                                <Pressable
+                                    style={[
+                                        styles.addInput,
+                                        styles.addHalfInput,
+                                        styles.addUnitInput,
+                                    ]}
+                                    onPress={() => setAddUnitDDOpen(true)}
+                                >
+                                    <Text style={styles.addUnitText}>
+                                        {newUnit}
+                                    </Text>
+                                    <Ionicons
+                                        name='chevron-down'
+                                        size={16}
+                                        color={colors.text3}
+                                    />
+                                </Pressable>
+                            </View>
+
+                            <View style={styles.addRowLabel}>
+                                <Text
+                                    style={[
+                                        styles.addLabel,
+                                        styles.addHalfLabel,
+                                    ]}
+                                >
+                                    Hạn sử dụng{' '}
+                                    <Text style={styles.addReq}>*</Text>
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.addLabel,
+                                        styles.addHalfLabel,
+                                    ]}
+                                >
+                                    Vị trí lưu trữ
+                                </Text>
+                            </View>
+                            <View style={styles.addRowTwoCol}>
+                                <View
+                                    style={[
+                                        styles.addInput,
+                                        styles.addHalfInput,
+                                        styles.addDateWrap,
+                                    ]}
+                                >
+                                    <TextInput
+                                        value={newExp}
+                                        onChangeText={setNewExp}
+                                        placeholder='mm/dd/yyyy'
+                                        placeholderTextColor={colors.text3}
+                                        style={styles.addDateInput}
+                                    />
+                                    <Ionicons
+                                        name='calendar-outline'
+                                        size={14}
+                                        color={colors.text2}
+                                    />
+                                </View>
+                                <TextInput
+                                    value={newLocation}
+                                    onChangeText={setNewLocation}
+                                    placeholder='VD: Tủ phòng ngủ'
+                                    placeholderTextColor={colors.text3}
+                                    style={[
+                                        styles.addInput,
+                                        styles.addHalfInput,
+                                    ]}
+                                />
+                            </View>
+
+                            <Text style={styles.addLabel}>Ghi chú</Text>
+                            <TextInput
+                                value={newNote}
+                                onChangeText={setNewNote}
+                                placeholder='VD: Uống sau ăn, tránh ánh sáng...'
+                                placeholderTextColor={colors.text3}
+                                multiline
+                                style={[styles.addInput, styles.addNoteInput]}
+                            />
+                        </View>
+
+                        <Pressable
+                            style={styles.addSaveBtn}
+                            onPress={handleSaveNew}
+                        >
+                            <Text style={styles.addSaveText}>
+                                {addPopupButtonText}
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
+
+            <MedicineDropdownSheet
+                visible={addUnitDDOpen}
+                title='CHỌN ĐƠN VỊ'
+                categories={STOCK_UNIT_CATEGORIES}
+                selected={newUnit}
+                onSelect={setNewUnit}
+                onClose={() => setAddUnitDDOpen(false)}
+                searchable={false}
+            />
+
+            <MedicineDropdownSheet
+                visible={usedUnitDDOpen}
+                title='CHỌN ĐƠN VỊ SỬ DỤNG'
+                categories={STOCK_UNIT_CATEGORIES}
+                selected={usedUnit}
+                onSelect={setUsedUnit}
+                onClose={() => setUsedUnitDDOpen(false)}
+                searchable={false}
+            />
+
+            <CloneSheet
+                visible={!!cloneItem}
+                item={cloneItem}
+                onClose={() => setCloneItem(null)}
+            />
+            <DeleteSheet
+                visible={!!deleteItem}
+                item={deleteItem}
+                onClose={() => setDeleteItem(null)}
             />
         </SafeAreaView>
     );
 }
 
+// ── Styles ──
 const styles = StyleSheet.create({
-    page: {
+    page: { flex: 1, backgroundColor: colors.bg },
+
+    // Usage detail modal
+    usagePage: {
         flex: 1,
         backgroundColor: colors.bg,
     },
+    usageTopSafe: {
+        backgroundColor: DETAIL_END,
+    },
+    usageHero: {
+        backgroundColor: DETAIL_END,
+        paddingHorizontal: scale(16),
+        paddingTop: verticalScale(10),
+        paddingBottom: verticalScale(20),
+        overflow: 'hidden',
+    },
+    usageHeroTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: verticalScale(18),
+    },
+    usageIconBtn: {
+        width: moderateScale(36),
+        height: moderateScale(36),
+        borderRadius: moderateScale(11),
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.28)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.16)',
+    },
+    usageTitle: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(17),
+        lineHeight: scaleFont(22),
+        color: '#fff',
+        letterSpacing: -0.2,
+    },
+    usageContent: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    usageContentInner: {
+        paddingHorizontal: scale(12),
+        paddingTop: verticalScale(14),
+        paddingBottom: verticalScale(32),
+    },
+    usageInfoListCard: {
+        ...cardSystem.shell,
+        borderRadius: moderateScale(14),
+        marginBottom: verticalScale(18),
+        overflow: 'hidden',
+    },
+    usageInfoRow: {
+        minHeight: verticalScale(46),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(10),
+        gap: scale(10),
+    },
+    usageInfoDivider: {
+        height: 1,
+        backgroundColor: colors.border,
+    },
+    usageInfoLabel: {
+        flex: 1,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11.5),
+        color: colors.text3,
+    },
+    usageInfoValue: {
+        maxWidth: '62%',
+        textAlign: 'right',
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: colors.text2,
+    },
+    usageTopStats: {
+        flexDirection: 'row',
+        gap: scale(10),
+        marginBottom: verticalScale(10),
+    },
+    usageStatCard: {
+        flex: 1,
+        ...cardSystem.shell,
+        minHeight: verticalScale(80),
+        borderRadius: moderateScale(14),
+        paddingHorizontal: scale(13),
+        paddingVertical: verticalScale(11),
+        justifyContent: 'center',
+    },
+    usageStatCardDanger: {
+        backgroundColor: colors.dangerBg,
+        borderColor: '#FECACA',
+    },
+    usageStatLabel: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        letterSpacing: 0.5,
+        color: colors.text3,
+        marginBottom: verticalScale(6),
+    },
+    usageStatValue: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(20),
+        color: colors.text,
+    },
+    usageStatUnit: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: colors.text3,
+    },
+    usageStatDate: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(16),
+        color: colors.text,
+    },
+    usageNoteCard: {
+        ...cardSystem.shell,
+        borderRadius: moderateScale(14),
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(11),
+        marginBottom: verticalScale(12),
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(10),
+    },
+    usageNoteIconWrap: {
+        width: scale(40),
+        height: scale(40),
+        borderRadius: moderateScale(12),
+        backgroundColor: '#FEF3C7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    usageNoteBody: {
+        flex: 1,
+    },
+    usageNoteLabel: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11),
+        color: colors.text3,
+        letterSpacing: 0.5,
+        marginBottom: verticalScale(3),
+    },
+    usageNoteText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(13),
+        color: colors.text,
+    },
+    usageSectionTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11.8),
+        letterSpacing: 0.7,
+        color: colors.text2,
+        marginBottom: verticalScale(12),
+    },
+    usageConfirmCard: {
+        ...cardSystem.shell,
+        borderRadius: moderateScale(14),
+        paddingHorizontal: scale(10),
+        paddingVertical: verticalScale(10),
+        marginBottom: verticalScale(18),
+    },
+    usageConfirmLabel: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(11.5),
+        color: colors.text3,
+        marginBottom: verticalScale(7),
+    },
+    usageConfirmRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(5),
+    },
+    usageQtyBtn: {
+        ...inputSystem.field,
+        width: scale(38),
+        minHeight: verticalScale(34),
+        borderRadius: moderateScale(11),
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+    },
+    usageQtyInput: {
+        ...inputSystem.field,
+        width: scale(44),
+        minHeight: verticalScale(34),
+        borderRadius: moderateScale(11),
+        textAlign: 'center',
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(13.2),
+        color: colors.text,
+    },
+    usageUnitSelect: {
+        ...inputSystem.field,
+        width: scale(52),
+        minHeight: verticalScale(34),
+        borderRadius: moderateScale(11),
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+    },
+    usageUnitText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        color: colors.text2,
+    },
+    usageDoneBtn: {
+        ...buttonSystem.primary,
+        flex: 1,
+        minHeight: verticalScale(34),
+        borderRadius: moderateScale(11),
+        backgroundColor: colors.primary,
+    },
+    usageDoneText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(10.2),
+    },
+    usageEditBtn: {
+        ...buttonSystem.outline,
+        minHeight: verticalScale(40),
+        borderRadius: moderateScale(12),
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        gap: scale(8),
+        marginBottom: verticalScale(14),
+    },
+    usageEditText: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12),
+        color: colors.text2,
+    },
+    usageDeleteBtn: {
+        ...buttonSystem.outline,
+        minHeight: verticalScale(40),
+        borderRadius: moderateScale(12),
+        borderColor: '#FECACA',
+        backgroundColor: colors.dangerBg,
+        gap: scale(8),
+        marginBottom: verticalScale(4),
+    },
+    usageDeleteText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        color: colors.danger,
+    },
+
+    // Hero
     hero: {
         marginHorizontal: scale(16),
         marginTop: verticalScale(12),
-        borderRadius: moderateScale(34),
+        borderRadius: moderateScale(28),
         paddingHorizontal: scale(18),
         paddingTop: verticalScale(18),
         paddingBottom: verticalScale(22),
         overflow: 'hidden',
     },
-    heroCircleLg: {
+    heroDecor1: {
         position: 'absolute',
         right: -30,
         top: -30,
         width: scale(130),
         height: scale(130),
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.07)',
+        backgroundColor: 'rgba(255,255,255,0.06)',
     },
-    heroCircleMd: {
+    heroDecor2: {
         position: 'absolute',
         right: scale(50),
         bottom: -40,
         width: scale(90),
         height: scale(90),
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
     },
-    heroCircleSm: {
+    heroDecor3: {
         position: 'absolute',
         left: -20,
         top: scale(40),
         width: scale(70),
         height: scale(70),
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: 'rgba(255,255,255,0.035)',
     },
     heroTop: {
         flexDirection: 'row',
@@ -616,9 +1412,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: scale(10),
     },
-    heroIconButton: {
-        width: scale(32),
-        height: scale(32),
+    heroIconBtn: {
+        width: scale(34),
+        height: scale(34),
         borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',
@@ -631,16 +1427,12 @@ const styles = StyleSheet.create({
         letterSpacing: -0.2,
     },
     heroSubtitle: {
-        marginTop: verticalScale(1),
+        marginTop: 1,
         fontFamily: typography.font.medium,
         fontSize: scaleFont(10),
         color: 'rgba(255,255,255,0.6)',
     },
-    heroStats: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(16),
-    },
+    heroStats: { flexDirection: 'row', alignItems: 'center', gap: scale(16) },
     donutWrap: {
         width: scale(94),
         alignItems: 'center',
@@ -651,23 +1443,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    donutNumber: {
+    donutNum: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(18),
         lineHeight: scaleFont(20),
         color: '#fff',
     },
     donutLabel: {
-        marginTop: verticalScale(1),
+        marginTop: 1,
         fontFamily: typography.font.bold,
         fontSize: scaleFont(8),
         color: 'rgba(255,255,255,0.75)',
         letterSpacing: 0.8,
     },
-    legendList: {
-        flex: 1,
-        gap: verticalScale(10),
-    },
+    legendList: { flex: 1, gap: verticalScale(10) },
     legendRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -685,46 +1474,59 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(11),
         color: 'rgba(255,255,255,0.75)',
     },
-    legendValue: {
+    legendVal: {
         fontFamily: typography.font.bold,
         fontSize: scaleFont(13),
         color: '#fff',
     },
+
+    // Search
     searchShell: {
         paddingHorizontal: scale(16),
         paddingTop: verticalScale(12),
         paddingBottom: verticalScale(4),
     },
     searchWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(10),
+        ...inputSystem.fieldIcon,
+        gap: scale(8),
         backgroundColor: colors.card,
-        borderWidth: 1.5,
         borderColor: colors.border,
-        borderRadius: moderateScale(14),
-        paddingHorizontal: scale(14),
-        minHeight: verticalScale(46),
+        borderRadius: moderateScale(11),
+        paddingHorizontal: scale(12),
     },
     searchInput: {
         flex: 1,
-        paddingVertical:
-            Platform.OS === 'ios' ? verticalScale(10) : verticalScale(8),
+        paddingVertical: 0,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(13),
+        fontSize: scaleFont(12),
         color: colors.text,
+        textAlignVertical: 'center',
     },
-    content: {
-        flex: 1,
+    scanBtn: {
+        ...buttonSystem.outline,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        borderColor: ACCENT,
+        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(11),
+        gap: scale(4),
     },
+    scanBtnText: {
+        color: ACCENT,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+    },
+
+    // Content
+    content: { flex: 1 },
     contentInner: {
         paddingHorizontal: scale(16),
         paddingTop: verticalScale(6),
         paddingBottom: verticalScale(32),
     },
-    section: {
-        marginTop: verticalScale(10),
-    },
+
+    // Section
+    section: { marginTop: verticalScale(10) },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -732,75 +1534,355 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(2),
         paddingVertical: verticalScale(8),
     },
-    sectionEmoji: {
-        fontSize: scaleFont(13),
+    sectionEmoji: { fontSize: scaleFont(13) },
+    sectionTitle: { fontFamily: typography.font.bold, fontSize: scaleFont(12) },
+    countPill: {
+        paddingHorizontal: scale(8),
+        paddingVertical: verticalScale(2),
+        borderRadius: moderateScale(10),
     },
-    sectionTitle: {
+    countPillText: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(12),
-    },
-    sectionCount: {
-        fontFamily: typography.font.medium,
         fontSize: scaleFont(11),
-        color: colors.text3,
     },
-    sectionList: {
-        gap: verticalScale(8),
+    sectionList: { gap: verticalScale(10) },
+    sectionCardGap: {
+        marginBottom: verticalScale(10),
     },
-    card: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(12),
-        borderRadius: moderateScale(16),
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(13),
-        borderWidth: 1.5,
-        ...shadows.card,
+
+    // Add popup
+    addBackdrop: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(15,23,42,0.45)',
     },
-    cardIcon: {
+    addOverlay: {
+        flex: 1,
+    },
+    addSheet: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: moderateScale(28),
+        borderTopRightRadius: moderateScale(28),
+        paddingHorizontal: scale(18),
+        paddingTop: verticalScale(8),
+        paddingBottom: verticalScale(14),
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    addHandle: {
+        alignSelf: 'center',
         width: scale(42),
-        height: scale(42),
-        borderRadius: moderateScale(14),
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
+        height: 4,
+        borderRadius: 99,
+        backgroundColor: colors.border,
+        marginBottom: verticalScale(10),
     },
-    cardBody: {
-        flex: 1,
-    },
-    cardTop: {
+    addHeaderRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        gap: scale(8),
-        marginBottom: verticalScale(6),
+        marginBottom: verticalScale(8),
     },
-    cardTitle: {
-        flex: 1,
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(13.5),
+    addTitle: {
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(18),
         color: colors.text,
     },
-    cardExpiry: {
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(10.5),
+    addCloseBtn: {
+        width: scale(34),
+        height: scale(34),
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addForm: {
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingTop: verticalScale(10),
+    },
+    addLabel: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11.5),
+        color: colors.text2,
         marginBottom: verticalScale(5),
     },
+    addReq: {
+        color: colors.danger,
+    },
+    addInput: {
+        ...inputSystem.field,
+        minHeight: verticalScale(42),
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderRadius: moderateScale(11),
+        paddingHorizontal: scale(12),
+        marginBottom: verticalScale(8),
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text,
+    },
+    addRowLabel: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: scale(10),
+    },
+    addHalfLabel: {
+        flex: 1,
+        marginBottom: verticalScale(5),
+    },
+    addRowTwoCol: {
+        flexDirection: 'row',
+        gap: scale(8),
+    },
+    addHalfInput: {
+        flex: 1,
+    },
+    addUnitInput: {
+        ...inputSystem.fieldIcon,
+        justifyContent: 'space-between',
+        marginBottom: verticalScale(8),
+    },
+    addUnitText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text,
+    },
+    addInlineDropdown: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: moderateScale(10),
+        backgroundColor: colors.card,
+        marginTop: -verticalScale(2),
+        marginBottom: verticalScale(8),
+        overflow: 'hidden',
+    },
+    addInlineDropdownList: {
+        maxHeight: verticalScale(190),
+    },
+    addInlineDropdownItem: {
+        minHeight: verticalScale(36),
+        paddingHorizontal: scale(12),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: colors.divider,
+    },
+    addInlineDropdownItemActive: {
+        backgroundColor: colors.primaryBg,
+    },
+    addInlineDropdownItemText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text2,
+    },
+    addInlineDropdownItemTextActive: {
+        fontFamily: typography.font.bold,
+        color: colors.primary,
+    },
+    addDateWrap: {
+        ...inputSystem.fieldIcon,
+        justifyContent: 'space-between',
+    },
+    addDateInput: {
+        flex: 1,
+        paddingVertical: 0,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text,
+    },
+    addNoteInput: {
+        minHeight: verticalScale(66),
+        textAlignVertical: 'top',
+        paddingTop: verticalScale(9),
+    },
+    addSaveBtn: {
+        ...buttonSystem.primary,
+        marginTop: verticalScale(6),
+        minHeight: verticalScale(44),
+        borderRadius: moderateScale(14),
+        backgroundColor: colors.primary,
+    },
+    addSaveText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
+    },
+
+    // Card
+    card: {
+        borderRadius: moderateScale(14),
+        backgroundColor: colors.card,
+        overflow: 'hidden',
+        ...shadows.card,
+    },
+    cardInner: {
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(14),
+        borderRadius: moderateScale(14), // keep radius inside
+    },
+    cardTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: verticalScale(6),
+    },
+    cardName: {
+        flex: 1,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14.5),
+        color: colors.text,
+    },
+    cardMeta: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text2,
+        marginBottom: verticalScale(6),
+    },
+    cardInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: verticalScale(6),
+    },
+    cardInfoText: {
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12),
+    },
+    infoDivider: {
+        width: 1,
+        height: 12,
+        backgroundColor: colors.border,
+        marginHorizontal: scale(8),
+    },
+    hsdBadge: {
+        paddingHorizontal: scale(6),
+        paddingVertical: verticalScale(2),
+        borderRadius: moderateScale(6),
+    },
+    hsdBadgeText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(11.5),
+    },
     barTrack: {
-        height: 5,
+        height: 4,
         borderRadius: 999,
         backgroundColor: colors.border,
         overflow: 'hidden',
+        marginBottom: verticalScale(8),
     },
-    barFill: {
-        height: '100%',
-        borderRadius: 999,
+    barFill: { height: '100%', borderRadius: 999 },
+    cardReminderText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text3,
+        marginBottom: verticalScale(10),
     },
-    cardAmount: {
-        marginTop: verticalScale(4),
+    cardActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(20),
+        borderTopWidth: 1,
+        borderTopColor: colors.divider,
+        paddingTop: verticalScale(10),
+    },
+    cardActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(5),
+    },
+    cardActionText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text2,
+    },
+
+    // Confirm bottom sheets
+    sheetBackdrop: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(15,23,42,0.45)',
+    },
+    sheetOverlay: { flex: 1 },
+    confirmSheet: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: moderateScale(24),
+        borderTopRightRadius: moderateScale(24),
+        paddingHorizontal: scale(24),
+        paddingBottom: verticalScale(28),
+    },
+    confirmHandle: {
+        alignSelf: 'center',
+        width: scale(36),
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: colors.border,
+        marginTop: verticalScale(10),
+        marginBottom: verticalScale(16),
+    },
+    confirmTitle: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(10.5),
+        fontSize: scaleFont(16),
+        color: colors.text,
+        marginBottom: verticalScale(4),
     },
+    confirmSub: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(13),
+        color: colors.text2,
+        marginBottom: verticalScale(8),
+    },
+    confirmDivider: {
+        height: 1,
+        backgroundColor: colors.border,
+        marginVertical: verticalScale(10),
+    },
+    checkRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(10),
+        paddingVertical: verticalScale(8),
+    },
+    checkText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(13),
+        color: colors.text,
+    },
+    confirmBtnRow: {
+        flexDirection: 'row',
+        gap: scale(12),
+        marginTop: verticalScale(16),
+    },
+    confirmBtnGhost: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: verticalScale(13),
+        borderRadius: moderateScale(12),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+    },
+    confirmBtnGhostText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: colors.text2,
+    },
+    confirmBtnPrimary: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: verticalScale(13),
+        borderRadius: moderateScale(12),
+        backgroundColor: ACCENT,
+    },
+    confirmBtnPrimaryText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: '#fff',
+    },
+
+    // Empty
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -813,121 +1895,49 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(16),
         color: colors.text,
     },
-    emptyMessage: {
-        marginTop: verticalScale(6),
+    emptyMsg: {
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(12),
+        color: colors.text3,
         textAlign: 'center',
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(13),
-        lineHeight: scaleFont(19),
-        color: colors.text2,
+        marginTop: verticalScale(6),
     },
-    sheetBackdrop: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(15,23,42,0.4)',
-    },
-    sheetOverlay: {
-        flex: 1,
-    },
-    sheet: {
+
+    // Bottom bar
+    bottomBar: {
+        flexDirection: 'row',
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(12),
         backgroundColor: colors.card,
-        borderTopLeftRadius: moderateScale(24),
-        borderTopRightRadius: moderateScale(24),
-        maxHeight: '88%',
-        overflow: 'hidden',
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        gap: scale(12),
     },
-    sheetHeader: {
-        paddingHorizontal: scale(18),
-        paddingTop: verticalScale(10),
-        paddingBottom: verticalScale(12),
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    sheetHandle: {
-        alignSelf: 'center',
-        width: scale(32),
-        height: verticalScale(4),
-        borderRadius: 999,
-        backgroundColor: colors.border,
-        marginBottom: verticalScale(12),
-    },
-    sheetTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    sheetTitle: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
-        color: colors.text,
-    },
-    sheetCloseBtn: {
-        width: scale(28),
-        height: scale(28),
-        borderRadius: 999,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.bg,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-    },
-    sheetScroll: {
-        flexGrow: 0,
-    },
-    sheetScrollContent: {
-        paddingHorizontal: scale(18),
-        paddingTop: verticalScale(14),
-        paddingBottom: verticalScale(28),
-        gap: verticalScale(10),
-    },
-    fieldGroup: {
-        marginBottom: verticalScale(10),
-    },
-    fieldRow: {
-        flexDirection: 'row',
-        gap: scale(8),
-    },
-    fieldHalf: {
+    bottomOutline: {
         flex: 1,
-    },
-    fieldLabel: {
-        marginBottom: verticalScale(6),
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
-        color: colors.text2,
-        textTransform: 'uppercase',
-        letterSpacing: 0.6,
-    },
-    req: {
-        color: colors.cDanger,
-    },
-    fieldInput: {
-        minHeight: verticalScale(46),
-        paddingHorizontal: scale(12),
-        paddingVertical:
-            Platform.OS === 'ios' ? verticalScale(12) : verticalScale(9),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        borderRadius: moderateScale(11),
-        backgroundColor: colors.bg,
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(13),
-        color: colors.text,
-    },
-    fieldTextarea: {
-        minHeight: verticalScale(88),
-    },
-    sheetSubmitBtn: {
-        marginTop: verticalScale(4),
-        minHeight: verticalScale(48),
-        borderRadius: moderateScale(14),
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.primary,
+        paddingVertical: verticalScale(14),
+        borderRadius: moderateScale(14),
+        borderWidth: 1.5,
+        borderColor: ACCENT,
     },
-    sheetSubmitText: {
+    bottomOutlineText: {
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
-        color: '#FFFFFF',
+        fontSize: scaleFont(13),
+        color: ACCENT,
+    },
+    bottomSolid: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: verticalScale(14),
+        borderRadius: moderateScale(14),
+        backgroundColor: ACCENT,
+    },
+    bottomSolidText: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: '#fff',
     },
 });

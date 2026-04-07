@@ -9,8 +9,8 @@ export const familiesServices = {
         owner_profile_full_name,
     }: {
         name: string;
-        address: string;
-        avatar_url: string;
+        address: string | null;
+        avatar_url: string | null;
         owner_profile_full_name: string;
     }) => {
         const res = await apiClient.post('/families', {
@@ -109,6 +109,60 @@ export const familiesServices = {
             action: 'reject',
             invite_id,
         });
+        return res.data;
+    },
+    getMembers: async (family_id: string) => {
+        const res = await apiClient.get(`/families/${family_id}/members`);
+        return res.data;
+    },
+    getMedicineInventory: async (family_id: string) => {
+        const res = await apiClient.get(
+            `/families/${family_id}/medicine-inventory`,
+        );
+        return res.data;
+    },
+    patchFamily: async (family_id: string, data: any) => {
+        const res = await apiClient.patch(`/families/${family_id}`, data);
+        return res.data;
+    },
+    addMedicineInventory: async (family_id: string, data: any) => {
+        const res = await apiClient.post(
+            `/families/${family_id}/medicine-inventory`,
+            data,
+        );
+        return res.data;
+    },
+    rotateInviteCode: async (family_id: string) => {
+        const res = await apiClient.post(
+            `/families/${family_id}/invite/rotate`,
+        );
+        return res.data;
+    },
+    getProfiles: async (family_id: string) => {
+        const res = await apiClient.get(`/families/${family_id}/profiles`);
+        return res.data;
+    },
+    createProfile: async (family_id: string, data: any) => {
+        const res = await apiClient.post(
+            `/families/${family_id}/profiles`,
+            data,
+        );
+        return res.data;
+    },
+    patchMember: async (
+        membership_id: string,
+        data: Record<string, unknown>,
+    ) => {
+        const res = await apiClient.patch(
+            `/family-memberships/${membership_id}`,
+            data,
+        );
+        return res.data;
+    },
+    deleteMember: async (membership_id: string) => {
+        const res = await apiClient.delete(
+            `/family-memberships/${membership_id}`,
+        );
         return res.data;
     },
 };

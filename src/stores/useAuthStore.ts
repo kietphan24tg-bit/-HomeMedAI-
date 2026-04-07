@@ -82,7 +82,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 );
                 appToast.showError(
                     'Error',
-                    'Phi�n dang nh?p d� h?t h?n. Vui l�ng dang nh?p l?i!',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
                 );
                 set({
                     user: null,
@@ -110,7 +110,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    '�ang k� th?t b?i. Vui l�ng th? l?i.',
+                    'Đăng ký thất bại. Vui lòng thử lại.',
                 );
                 return false;
             } finally {
@@ -150,7 +150,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    '�ang nh?p th?t b?i. Vui l�ng th? l?i.',
+                    'Đăng nhập thất bại. Vui lòng thử lại.',
                 );
                 return false;
             } finally {
@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
                 appToast.showError(
                     'Error',
-                    '�ang nh?p th?t b?i. Vui l�ng th? l?i.',
+                    'Đăng nhập thất bại. Vui lòng thử lại.',
                 );
             } finally {
                 set({ loading: false });
@@ -199,12 +199,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 await authService.signOut();
                 await SecureStore.deleteItemAsync(REFRESH_TOKEN);
                 get().clearStore();
-                appToast.showSuccess('Success', '�ang xu?t th�nh c�ng!');
+                appToast.showSuccess('Thành công', 'Đăng xuất thành công!');
             } catch (error) {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    '�ang xu?t th?t b?i. Vui l�ng th? l?i.',
+                    'Đăng xuất thất bại. Vui lòng thử lại.',
                 );
             }
         },
@@ -252,7 +252,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 console.log(error);
                 appToast.showError(
                     'Error',
-                    'Phi�n dang nh?p d� h?t h?n. Vui l�ng dang nh?p l?i!',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
                 );
                 get().clearStore();
                 router.push('/auth');

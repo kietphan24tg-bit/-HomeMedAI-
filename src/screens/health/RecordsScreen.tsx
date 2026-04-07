@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
-import { DateField } from '../../components/ui';
+import type { AttachmentUploadItem } from '../../components/ui';
+import { AttachmentUploadBlock, DateField } from '../../components/ui';
 import { RECORDS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
-import { colors, gradients } from '../../styles/tokens';
-import type { RecordItem } from '../../types';
+import { colors, gradients, typography } from '../../styles/tokens';
+import type { RecordItem, RecordPrescriptionItem } from '../../types/health';
+import MedicineDetailSheet from '../family/MedicineDetailSheet';
 
 const FILTERS = ['Tất cả', 'Tổng quát', 'Nội khoa', 'Khác'] as const;
 
@@ -45,49 +47,49 @@ const SPECIALTIES = [
         label: 'Da liễu',
         icon: 'happy-outline' as const,
         color: '#7C3AED',
-        bg: '#F5F3FF',
+        bg: '#EEF2FF',
     },
     {
         key: 'pediatrics',
         label: 'Nhi khoa',
         icon: 'people-outline' as const,
-        color: '#16A34A',
-        bg: '#F0FDF4',
+        color: colors.success,
+        bg: colors.successBg,
     },
     {
         key: 'neurology',
         label: 'Thần kinh',
         icon: 'flash-outline' as const,
-        color: '#E11D48',
-        bg: '#FFF1F2',
+        color: colors.danger,
+        bg: colors.dangerBg,
     },
     {
         key: 'orthopedic',
         label: 'Cơ xương khớp',
         icon: 'body-outline' as const,
-        color: '#D97706',
-        bg: '#FFFBEB',
+        color: colors.warning,
+        bg: colors.warningBg,
     },
     {
         key: 'ent',
         label: 'Tai Mũi Họng',
         icon: 'ear-outline' as const,
-        color: '#0D9488',
-        bg: '#F0FDFA',
+        color: colors.secondary,
+        bg: colors.secondaryBg,
     },
     {
         key: 'obstetrics',
         label: 'Sản phụ khoa',
         icon: 'flower-outline' as const,
-        color: '#EC4899',
-        bg: '#FDF2F8',
+        color: '#6366F1',
+        bg: '#EEF2FF',
     },
     {
         key: 'dental',
         label: 'Răng hàm mặt',
         icon: 'diamond-outline' as const,
-        color: '#0EA5E9',
-        bg: '#F0F9FF',
+        color: colors.info,
+        bg: colors.infoBg,
     },
     {
         key: 'ophthalmology',
@@ -100,22 +102,22 @@ const SPECIALTIES = [
         key: 'endocrine',
         label: 'Nội tiết',
         icon: 'flask-outline' as const,
-        color: '#F59E0B',
-        bg: '#FFFBEB',
+        color: colors.warning,
+        bg: colors.warningBg,
     },
     {
         key: 'gastro',
         label: 'Tiêu hóa',
         icon: 'nutrition-outline' as const,
-        color: '#84CC16',
-        bg: '#F7FEE7',
+        color: colors.success,
+        bg: colors.successBg,
     },
     {
         key: 'other',
         label: 'Khác',
         icon: 'apps-outline' as const,
-        color: '#64748B',
-        bg: '#F1F5F9',
+        color: colors.text3,
+        bg: colors.divider,
     },
 ] as const;
 
@@ -124,15 +126,15 @@ const ALL_TYPES = [
         key: 'general',
         label: 'Tổng quát',
         icon: 'pulse-outline' as const,
-        color: '#0D9488',
-        bg: '#F0FDFA',
+        color: colors.secondary,
+        bg: colors.secondaryBg,
     },
     {
         key: 'internal',
         label: 'Nội khoa',
         icon: 'shield-checkmark-outline' as const,
-        color: '#D97706',
-        bg: '#FFFBEB',
+        color: colors.warning,
+        bg: colors.warningBg,
     },
     ...SPECIALTIES,
 ];
@@ -261,7 +263,7 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
         }
 
         return list;
-    }, [search, filter]);
+    }, [search, filter, specFilter]);
 
     const groups = useMemo(() => groupByYearMonth(filtered), [filtered]);
 
@@ -274,21 +276,30 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
+            <StatusBar barStyle='dark-content' backgroundColor={colors.card} />
 
             {/* TOP BAR */}
             <View style={styles.subTopbar}>
                 <Pressable style={styles.subBackBtn} onPress={onClose}>
                     <Ionicons
                         name='chevron-back'
-                        size={16}
+                        size={18}
                         color={colors.text2}
                     />
                 </Pressable>
-                <Text style={styles.subTopbarTitle}>Hồ sơ khám bệnh</Text>
+                <View style={styles.subTopbarTitleCenterWrap}>
+                    <Text
+                        style={[
+                            styles.subTopbarTitle,
+                            styles.subTopbarTitleCentered,
+                        ]}
+                    >
+                        Hồ sơ khám bệnh
+                    </Text>
+                </View>
                 <Pressable style={styles.subAddBtn} onPress={openAdd}>
-                    <Ionicons name='add' size={13} color='#fff' />
+                    <Ionicons name='add' size={16} color={colors.primary} />
                     <Text style={styles.subAddBtnText}>Thêm</Text>
                 </Pressable>
             </View>
@@ -408,7 +419,6 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
                                         }
                                         menuOpen={menuId === r.id}
                                         onToggleMenu={() => toggleMenu(r.id)}
-                                        onCloseMenu={closeMenu}
                                         onPress={() => handleCardPress(r)}
                                     />
                                 ))}
@@ -499,14 +509,12 @@ function RecordRow({
     isLast,
     menuOpen,
     onToggleMenu,
-    onCloseMenu,
     onPress,
 }: {
     item: RecordItem;
     isLast: boolean;
     menuOpen: boolean;
     onToggleMenu: () => void;
-    onCloseMenu: () => void;
     onPress: () => void;
 }): React.JSX.Element {
     const day = item.isoDate.split('-')[2];
@@ -552,7 +560,7 @@ function RecordRow({
                         <Text style={styles.recTitle}>{item.title}</Text>
                         <Text style={styles.recSub}>
                             {item.hospital}
-                            {item.doctor ? ` · ${item.doctor}` : ''}
+                            {item.doctor ? ` • ${item.doctor}` : ''}
                         </Text>
                         {item.diagnosis && (
                             <View style={styles.recDiagRow}>
@@ -563,7 +571,6 @@ function RecordRow({
                             </View>
                         )}
                     </View>
-                    {/* More button */}
                     <View style={{ position: 'relative' }}>
                         <Pressable
                             style={styles.recMoreBtn}
@@ -577,7 +584,13 @@ function RecordRow({
                         </Pressable>
                         {menuOpen && (
                             <View style={styles.ctxMenu}>
-                                <Pressable style={styles.ctxItem}>
+                                <Pressable
+                                    style={styles.ctxItem}
+                                    onPress={() => {
+                                        onToggleMenu();
+                                        onPress();
+                                    }}
+                                >
                                     <Ionicons
                                         name='create-outline'
                                         size={14}
@@ -592,7 +605,7 @@ function RecordRow({
                                     <Ionicons
                                         name='trash-outline'
                                         size={14}
-                                        color='#E11D48'
+                                        color={colors.danger}
                                     />
                                     <Text style={styles.ctxItemDelText}>
                                         Xoá hồ sơ
@@ -644,7 +657,42 @@ interface FollowUpEntry {
     note: string;
 }
 
-function RecordDetail({
+type RecordEditorMode =
+    | 'diagnosis'
+    | 'hospital'
+    | 'doctor'
+    | 'symptoms'
+    | 'testResults'
+    | 'doctorAdvice'
+    | 'prescriptions'
+    | 'note';
+
+function formatPrescriptionLine(item: RecordPrescriptionItem): string {
+    return `${item.name}${item.dose ? ` ${item.dose}` : ''}${
+        item.schedule ? ` • ${item.schedule}` : ''
+    }`;
+}
+
+function toDepartmentLabel(specialtyKey: string): string {
+    const specialty = SPECIALTIES.find((item) => item.key === specialtyKey);
+    if (!specialty) return '';
+    if (specialty.label.startsWith('Khoa ')) return specialty.label;
+    return `Khoa ${specialty.label}`;
+}
+
+function toAttachmentUploadItems(
+    items?: RecordItem['attachments'],
+): AttachmentUploadItem[] {
+    if (!items?.length) return [];
+    return items.map((item) => ({
+        id: item.id,
+        type: item.type === 'image' ? 'image' : 'file',
+        name: item.name,
+        uri: item.name,
+    }));
+}
+
+export function RecordDetail({
     record,
     onClose,
 }: {
@@ -652,11 +700,20 @@ function RecordDetail({
     onClose: () => void;
 }): React.JSX.Element {
     const [activeTab, setActiveTab] = useState(0);
-    const [showAddFu, setShowAddFu] = useState(false);
+    const [showAddFu, setShowAddFu] = useState(true);
     const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
+    const [fuTimeObj, setFuTimeObj] = useState<Date | null>(null);
+    const [fuHospital, setFuHospital] = useState('');
+    const [fuDept, setFuDept] = useState('');
+    const [fuDoctor, setFuDoctor] = useState('');
     const [fuPurpose, setFuPurpose] = useState('');
-    const [fuNote, setFuNote] = useState('');
+    const [fuPrep, setFuPrep] = useState('');
+    const [fuReminder, setFuReminder] = useState(true);
+    const [fuReminderTime, setFuReminderTime] = useState('1 ngày');
+    const [showFuSpec, setShowFuSpec] = useState(false);
+    const [showFuRemind, setShowFuRemind] = useState(false);
+    const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
 
     const specEntry = SPECIALTIES.find((s) => s.key === record.category);
     const specLabel =
@@ -666,28 +723,118 @@ function RecordDetail({
             : record.category === 'internal'
               ? 'Nội khoa'
               : record.tag);
+    const [editableTestResults, setEditableTestResults] = useState(
+        record.testResults ?? '',
+    );
+    const [editableDepartment, setEditableDepartment] = useState(
+        record.department ?? specLabel ?? '',
+    );
+    const [editableDepartmentKey, setEditableDepartmentKey] = useState(
+        SPECIALTIES.some((item) => item.key === record.category)
+            ? record.category
+            : '',
+    );
+    const [editableDiagnosis, setEditableDiagnosis] = useState(
+        record.diagnosis ?? '',
+    );
+    const [editableHospital, setEditableHospital] = useState(
+        record.hospital ?? '',
+    );
+    const [editableDoctor, setEditableDoctor] = useState(record.doctor ?? '');
+    const [editableSymptoms, setEditableSymptoms] = useState<string[]>(
+        record.symptoms ?? [],
+    );
+    const [editableAttachments, setEditableAttachments] = useState<
+        AttachmentUploadItem[]
+    >(() => toAttachmentUploadItems(record.attachments));
+    const [editableDoctorAdvice, setEditableDoctorAdvice] = useState(
+        record.doctorAdvice ?? '',
+    );
+    const [editablePrescriptionLines, setEditablePrescriptionLines] = useState<
+        string[]
+    >(() =>
+        (record.prescriptions ?? []).map((item) =>
+            formatPrescriptionLine(item),
+        ),
+    );
+    const [editableNote, setEditableNote] = useState('');
+    const [editorMode, setEditorMode] = useState<RecordEditorMode | null>(null);
+    const [editorDraft, setEditorDraft] = useState('');
+
+    useEffect(() => {
+        setEditableDepartment(record.department ?? specLabel ?? '');
+        setEditableDepartmentKey(
+            SPECIALTIES.some((item) => item.key === record.category)
+                ? record.category
+                : '',
+        );
+        setEditableDiagnosis(record.diagnosis ?? '');
+        setEditableHospital(record.hospital ?? '');
+        setEditableDoctor(record.doctor ?? '');
+        setEditableSymptoms(record.symptoms ?? []);
+        setEditableAttachments(toAttachmentUploadItems(record.attachments));
+        setEditableTestResults(record.testResults ?? '');
+        setEditableDoctorAdvice(record.doctorAdvice ?? '');
+        setEditablePrescriptionLines(
+            (record.prescriptions ?? []).map((item) =>
+                formatPrescriptionLine(item),
+            ),
+        );
+        setEditableNote('');
+        setEditorMode(null);
+        setEditorDraft('');
+    }, [
+        record.id,
+        record.department,
+        record.diagnosis,
+        record.hospital,
+        record.doctor,
+        record.symptoms,
+        record.attachments,
+        record.testResults,
+        record.doctorAdvice,
+        record.prescriptions,
+        specLabel,
+    ]);
 
     const handleAddFollowUp = useCallback(() => {
         setShowAddFu(true);
         setFuDate(new Date());
+        setFuTimeObj(null);
+        setFuHospital('');
+        setFuDept('');
+        setFuDoctor('');
         setFuPurpose('');
-        setFuNote('');
+        setFuPrep('');
+        setFuReminder(true);
+        setFuReminderTime('1 ngày');
+    }, []);
+
+    const toggleFollowUpForm = useCallback(() => {
+        setShowAddFu((prev) => {
+            const next = !prev;
+            if (next) {
+                setFuDate(new Date());
+                setFuReminder(true);
+                setFuReminderTime('1 ngày');
+            }
+            return next;
+        });
     }, []);
 
     const saveFu = useCallback(() => {
-        if (!fuPurpose.trim()) return;
         const dd = String(fuDate.getDate()).padStart(2, '0');
         const mm = String(fuDate.getMonth() + 1).padStart(2, '0');
         const yyyy = fuDate.getFullYear();
         const entry: FollowUpEntry = {
             id: Date.now().toString(),
             date: `${dd}/${mm}/${yyyy}`,
-            purpose: fuPurpose.trim() || 'Tái khám',
-            note: fuNote.trim(),
+            purpose: fuPurpose.trim() || 'Tái khám định kỳ',
+            note: fuHospital ? `Tại ${fuHospital}` : '',
         };
         setFollowUps((prev) => [entry, ...prev]);
         setShowAddFu(false);
-    }, [fuDate, fuPurpose, fuNote]);
+    }, [fuDate, fuPurpose, fuHospital]);
 
     const cancelFu = useCallback(() => setShowAddFu(false), []);
 
@@ -695,455 +842,983 @@ function RecordDetail({
         setFollowUps((prev) => prev.filter((f) => f.id !== id));
     }, []);
 
+    const openEditor = useCallback(
+        (mode: RecordEditorMode) => {
+            setEditorMode(mode);
+            if (mode === 'diagnosis') {
+                setEditorDraft(editableDiagnosis);
+                return;
+            }
+            if (mode === 'hospital') {
+                setEditorDraft(editableHospital);
+                return;
+            }
+            if (mode === 'doctor') {
+                setEditorDraft(editableDoctor);
+                return;
+            }
+            if (mode === 'symptoms') {
+                setEditorDraft(editableSymptoms.join('\n'));
+                return;
+            }
+            if (mode === 'testResults') {
+                setEditorDraft(editableTestResults);
+                return;
+            }
+            if (mode === 'doctorAdvice') {
+                setEditorDraft(editableDoctorAdvice);
+                return;
+            }
+            if (mode === 'prescriptions') {
+                setEditorDraft(editablePrescriptionLines.join('\n'));
+                return;
+            }
+            setEditorDraft(editableNote);
+        },
+        [
+            editableDiagnosis,
+            editableDoctor,
+            editableDoctorAdvice,
+            editableHospital,
+            editableNote,
+            editablePrescriptionLines,
+            editableSymptoms,
+            editableTestResults,
+        ],
+    );
+
+    const closeEditor = useCallback(() => {
+        setEditorMode(null);
+        setEditorDraft('');
+    }, []);
+
+    const saveEditor = useCallback(() => {
+        if (!editorMode) return;
+        if (editorMode === 'diagnosis') {
+            setEditableDiagnosis(editorDraft.trim());
+        } else if (editorMode === 'hospital') {
+            setEditableHospital(editorDraft.trim());
+        } else if (editorMode === 'doctor') {
+            setEditableDoctor(editorDraft.trim());
+        } else if (editorMode === 'symptoms') {
+            setEditableSymptoms(
+                editorDraft
+                    .split(/\r?\n|,|;/)
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+            );
+        } else if (editorMode === 'testResults') {
+            setEditableTestResults(editorDraft.trim());
+        } else if (editorMode === 'doctorAdvice') {
+            setEditableDoctorAdvice(editorDraft.trim());
+        } else if (editorMode === 'prescriptions') {
+            setEditablePrescriptionLines(
+                editorDraft
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+            );
+        } else {
+            setEditableNote(editorDraft.trim());
+        }
+        closeEditor();
+    }, [closeEditor, editorDraft, editorMode]);
+
+    const editorConfig = useMemo(() => {
+        switch (editorMode) {
+            case 'diagnosis':
+                return {
+                    title: 'Chỉnh sửa chẩn đoán',
+                    label: 'Chẩn đoán',
+                    placeholder: 'Nhập chẩn đoán',
+                    multiline: true,
+                };
+            case 'hospital':
+                return {
+                    title: 'Chỉnh sửa cơ sở y tế',
+                    label: 'Cơ sở y tế',
+                    placeholder: 'Nhập tên bệnh viện hoặc phòng khám',
+                    multiline: false,
+                };
+            case 'doctor':
+                return {
+                    title: 'Chỉnh sửa bác sĩ phụ trách',
+                    label: 'Bác sĩ phụ trách',
+                    placeholder: 'Nhập tên bác sĩ',
+                    multiline: false,
+                };
+            case 'symptoms':
+                return {
+                    title: 'Chỉnh sửa triệu chứng',
+                    label: 'Triệu chứng',
+                    placeholder:
+                        'Mỗi dòng hoặc mỗi dấu phẩy là một triệu chứng',
+                    multiline: true,
+                };
+            case 'testResults':
+                return {
+                    title: 'Chỉnh sửa kết quả xét nghiệm',
+                    label: 'Kết quả xét nghiệm',
+                    placeholder: 'Nhập kết quả xét nghiệm',
+                    multiline: true,
+                };
+            case 'doctorAdvice':
+                return {
+                    title: 'Chỉnh sửa lời dặn bác sĩ',
+                    label: 'Lời dặn bác sĩ',
+                    placeholder: 'Nhập lời dặn từ bác sĩ',
+                    multiline: true,
+                };
+            case 'prescriptions':
+                return {
+                    title: 'Chỉnh sửa đơn thuốc kê',
+                    label: 'Đơn thuốc kê',
+                    placeholder:
+                        'Mỗi dòng là một thuốc kê\nVí dụ: Amlodipine 5mg • Sáng 1 viên • sau ăn',
+                    multiline: true,
+                };
+            case 'note':
+                return {
+                    title: 'Chỉnh sửa ghi chú',
+                    label: 'Ghi chú',
+                    placeholder: 'Nhập ghi chú cho hồ sơ khám',
+                    multiline: true,
+                };
+            default:
+                return null;
+        }
+    }, [editorMode]);
+
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-            <StatusBar barStyle='light-content' backgroundColor='#1E3A5F' />
+        <SafeAreaView
+            style={{ flex: 1, backgroundColor: colors.bg }}
+            edges={['left', 'right', 'bottom']}
+        >
+            <StatusBar
+                barStyle='light-content'
+                translucent
+                backgroundColor='transparent'
+            />
 
-            {/* HERO */}
-            <LinearGradient
-                colors={gradients.familyDuo}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.rdHero}
-            >
-                <View style={styles.rdHeroTopRow}>
-                    <Pressable style={styles.rdHeroBack} onPress={onClose}>
-                        <Ionicons name='chevron-back' size={16} color='#fff' />
-                    </Pressable>
-                    <Text
-                        style={styles.rdHeroTitle}
-                        numberOfLines={1}
-                        ellipsizeMode='tail'
-                    >
-                        {record.title}
-                    </Text>
-                </View>
-
-                <View style={styles.rdMetaRow}>
-                    <View style={styles.rdMetaItem}>
-                        <View style={styles.rdMetaIcon}>
-                            <Ionicons
-                                name={
-                                    record.iconName as keyof typeof Ionicons.glyphMap
-                                }
-                                size={16}
-                                color='#fff'
-                            />
-                        </View>
-                        <View>
-                            <Text style={styles.rdMetaLabel}>Chuyên khoa</Text>
-                            <Text style={styles.rdMetaValue}>{specLabel}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.rdMetaDivider} />
-                    <View style={styles.rdMetaItem}>
-                        <View style={styles.rdMetaIcon}>
-                            <Ionicons
-                                name='calendar-outline'
-                                size={14}
-                                color='#fff'
-                            />
-                        </View>
-                        <View>
-                            <Text style={styles.rdMetaLabel}>Ngày khám</Text>
-                            <Text style={styles.rdMetaValue}>
-                                {record.date}
+            <View style={{ flex: 1, backgroundColor: colors.bg }}>
+                {/* HERO */}
+                <LinearGradient
+                    colors={gradients.familyDuo}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ backgroundColor: gradients.familyDuo[0] }}
+                >
+                    <SafeAreaView
+                        edges={['top']}
+                        style={{ backgroundColor: 'transparent' }}
+                    />
+                    <View style={styles.rdHero}>
+                        <View style={styles.rdHeroTopRow}>
+                            <Pressable
+                                style={styles.rdHeroBack}
+                                onPress={onClose}
+                            >
+                                <Ionicons
+                                    name='chevron-back'
+                                    size={16}
+                                    color='#fff'
+                                />
+                            </Pressable>
+                            <Text
+                                style={styles.rdHeroTitle}
+                                numberOfLines={1}
+                                ellipsizeMode='tail'
+                            >
+                                {record.title}
                             </Text>
                         </View>
-                    </View>
-                </View>
-            </LinearGradient>
 
-            {/* TAB BAR */}
-            <View style={styles.rdTabBar}>
-                {RD_TABS.map((t, i) => (
-                    <Pressable
-                        key={t}
-                        style={[
-                            styles.rdTab,
-                            activeTab === i && styles.rdTabActive,
-                        ]}
-                        onPress={() => setActiveTab(i)}
-                    >
-                        <Text
-                            style={[
-                                styles.rdTabText,
-                                activeTab === i && styles.rdTabTextActive,
-                            ]}
-                        >
-                            {t}
-                        </Text>
-                    </Pressable>
-                ))}
-            </View>
-
-            {/* TAB PANELS */}
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-                showsVerticalScrollIndicator={false}
-            >
-                {activeTab === 0 && (
-                    <View style={styles.rdInfoCard}>
-                        {/* Chẩn đoán */}
-                        <View
-                            style={[
-                                styles.rdInfoRow,
-                                styles.rdInfoRowBorder,
-                                styles.rdInfoDiag,
-                            ]}
-                        >
-                            <View
-                                style={[
-                                    styles.rdInfoIcon,
-                                    { backgroundColor: colors.primaryBg },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='checkmark-done-outline'
-                                    size={17}
-                                    color={colors.primary}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rdInfoLabel}>
-                                    Chẩn đoán
-                                </Text>
-                                <Text style={styles.rdInfoValue}>
-                                    {record.diagnosis || '—'}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Cơ sở y tế */}
-                        <View
-                            style={[styles.rdInfoRow, styles.rdInfoRowBorder]}
-                        >
-                            <View
-                                style={[
-                                    styles.rdInfoIcon,
-                                    { backgroundColor: '#EFF6FF' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='home-outline'
-                                    size={16}
-                                    color={colors.primary}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rdInfoLabel}>
-                                    Cơ sở y tế
-                                </Text>
-                                <Text style={styles.rdInfoValue}>
-                                    {record.hospital || '—'}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Bác sĩ */}
-                        <View
-                            style={[styles.rdInfoRow, styles.rdInfoRowBorder]}
-                        >
-                            <View
-                                style={[
-                                    styles.rdInfoIcon,
-                                    { backgroundColor: '#F0FDF4' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='person-outline'
-                                    size={16}
-                                    color='#16A34A'
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rdInfoLabel}>
-                                    Bác sĩ phụ trách
-                                </Text>
-                                {record.doctor ? (
-                                    <Text style={styles.rdInfoValue}>
-                                        {record.doctor}
-                                    </Text>
-                                ) : (
-                                    <Text style={styles.rdInfoEmpty}>
-                                        Chưa có thông tin
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
-
-                        {/* Ghi chú */}
-                        <View style={styles.rdInfoRow}>
-                            <View
-                                style={[
-                                    styles.rdInfoIcon,
-                                    { backgroundColor: '#F5F3FF' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='document-text-outline'
-                                    size={16}
-                                    color='#7C3AED'
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rdInfoLabel}>Ghi chú</Text>
-                                <Text style={styles.rdInfoEmpty}>
-                                    Nhấn để thêm ghi chú…
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
-
-                {activeTab === 1 && (
-                    <View>
-                        <View style={styles.rdFollowHeader}>
-                            <View>
-                                <Text
-                                    style={{
-                                        fontSize: 14,
-                                        fontWeight: '800',
-                                        color: colors.text,
-                                    }}
-                                >
-                                    Lịch tái khám
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: colors.text3,
-                                        marginTop: 2,
-                                    }}
-                                >
-                                    Thêm nhiều lần tái khám nếu cần
-                                </Text>
-                            </View>
-                            <Pressable
-                                style={styles.rdFollowBtn}
-                                onPress={handleAddFollowUp}
-                            >
-                                <Ionicons
-                                    name='add'
-                                    size={12}
-                                    color={colors.primary}
-                                />
-                                <Text style={styles.rdFollowBtnText}>
-                                    Thêm lịch
-                                </Text>
-                            </Pressable>
-                        </View>
-
-                        {/* Add follow-up card */}
-                        {showAddFu && (
-                            <View style={styles.fuCard}>
-                                <View style={styles.fuCardHeader}>
-                                    <View style={styles.fuCardIcon}>
-                                        <Ionicons
-                                            name='calendar-outline'
-                                            size={13}
-                                            color={colors.primary}
-                                        />
-                                    </View>
-                                    <Text style={styles.fuCardTitle}>
-                                        Lịch tái khám mới
-                                    </Text>
-                                </View>
-
-                                <View style={styles.fuField}>
-                                    <Text style={styles.fuLabel}>Ngày hẹn</Text>
-                                    <DateField
-                                        value={fuDate}
-                                        onChange={setFuDate}
+                        <View style={styles.rdMetaRow}>
+                            <View style={styles.rdMetaItem}>
+                                <View style={styles.rdMetaIcon}>
+                                    <Ionicons
+                                        name={
+                                            record.iconName as keyof typeof Ionicons.glyphMap
+                                        }
+                                        size={16}
+                                        color='#fff'
                                     />
                                 </View>
-
-                                <View style={styles.fuField}>
-                                    <Text style={styles.fuLabel}>Mục đích</Text>
-                                    <TextInput
-                                        style={styles.fuInput}
-                                        placeholder='VD: Kiểm tra huyết áp…'
-                                        placeholderTextColor={colors.text3}
-                                        value={fuPurpose}
-                                        onChangeText={setFuPurpose}
-                                    />
-                                </View>
-
-                                <View style={styles.fuField}>
-                                    <Text style={styles.fuLabel}>
-                                        Ghi chú{' '}
-                                        <Text
-                                            style={{
-                                                fontWeight: '500',
-                                                color: colors.text3,
-                                            }}
-                                        >
-                                            (tuỳ chọn)
-                                        </Text>
+                                <View>
+                                    <Text style={styles.rdMetaLabel}>
+                                        Chuyên khoa
                                     </Text>
-                                    <TextInput
-                                        style={styles.fuInput}
-                                        placeholder='Ghi chú thêm nếu cần…'
-                                        placeholderTextColor={colors.text3}
-                                        value={fuNote}
-                                        onChangeText={setFuNote}
-                                    />
-                                </View>
-
-                                <View style={styles.fuBtnRow}>
-                                    <Pressable
-                                        style={styles.fuCancelBtn}
-                                        onPress={cancelFu}
-                                    >
-                                        <Text style={styles.fuCancelText}>
-                                            Huỷ
-                                        </Text>
-                                    </Pressable>
-                                    <Pressable
-                                        style={styles.fuSaveBtn}
-                                        onPress={saveFu}
-                                    >
-                                        <Text style={styles.fuSaveText}>
-                                            Lưu lịch
-                                        </Text>
-                                    </Pressable>
+                                    <Text style={styles.rdMetaValue}>
+                                        {specLabel}
+                                    </Text>
                                 </View>
                             </View>
-                        )}
-
-                        {/* Saved follow-ups */}
-                        {followUps.map((fu) => (
-                            <View key={fu.id} style={styles.fuItem}>
-                                <View style={styles.fuItemIcon}>
+                            <View style={styles.rdMetaDivider} />
+                            <View style={styles.rdMetaItem}>
+                                <View style={styles.rdMetaIcon}>
                                     <Ionicons
                                         name='calendar-outline'
+                                        size={14}
+                                        color='#fff'
+                                    />
+                                </View>
+                                <View>
+                                    <Text style={styles.rdMetaLabel}>
+                                        Ngày khám
+                                    </Text>
+                                    <Text style={styles.rdMetaValue}>
+                                        {record.date}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </LinearGradient>
+
+                {/* TAB BAR */}
+                <View style={styles.rdTabBar}>
+                    {RD_TABS.map((t, i) => (
+                        <Pressable
+                            key={t}
+                            style={[
+                                styles.rdTab,
+                                activeTab === i && styles.rdTabActive,
+                            ]}
+                            onPress={() => setActiveTab(i)}
+                        >
+                            <Text
+                                style={[
+                                    styles.rdTabText,
+                                    activeTab === i && styles.rdTabTextActive,
+                                ]}
+                            >
+                                {t}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+
+                {/* TAB PANELS */}
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {activeTab === 0 && (
+                        <View style={styles.rdInfoCard}>
+                            {/* Khoa / Chuyên khoa */}
+                            {(editableDepartment || specLabel) && (
+                                <Pressable
+                                    onPress={() =>
+                                        setShowDepartmentPicker(true)
+                                    }
+                                    style={({ pressed }) => [
+                                        styles.rdInfoRow,
+                                        styles.rdInfoRowBorder,
+                                        pressed && styles.rdInfoRowPressed,
+                                    ]}
+                                >
+                                    <View
+                                        style={[
+                                            styles.rdInfoIcon,
+                                            {
+                                                backgroundColor:
+                                                    colors.secondaryBg,
+                                            },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name='business-outline'
+                                            size={16}
+                                            color={colors.secondary}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.rdInfoLabel}>
+                                            Khoa / Chuyên khoa
+                                        </Text>
+                                        {editableDepartment ? (
+                                            <Text style={styles.rdInfoValue}>
+                                                {editableDepartment}
+                                            </Text>
+                                        ) : (
+                                            <Text style={styles.rdInfoEmpty}>
+                                                Chạm để chọn khoa hoặc chuyên
+                                                khoa
+                                            </Text>
+                                        )}
+                                    </View>
+                                </Pressable>
+                            )}
+
+                            {/* Chẩn đoán */}
+                            <Pressable
+                                onPress={() => openEditor('diagnosis')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.successBg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='checkmark-done-outline'
+                                        size={17}
+                                        color={colors.success}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Chẩn đoán
+                                    </Text>
+                                    {editableDiagnosis ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableDiagnosis}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm chẩn đoán
+                                        </Text>
+                                    )}
+                                </View>
+                            </Pressable>
+
+                            {/* Cơ sở y tế */}
+                            <Pressable
+                                onPress={() => openEditor('hospital')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.primaryBg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='home-outline'
                                         size={16}
                                         color={colors.primary}
                                     />
                                 </View>
-                                <View style={styles.fuItemBody}>
-                                    <Text style={styles.fuItemDate}>
-                                        {fu.date}
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Cơ sở y tế
                                     </Text>
-                                    <Text style={styles.fuItemPurpose}>
-                                        {fu.purpose}
-                                        {fu.note ? ` · ${fu.note}` : ''}
-                                    </Text>
+                                    {editableHospital ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableHospital}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm cơ sở y tế
+                                        </Text>
+                                    )}
                                 </View>
-                                <Pressable
-                                    style={styles.fuItemDelete}
-                                    onPress={() => deleteFu(fu.id)}
-                                >
-                                    <Ionicons
-                                        name='trash-outline'
-                                        size={14}
-                                        color='#E11D48'
-                                    />
-                                </Pressable>
-                            </View>
-                        ))}
+                            </Pressable>
 
-                        {/* Empty state (only when no add form and no items) */}
-                        {!showAddFu && followUps.length === 0 && (
-                            <View style={styles.rdEmptyWrap}>
-                                <Ionicons
-                                    name='calendar-outline'
-                                    size={28}
-                                    color={colors.text3}
-                                />
-                                <Text style={styles.rdEmptyTitle}>
-                                    Chưa có lịch tái khám
-                                </Text>
-                                <Text style={styles.rdEmptySub}>
-                                    Nhấn &quot;Thêm lịch&quot; để đặt ngày tái
-                                    khám
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {activeTab === 2 && (
-                    <View>
-                        <View style={{ marginBottom: 10 }}>
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    fontWeight: '700',
-                                    color: colors.text2,
-                                    letterSpacing: 0.1,
-                                }}
+                            {/* Bác sĩ */}
+                            <Pressable
+                                onPress={() => openEditor('doctor')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
                             >
-                                Tài liệu đính kèm
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 10,
-                                    color: colors.text3,
-                                    marginTop: 2,
-                                }}
-                            >
-                                Ảnh, PDF, kết quả xét nghiệm…
-                            </Text>
-                        </View>
-
-                        <View style={styles.rdAttachGrid}>
-                            <Pressable style={styles.rdAttachBtn}>
                                 <View
                                     style={[
-                                        styles.rdAttachIcon,
-                                        { backgroundColor: '#EFF6FF' },
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.successBg },
                                     ]}
                                 >
                                     <Ionicons
-                                        name='camera-outline'
-                                        size={20}
+                                        name='person-outline'
+                                        size={16}
+                                        color={colors.success}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Bác sĩ phụ trách
+                                    </Text>
+                                    {editableDoctor ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableDoctor}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm bác sĩ phụ trách
+                                        </Text>
+                                    )}
+                                </View>
+                            </Pressable>
+
+                            {/* Triệu chứng */}
+                            <Pressable
+                                onPress={() => openEditor('symptoms')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.dangerBg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='alert-circle-outline'
+                                        size={16}
+                                        color={colors.danger}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Triệu chứng
+                                    </Text>
+                                    {editableSymptoms.length ? (
+                                        <View style={styles.rdInfoChipWrap}>
+                                            {editableSymptoms.map(
+                                                (s: string) => (
+                                                    <View
+                                                        key={s}
+                                                        style={
+                                                            styles.rdInfoChip
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.rdInfoChipText
+                                                            }
+                                                        >
+                                                            {s}
+                                                        </Text>
+                                                    </View>
+                                                ),
+                                            )}
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm triệu chứng
+                                        </Text>
+                                    )}
+                                </View>
+                            </Pressable>
+
+                            {/* Kết quả xét nghiệm */}
+                            <Pressable
+                                onPress={() => openEditor('testResults')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.primaryBg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='flask-outline'
+                                        size={16}
                                         color={colors.primary}
                                     />
                                 </View>
-                                <Text
-                                    style={[
-                                        styles.rdAttachLabel,
-                                        { color: colors.primary },
-                                    ]}
-                                >
-                                    Thêm ảnh
-                                </Text>
-                                <Text style={styles.rdAttachSub}>
-                                    JPG, PNG, HEIC
-                                </Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Kết quả xét nghiệm
+                                    </Text>
+                                    {editableTestResults ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableTestResults}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm kết quả xét nghiệm
+                                        </Text>
+                                    )}
+                                </View>
                             </Pressable>
 
-                            <Pressable style={styles.rdAttachBtn}>
+                            {/* Lời dặn bác sĩ */}
+                            <Pressable
+                                onPress={() => openEditor('doctorAdvice')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
                                 <View
                                     style={[
-                                        styles.rdAttachIcon,
-                                        { backgroundColor: '#F5F3FF' },
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.warningBg },
                                     ]}
                                 >
                                     <Ionicons
-                                        name='document-outline'
-                                        size={20}
+                                        name='chatbox-ellipses-outline'
+                                        size={16}
+                                        color={colors.warning}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Lời dặn bác sĩ
+                                    </Text>
+                                    {editableDoctorAdvice ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableDoctorAdvice}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm lời dặn từ bác sĩ
+                                        </Text>
+                                    )}
+                                </View>
+                            </Pressable>
+
+                            {/* Đơn thuốc kê */}
+                            <Pressable
+                                onPress={() => openEditor('prescriptions')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    styles.rdInfoRowBorder,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: colors.primaryBg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='medkit-outline'
+                                        size={16}
+                                        color={colors.primary}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Đơn thuốc kê
+                                    </Text>
+                                    {editablePrescriptionLines.length ? (
+                                        <View style={{ marginTop: 8, gap: 8 }}>
+                                            {editablePrescriptionLines.map(
+                                                (line, idx) => (
+                                                    <Text
+                                                        key={`${line}-${idx}`}
+                                                        style={
+                                                            styles.rdInfoValue
+                                                        }
+                                                    >
+                                                        {idx + 1}. {line}
+                                                    </Text>
+                                                ),
+                                            )}
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Chạm để thêm đơn thuốc kê
+                                        </Text>
+                                    )}
+                                </View>
+                            </Pressable>
+
+                            {/* Ghi chú */}
+                            <Pressable
+                                onPress={() => openEditor('note')}
+                                style={({ pressed }) => [
+                                    styles.rdInfoRow,
+                                    pressed && styles.rdInfoRowPressed,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.rdInfoIcon,
+                                        { backgroundColor: '#EEF2FF' },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name='document-text-outline'
+                                        size={16}
                                         color='#7C3AED'
                                     />
                                 </View>
-                                <Text
-                                    style={[
-                                        styles.rdAttachLabel,
-                                        { color: '#7C3AED' },
-                                    ]}
-                                >
-                                    Tải tệp lên
-                                </Text>
-                                <Text style={styles.rdAttachSub}>
-                                    PDF, Word, Excel
-                                </Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rdInfoLabel}>
+                                        Ghi chú
+                                    </Text>
+                                    {editableNote ? (
+                                        <Text style={styles.rdInfoValue}>
+                                            {editableNote}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.rdInfoEmpty}>
+                                            Nhấn để thêm ghi chú…
+                                        </Text>
+                                    )}
+                                </View>
                             </Pressable>
                         </View>
-                    </View>
-                )}
-            </ScrollView>
+                    )}
+
+                    {activeTab === 1 && (
+                        <View>
+                            <View style={styles.rdFollowHeader}>
+                                <Text
+                                    style={[
+                                        styles.arSectionTitle,
+                                        { marginBottom: 0 },
+                                    ]}
+                                >
+                                    HẸN TÁI KHÁM
+                                </Text>
+                                <Pressable
+                                    style={[
+                                        styles.rdFollowBtn,
+                                        showAddFu && styles.rdFollowBtnActive,
+                                    ]}
+                                    onPress={
+                                        showAddFu
+                                            ? toggleFollowUpForm
+                                            : handleAddFollowUp
+                                    }
+                                >
+                                    <Ionicons
+                                        name={
+                                            showAddFu ? 'close-outline' : 'add'
+                                        }
+                                        size={14}
+                                        color={colors.text2}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.rdFollowBtnText,
+                                            showAddFu && {
+                                                color: colors.text2,
+                                            },
+                                        ]}
+                                    >
+                                        {showAddFu ? 'Ẩn form' : 'Thêm lịch'}
+                                    </Text>
+                                </Pressable>
+                            </View>
+
+                            {showAddFu && (
+                                <View style={styles.fuCard}>
+                                    <View style={styles.fuCardHeader}>
+                                        <View style={styles.fuCardIcon}>
+                                            <Ionicons
+                                                name='calendar-outline'
+                                                size={16}
+                                                color={colors.primary}
+                                            />
+                                        </View>
+                                        <Text style={styles.fuCardTitle}>
+                                            Thêm lịch tái khám
+                                        </Text>
+                                    </View>
+                                    <View
+                                        style={[styles.fuField, { zIndex: 10 }]}
+                                    >
+                                        <Text style={styles.fuLabel}>
+                                            Ngày hẹn
+                                        </Text>
+                                        <DateField
+                                            value={fuDate}
+                                            onChange={setFuDate}
+                                        />
+                                    </View>
+                                    <View
+                                        style={[
+                                            styles.fuField,
+                                            styles.fuReminderInlineRow,
+                                        ]}
+                                    >
+                                        <View
+                                            style={styles.fuReminderInlineCopy}
+                                        >
+                                            <Text style={styles.fuLabel}>
+                                                Nhắc nhở trước {fuReminderTime}
+                                            </Text>
+                                        </View>
+                                        <Pressable
+                                            onPress={() =>
+                                                setFuReminder(!fuReminder)
+                                            }
+                                            style={[
+                                                styles.fuReminderSwitch,
+                                                fuReminder &&
+                                                    styles.fuReminderSwitchActive,
+                                            ]}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.fuReminderSwitchThumb,
+                                                    fuReminder &&
+                                                        styles.fuReminderSwitchThumbActive,
+                                                ]}
+                                            />
+                                        </Pressable>
+                                    </View>
+                                    <View style={styles.fuBtnRow}>
+                                        <Pressable
+                                            style={styles.fuCancelBtn}
+                                            onPress={cancelFu}
+                                        >
+                                            <Text style={styles.fuCancelText}>
+                                                Huỷ
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.fuSaveBtn}
+                                            onPress={saveFu}
+                                        >
+                                            <Text style={styles.fuSaveText}>
+                                                Lưu hẹn
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Saved follow-ups */}
+                            {followUps.map((fu) => (
+                                <View key={fu.id} style={styles.fuItem}>
+                                    <View style={styles.fuItemIcon}>
+                                        <Ionicons
+                                            name='calendar-outline'
+                                            size={16}
+                                            color={colors.primary}
+                                        />
+                                    </View>
+                                    <View style={styles.fuItemBody}>
+                                        <Text style={styles.fuItemDate}>
+                                            {fu.date}
+                                        </Text>
+                                        <Text style={styles.fuItemPurpose}>
+                                            {fu.purpose}
+                                            {fu.note ? ` · ${fu.note}` : ''}
+                                        </Text>
+                                    </View>
+                                    <Pressable
+                                        style={styles.fuItemDelete}
+                                        onPress={() => deleteFu(fu.id)}
+                                    >
+                                        <Ionicons
+                                            name='trash-outline'
+                                            size={14}
+                                            color={colors.danger}
+                                        />
+                                    </Pressable>
+                                </View>
+                            ))}
+
+                            {/* Empty state (only when no add form and no items) */}
+                            {!showAddFu && followUps.length === 0 && (
+                                <View style={styles.rdEmptyWrap}>
+                                    <Ionicons
+                                        name='calendar-outline'
+                                        size={28}
+                                        color={colors.text3}
+                                    />
+                                    <Text style={styles.rdEmptyTitle}>
+                                        Chưa có lịch tái khám
+                                    </Text>
+                                    <Text style={styles.rdEmptySub}>
+                                        Nhấn &quot;Thêm lịch&quot; để đặt ngày
+                                        tái khám
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {activeTab === 2 && (
+                        <View>
+                            <AttachmentUploadBlock
+                                title='Tài liệu đính kèm'
+                                attachments={editableAttachments}
+                                onChange={setEditableAttachments}
+                            />
+                        </View>
+                    )}
+                </ScrollView>
+                <Modal
+                    visible={Boolean(editorConfig)}
+                    transparent
+                    animationType='slide'
+                    onRequestClose={closeEditor}
+                >
+                    <Pressable style={shared.overlay} onPress={closeEditor}>
+                        <Pressable
+                            style={[
+                                shared.sheetContainer,
+                                styles.rdEditorSheet,
+                            ]}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={shared.sheetHandle}>
+                                <View style={shared.sheetBar} />
+                            </View>
+                            <View style={shared.sheetHeader}>
+                                <Text style={shared.sheetTitle}>
+                                    {editorConfig?.title}
+                                </Text>
+                            </View>
+                            <View style={shared.sheetBody}>
+                                <View style={styles.rdEditorField}>
+                                    <Text style={styles.rdEditorLabel}>
+                                        {editorConfig?.label}
+                                    </Text>
+                                    <TextInput
+                                        value={editorDraft}
+                                        onChangeText={setEditorDraft}
+                                        placeholder={editorConfig?.placeholder}
+                                        placeholderTextColor={colors.text3}
+                                        style={styles.rdEditorInput}
+                                        multiline={editorConfig?.multiline}
+                                        textAlignVertical='top'
+                                    />
+                                    {editorMode === 'prescriptions' && (
+                                        <Text style={styles.rdEditorHint}>
+                                            Mỗi dòng là một thuốc kê. Bạn có thể
+                                            sửa trực tiếp từng dòng tại đây.
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                            <View style={shared.sheetBtnRow}>
+                                <Pressable
+                                    style={shared.sheetBtnGhost}
+                                    onPress={closeEditor}
+                                >
+                                    <Text style={shared.sheetBtnGhostText}>
+                                        Huỷ
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[
+                                        shared.sheetBtnPrimary,
+                                        {
+                                            flex: 1.2,
+                                            backgroundColor: colors.primary,
+                                        },
+                                    ]}
+                                    onPress={saveEditor}
+                                >
+                                    <Text style={shared.sheetBtnPrimaryText}>
+                                        Lưu
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+                <Modal
+                    visible={showDepartmentPicker}
+                    transparent
+                    animationType='fade'
+                    onRequestClose={() => setShowDepartmentPicker(false)}
+                >
+                    <Pressable
+                        style={shared.overlay}
+                        onPress={() => setShowDepartmentPicker(false)}
+                    >
+                        <Pressable
+                            style={[
+                                shared.sheetContainer,
+                                { paddingBottom: 32 },
+                            ]}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={shared.sheetHandle}>
+                                <View style={shared.sheetBar} />
+                            </View>
+                            <Text
+                                style={{
+                                    fontSize: 15,
+                                    fontWeight: '800',
+                                    color: colors.text,
+                                    paddingHorizontal: 20,
+                                    marginBottom: 4,
+                                }}
+                            >
+                                Chọn chuyên khoa
+                            </Text>
+                            <ScrollView
+                                style={{ maxHeight: 340 }}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <View style={styles.specGrid}>
+                                    {SPECIALTIES.map((specialty) => (
+                                        <Pressable
+                                            key={specialty.key}
+                                            style={[
+                                                styles.specItem,
+                                                editableDepartmentKey ===
+                                                    specialty.key &&
+                                                    styles.specItemActive,
+                                            ]}
+                                            onPress={() => {
+                                                setEditableDepartmentKey(
+                                                    specialty.key,
+                                                );
+                                                setEditableDepartment(
+                                                    toDepartmentLabel(
+                                                        specialty.key,
+                                                    ),
+                                                );
+                                                setShowDepartmentPicker(false);
+                                            }}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.specIcon,
+                                                    {
+                                                        backgroundColor:
+                                                            specialty.bg,
+                                                    },
+                                                ]}
+                                            >
+                                                <Ionicons
+                                                    name={specialty.icon}
+                                                    size={16}
+                                                    color={specialty.color}
+                                                />
+                                            </View>
+                                            <Text
+                                                style={[
+                                                    styles.specLabel,
+                                                    editableDepartmentKey ===
+                                                        specialty.key &&
+                                                        styles.specLabelActive,
+                                                ]}
+                                            >
+                                                {specialty.label}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+            </View>
         </SafeAreaView>
     );
 }
@@ -1162,29 +1837,106 @@ function AddRecordForm({
     const [hospital, setHospital] = useState('');
     const [doctor, setDoctor] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
-    const [note, setNote] = useState('');
+    const [symptoms, setSymptoms] = useState(''); // Text input for simple list
+    const [testResults, setTestResults] = useState('');
+    const [doctorAdvice, setDoctorAdvice] = useState('');
+    const [prescriptions, setPrescriptions] = useState<
+        RecordPrescriptionItem[]
+    >([]);
+    const [attachments, setAttachments] = useState<AttachmentUploadItem[]>([]);
     const [typePicker, setTypePicker] = useState(false);
+    const [medicineSheetOpen, setMedicineSheetOpen] = useState(false);
+
+    // For Hẹn tái khám (Follow-up)
+    const [showAddFu, setShowAddFu] = useState(false);
+    const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
+    const [fuDate, setFuDate] = useState(new Date());
+    const [fuReminder, setFuReminder] = useState(true);
 
     const selectedType = ALL_TYPES.find((t) => t.key === type);
 
+    const handleAddPrescription = (medicine: {
+        medicine_name?: string;
+        dosage_value?: string;
+        dosage_unit?: string;
+        instruction?: string;
+    }) => {
+        const dose = [medicine.dosage_value, medicine.dosage_unit]
+            .filter(Boolean)
+            .join('');
+        setPrescriptions((prev) => [
+            ...prev,
+            {
+                name: medicine.medicine_name?.trim() || 'Thuốc chưa đặt tên',
+                dose: dose || undefined,
+                schedule: medicine.instruction?.trim() || undefined,
+            },
+        ]);
+        setMedicineSheetOpen(false);
+    };
+
+    const toggleFollowUpForm = useCallback(() => {
+        setShowAddFu((prev) => {
+            const next = !prev;
+            if (next) {
+                setFuDate(new Date());
+                setFuReminder(true);
+            }
+            return next;
+        });
+    }, []);
+
+    const saveFollowUp = useCallback(() => {
+        const dd = String(fuDate.getDate()).padStart(2, '0');
+        const mm = String(fuDate.getMonth() + 1).padStart(2, '0');
+        const yyyy = fuDate.getFullYear();
+
+        setFollowUps((prev) => [
+            {
+                id: `${Date.now()}`,
+                date: `${dd}/${mm}/${yyyy}`,
+                purpose: 'Tái khám',
+                note: fuReminder ? 'Nhắc trước 1 ngày' : 'Không bật nhắc',
+            },
+            ...prev,
+        ]);
+        setShowAddFu(false);
+        setFuDate(new Date());
+        setFuReminder(true);
+    }, [fuDate, fuReminder]);
+
+    const deleteFollowUp = useCallback((id: string) => {
+        setFollowUps((prev) => prev.filter((item) => item.id !== id));
+    }, []);
+
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-            <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
+            <StatusBar barStyle='dark-content' backgroundColor={colors.card} />
 
             {/* TOP BAR */}
             <View style={styles.subTopbar}>
                 <Pressable style={styles.subBackBtn} onPress={onClose}>
                     <Ionicons
                         name='chevron-back'
-                        size={16}
+                        size={18}
                         color={colors.text2}
                     />
                 </Pressable>
-                <Text style={styles.subTopbarTitle}>Thêm hồ sơ khám</Text>
+                <View style={styles.subTopbarTitleCenterWrap}>
+                    <Text
+                        style={[
+                            styles.subTopbarTitle,
+                            styles.subTopbarTitleCentered,
+                        ]}
+                    >
+                        Hồ sơ khám bệnh
+                    </Text>
+                </View>
+                <View style={styles.subTopbarActionPlaceholder} />
             </View>
 
             <ScrollView
-                style={{ flex: 1 }}
+                style={{ flex: 1, backgroundColor: colors.bg }}
                 contentContainerStyle={{
                     padding: 20,
                     paddingBottom: 100,
@@ -1192,10 +1944,14 @@ function AddRecordForm({
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
             >
+                {/* THÔNG TIN KHÁM */}
+                <Text style={styles.arSectionTitle}>THÔNG TIN KHÁM</Text>
+
                 {/* Tên hồ sơ */}
                 <View style={styles.arGroup}>
                     <Text style={styles.arLabel}>
-                        Tên hồ sơ <Text style={{ color: '#E11D48' }}>*</Text>
+                        Tên hồ sơ{' '}
+                        <Text style={{ color: colors.danger }}>*</Text>
                     </Text>
                     <TextInput
                         style={styles.arInput}
@@ -1211,25 +1967,17 @@ function AddRecordForm({
                     <View style={[styles.arGroup, { flex: 1 }]}>
                         <Text style={styles.arLabel}>
                             Ngày khám{' '}
-                            <Text style={{ color: '#E11D48' }}>*</Text>
+                            <Text style={{ color: colors.danger }}>*</Text>
                         </Text>
                         <DateField value={date} onChange={setDate} />
                     </View>
 
                     <View style={[styles.arGroup, { flex: 1 }]}>
-                        <Text style={styles.arLabel}>
-                            Chuyên khoa{' '}
-                            <Text style={{ color: '#E11D48' }}>*</Text>
-                        </Text>
+                        <Text style={styles.arLabel}>Chuyên khoa</Text>
                         <Pressable
                             style={styles.arSelectWrap}
                             onPress={() => setTypePicker(true)}
                         >
-                            <Ionicons
-                                name='heart-outline'
-                                size={15}
-                                color={colors.text3}
-                            />
                             {selectedType ? (
                                 <Text style={styles.arSelectText}>
                                     {selectedType.label}
@@ -1250,7 +1998,10 @@ function AddRecordForm({
 
                 {/* Cơ sở y tế */}
                 <View style={styles.arGroup}>
-                    <Text style={styles.arLabel}>Cơ sở y tế</Text>
+                    <Text style={styles.arLabel}>
+                        Bệnh viện / Phòng khám{' '}
+                        <Text style={{ color: colors.danger }}>*</Text>
+                    </Text>
                     <View style={styles.arInputIcon}>
                         <Ionicons
                             name='home-outline'
@@ -1259,7 +2010,7 @@ function AddRecordForm({
                         />
                         <TextInput
                             style={styles.arInputBare}
-                            placeholder='BV Chợ Rẫy, Phòng khám Medlatec…'
+                            placeholder='BV Đại học Y Dược'
                             placeholderTextColor={colors.text3}
                             value={hospital}
                             onChangeText={setHospital}
@@ -1269,7 +2020,7 @@ function AddRecordForm({
 
                 {/* Bác sĩ */}
                 <View style={styles.arGroup}>
-                    <Text style={styles.arLabel}>Bác sĩ phụ trách</Text>
+                    <Text style={styles.arLabel}>Bác sĩ điều trị</Text>
                     <View style={styles.arInputIcon}>
                         <Ionicons
                             name='person-outline'
@@ -1278,7 +2029,7 @@ function AddRecordForm({
                         />
                         <TextInput
                             style={styles.arInputBare}
-                            placeholder='BS Nguyễn Minh Tuấn'
+                            placeholder='BS. Lê Văn Hùng'
                             placeholderTextColor={colors.text3}
                             value={doctor}
                             onChangeText={setDoctor}
@@ -1286,179 +2037,311 @@ function AddRecordForm({
                     </View>
                 </View>
 
+                <View style={[styles.arDivider, { marginVertical: 24 }]} />
+                <Text style={styles.arSectionTitle}>KẾT QUẢ KHÁM</Text>
+
                 {/* Chẩn đoán */}
                 <View style={styles.arGroup}>
-                    <Text style={styles.arLabel}>Chẩn đoán / Vấn đề</Text>
+                    <Text style={styles.arLabel}>
+                        Chẩn đoán{' '}
+                        <Text style={{ color: colors.danger }}>*</Text>
+                    </Text>
                     <TextInput
                         style={styles.arInput}
-                        placeholder='VD: Tăng huyết áp, Viêm amidan…'
+                        placeholder='VD: Tăng huyết áp giai đoạn 1'
                         placeholderTextColor={colors.text3}
                         value={diagnosis}
                         onChangeText={setDiagnosis}
                     />
                 </View>
 
-                {/* Ghi chú */}
+                {/* Triệu chứng */}
                 <View style={styles.arGroup}>
-                    <Text style={styles.arLabel}>Ghi chú</Text>
+                    <Text style={styles.arLabel}>Triệu chứng</Text>
+                    <TextInput
+                        style={styles.arInput}
+                        placeholder='Đau đầu, chóng mặt...'
+                        placeholderTextColor={colors.text3}
+                        value={symptoms}
+                        onChangeText={setSymptoms}
+                    />
+                </View>
+
+                {/* Kết quả xét nghiệm */}
+                <View style={styles.arGroup}>
+                    <Text style={styles.arLabel}>Kết quả xét nghiệm</Text>
                     <TextInput
                         style={styles.arTextarea}
-                        placeholder='Ghi chú thêm về đơn thuốc, chỉ định, kết quả xét nghiệm…'
+                        placeholder='VD: Cholesterol 5.8 mmol/L...'
                         placeholderTextColor={colors.text3}
-                        value={note}
-                        onChangeText={setNote}
+                        value={testResults}
+                        onChangeText={setTestResults}
                         multiline
                         numberOfLines={3}
                     />
                 </View>
 
-                {/* Đính kèm */}
+                {/* Lời dặn bác sĩ */}
                 <View style={styles.arGroup}>
-                    <View style={{ marginBottom: 10 }}>
-                        <Text style={[styles.arLabel, { marginBottom: 0 }]}>
-                            Tài liệu đính kèm
-                        </Text>
+                    <Text style={styles.arLabel}>Lời dặn bác sĩ</Text>
+                    <TextInput
+                        style={styles.arTextarea}
+                        placeholder='VD: Giảm muối, tập thể dục 30p/ngày...'
+                        placeholderTextColor={colors.text3}
+                        value={doctorAdvice}
+                        onChangeText={setDoctorAdvice}
+                        multiline
+                        numberOfLines={3}
+                    />
+                </View>
+
+                <View style={[styles.arDivider, { marginVertical: 24 }]} />
+                <Text style={styles.arSectionTitle}>ĐƠN THUỐC KÊ</Text>
+                <View style={styles.arGroup}>
+                    <Pressable
+                        style={{
+                            padding: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            borderRadius: 12,
+                            borderStyle: 'dashed',
+                            alignItems: 'center',
+                        }}
+                        onPress={() => setMedicineSheetOpen(true)}
+                    >
                         <Text
                             style={{
-                                fontSize: 10,
-                                color: colors.text3,
-                                marginTop: 2,
+                                color: colors.primary,
+                                fontFamily: typography.font.bold,
                             }}
                         >
-                            Ảnh, PDF, kết quả xét nghiệm…
+                            + Thêm thuốc vào đơn
                         </Text>
-                    </View>
-                    <View style={styles.rdAttachGrid}>
-                        <Pressable style={styles.rdAttachBtn}>
-                            <View
-                                style={[
-                                    styles.rdAttachIcon,
-                                    { backgroundColor: '#EFF6FF' },
-                                ]}
-                            >
+                    </Pressable>
+                    {prescriptions.length ? (
+                        <View style={{ marginTop: 12, gap: 10 }}>
+                            {prescriptions.map((item, idx) => (
+                                <View
+                                    key={`${item.name}-${idx}`}
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        borderRadius: 14,
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 12,
+                                        backgroundColor: '#fff',
+                                        gap: 4,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontFamily: typography.font.bold,
+                                            fontSize: 15,
+                                            color: colors.text,
+                                        }}
+                                    >
+                                        {idx + 1}. {item.name}
+                                    </Text>
+                                    {item.dose || item.schedule ? (
+                                        <Text
+                                            style={{
+                                                fontFamily:
+                                                    typography.font.medium,
+                                                fontSize: 13,
+                                                color: colors.text2,
+                                            }}
+                                        >
+                                            {[item.dose, item.schedule]
+                                                .filter(Boolean)
+                                                .join(' • ')}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            ))}
+                        </View>
+                    ) : null}
+                </View>
+
+                <View style={[styles.arDivider, { marginVertical: 24 }]} />
+                <View style={styles.arGroup}>
+                    <AttachmentUploadBlock
+                        attachments={attachments}
+                        onChange={setAttachments}
+                    />
+                </View>
+
+                <View style={[styles.arDivider, { marginVertical: 24 }]} />
+
+                <View style={styles.rdFollowHeader}>
+                    <Text style={[styles.arSectionTitle, { marginBottom: 0 }]}>
+                        HẸN TÁI KHÁM
+                    </Text>
+                    <Pressable
+                        style={[
+                            styles.rdFollowBtn,
+                            showAddFu && styles.rdFollowBtnActive,
+                        ]}
+                        onPress={toggleFollowUpForm}
+                    >
+                        <Ionicons
+                            name={showAddFu ? 'close-outline' : 'add'}
+                            size={14}
+                            color={colors.text2}
+                        />
+                        <Text
+                            style={[
+                                styles.rdFollowBtnText,
+                                showAddFu && { color: colors.text2 },
+                            ]}
+                        >
+                            {showAddFu ? 'Ẩn form' : 'Thêm hẹn'}
+                        </Text>
+                    </Pressable>
+                </View>
+
+                {showAddFu && (
+                    <View style={styles.fuCard}>
+                        <View style={styles.fuCardHeader}>
+                            <View style={styles.fuCardIcon}>
                                 <Ionicons
-                                    name='camera-outline'
-                                    size={20}
+                                    name='calendar-outline'
+                                    size={16}
                                     color={colors.primary}
                                 />
                             </View>
-                            <Text
-                                style={[
-                                    styles.rdAttachLabel,
-                                    { color: colors.primary },
-                                ]}
-                            >
-                                Thêm ảnh
+                            <Text style={styles.fuCardTitle}>
+                                Thêm lịch tái khám
                             </Text>
-                            <Text style={styles.rdAttachSub}>
-                                JPG, PNG, HEIC
-                            </Text>
-                        </Pressable>
-
-                        <Pressable style={styles.rdAttachBtn}>
-                            <View
-                                style={[
-                                    styles.rdAttachIcon,
-                                    { backgroundColor: '#F5F3FF' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name='document-outline'
-                                    size={20}
-                                    color='#7C3AED'
-                                />
+                        </View>
+                        <View style={[styles.fuField, { zIndex: 10 }]}>
+                            <Text style={styles.fuLabel}>Ngày hẹn</Text>
+                            <DateField value={fuDate} onChange={setFuDate} />
+                        </View>
+                        <View
+                            style={[
+                                styles.fuField,
+                                {
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: 0,
+                                },
+                            ]}
+                        >
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                                <Text style={styles.fuLabel}>
+                                    Nhắc nhở trước 1 ngày
+                                </Text>
                             </View>
-                            <Text
-                                style={[
-                                    styles.rdAttachLabel,
-                                    { color: '#7C3AED' },
-                                ]}
+                            <Pressable
+                                onPress={() => setFuReminder(!fuReminder)}
+                                style={{
+                                    width: 44,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    backgroundColor: fuReminder
+                                        ? colors.success
+                                        : colors.border,
+                                    padding: 2,
+                                }}
                             >
-                                Tải tệp lên
+                                <View
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: 10,
+                                        backgroundColor: '#fff',
+                                        alignSelf: fuReminder
+                                            ? 'flex-end'
+                                            : 'flex-start',
+                                    }}
+                                />
+                            </Pressable>
+                        </View>
+                        <View style={styles.fuBtnRow}>
+                            <Pressable
+                                style={styles.fuCancelBtn}
+                                onPress={() => setShowAddFu(false)}
+                            >
+                                <Text style={styles.fuCancelText}>Huỷ</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.fuSaveBtn}
+                                onPress={saveFollowUp}
+                            >
+                                <Text style={styles.fuSaveText}>Lưu hẹn</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                )}
+
+                {followUps.map((item) => (
+                    <View key={item.id} style={styles.fuItem}>
+                        <View style={styles.fuItemIcon}>
+                            <Ionicons
+                                name='calendar-outline'
+                                size={16}
+                                color={colors.primary}
+                            />
+                        </View>
+                        <View style={styles.fuItemBody}>
+                            <Text style={styles.fuItemDate}>{item.date}</Text>
+                            <Text style={styles.fuItemPurpose}>
+                                {item.purpose}
+                                {item.note ? ` · ${item.note}` : ''}
                             </Text>
-                            <Text style={styles.rdAttachSub}>
-                                PDF, Word, Excel
-                            </Text>
+                        </View>
+                        <Pressable
+                            style={styles.fuItemDelete}
+                            onPress={() => deleteFollowUp(item.id)}
+                        >
+                            <Ionicons
+                                name='trash-outline'
+                                size={14}
+                                color={colors.danger}
+                            />
                         </Pressable>
                     </View>
-                </View>
+                ))}
 
-                <View style={styles.arDivider} />
-
-                {/* Lịch tái khám */}
-                <View style={styles.rdFollowHeader}>
-                    <View>
+                {!showAddFu && followUps.length === 0 ? (
+                    <View
+                        style={{
+                            borderWidth: 1,
+                            borderStyle: 'dashed',
+                            borderColor: colors.border,
+                            borderRadius: 14,
+                            paddingVertical: 14,
+                            paddingHorizontal: 16,
+                            alignItems: 'center',
+                            marginTop: 4,
+                        }}
+                    >
                         <Text
                             style={{
-                                fontSize: 14,
-                                fontWeight: '800',
-                                color: colors.text,
-                            }}
-                        >
-                            Lịch tái khám
-                        </Text>
-                        <Text
-                            style={{
-                                fontSize: 11,
+                                fontFamily: typography.font.medium,
+                                fontSize: 12,
                                 color: colors.text3,
-                                marginTop: 2,
                             }}
                         >
-                            Thêm nhiều lần tái khám nếu cần
+                            Chưa có lịch tái khám
                         </Text>
                     </View>
-                    <Pressable style={styles.rdFollowBtn}>
-                        <Ionicons name='add' size={12} color={colors.primary} />
-                        <Text style={styles.rdFollowBtnText}>Thêm lịch</Text>
-                    </Pressable>
-                </View>
+                ) : null}
 
-                <View style={styles.rdEmptyWrap}>
-                    <Ionicons
-                        name='calendar-outline'
-                        size={28}
-                        color={colors.text3}
-                    />
-                    <Text style={styles.rdEmptyTitle}>
-                        Chưa có lịch tái khám
-                    </Text>
-                    <Text style={styles.rdEmptySub}>
-                        Nhấn &quot;Thêm lịch&quot; để đặt ngày tái khám
-                    </Text>
+                <View style={styles.arSaveInlineWrap}>
+                    <Pressable onPress={onClose} style={styles.arSaveBtn}>
+                        <Text style={styles.arSaveBtnText}>Lưu hồ sơ</Text>
+                    </Pressable>
                 </View>
             </ScrollView>
 
-            {/* SAVE BUTTON */}
-            <View style={styles.arSaveWrap}>
-                <LinearGradient
-                    colors={[colors.primary, '#0D9488']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                        borderRadius: 18,
-                        paddingVertical: 15,
-                        alignItems: 'center',
-                        shadowColor: colors.primary,
-                        shadowOpacity: 0.28,
-                        shadowRadius: 20,
-                        shadowOffset: { width: 0, height: 4 },
-                        elevation: 5,
-                    }}
-                >
-                    <Pressable onPress={onClose}>
-                        <Text
-                            style={{
-                                fontSize: 15,
-                                fontWeight: '800',
-                                color: '#fff',
-                                letterSpacing: 0.2,
-                            }}
-                        >
-                            Lưu hồ sơ
-                        </Text>
-                    </Pressable>
-                </LinearGradient>
-            </View>
+            <MedicineDetailSheet
+                visible={medicineSheetOpen}
+                item={null}
+                onClose={() => setMedicineSheetOpen(false)}
+                onSave={handleAddPrescription}
+            />
 
             {/* TYPE PICKER MODAL */}
             <Modal

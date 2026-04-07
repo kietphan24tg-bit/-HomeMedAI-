@@ -5,7 +5,8 @@ import {
     scaleFont,
     verticalScale,
 } from '@/src/styles/responsive';
-import { colors, shadows, typography } from '@/src/styles/tokens';
+import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
+import { colors, radius, shadows, typography } from '@/src/styles/tokens';
 
 /* ══════════════════════════════════════
    Shared Auth Styles — CareSync S4
@@ -113,26 +114,21 @@ export const authStyles = StyleSheet.create({
 
     /* ── Inputs ── */
     inputGroup: {
-        marginBottom: verticalScale(12),
+        marginBottom: verticalScale(16),
     },
     inputLabel: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(11),
-        color: colors.text2,
-        letterSpacing: 0.4,
-        textTransform: 'uppercase',
-        marginBottom: verticalScale(5),
+        ...formSystem.fieldLabel,
+        lineHeight: verticalScale(16),
+        marginBottom: verticalScale(7),
     },
     inputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(10),
-        backgroundColor: colors.bg,
+        ...inputSystem.fieldIcon,
+        backgroundColor: colors.card,
+        minHeight: verticalScale(45),
+        borderRadius: radius.sm,
         borderWidth: 1.5,
         borderColor: colors.border,
-        borderRadius: moderateScale(12),
-        paddingHorizontal: scale(14),
-        paddingVertical: verticalScale(12),
+        paddingHorizontal: scale(13),
     },
     phonePrefix: {
         flexDirection: 'row',
@@ -152,37 +148,36 @@ export const authStyles = StyleSheet.create({
         color: colors.text,
     },
     inputIcon: {
+        marginRight: scale(10),
         flexShrink: 0,
     },
     textInput: {
-        flex: 1,
+        ...inputSystem.text,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(14),
-        color: colors.text,
-        padding: 0,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
     },
 
     /* ── Forgot ── */
     forgotBtn: {
         alignSelf: 'flex-end',
-        marginBottom: verticalScale(16),
+        marginBottom: verticalScale(14),
     },
     forgotText: {
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(11.5),
         color: colors.primary,
     },
 
     /* ── Primary Button ── */
     btnPrimary: {
         width: '100%',
-        paddingVertical: verticalScale(16),
-        borderRadius: moderateScale(14),
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(45),
         overflow: 'hidden',
-        shadowColor: '#2563EB',
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 20,
@@ -197,14 +192,13 @@ export const authStyles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     btnPrimaryLoading: {
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
+        backgroundColor: 'rgba(15, 110, 86, 0.72)',
+        opacity: 0.88,
     },
     btnPrimaryText: {
         color: '#fff',
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
+        fontSize: scaleFont(13.5),
         letterSpacing: 0.1,
         backgroundColor: 'transparent',
         includeFontPadding: false,
@@ -215,7 +209,7 @@ export const authStyles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: scale(12),
-        marginVertical: verticalScale(14),
+        marginVertical: verticalScale(12),
     },
     orLine: {
         flex: 1,
@@ -231,9 +225,10 @@ export const authStyles = StyleSheet.create({
     /* ── Social Buttons ── */
     btnGoogle: {
         width: '100%',
-        paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(16),
-        borderRadius: moderateScale(12),
+        minHeight: verticalScale(45),
+        paddingVertical: 0,
+        paddingHorizontal: scale(14),
+        borderRadius: moderateScale(11),
         borderWidth: 1.5,
         borderColor: colors.border,
         backgroundColor: colors.card,
@@ -245,7 +240,7 @@ export const authStyles = StyleSheet.create({
     },
     btnSocialLabel: {
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(14),
+        fontSize: scaleFont(12.5),
         color: colors.text,
     },
 
@@ -294,12 +289,12 @@ export const authStyles = StyleSheet.create({
         borderRadius: 3,
     },
     inputWrapError: {
-        borderColor: colors.cDanger,
+        borderColor: colors.danger,
     },
     errorText: {
         fontFamily: typography.font.medium,
         fontSize: scaleFont(11),
-        color: colors.cDanger,
+        color: colors.danger,
         marginTop: verticalScale(4),
         paddingLeft: scale(4),
     },

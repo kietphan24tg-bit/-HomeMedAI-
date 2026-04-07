@@ -1,16 +1,36 @@
 // src/utils/color-palette.ts
+import { colors } from '../styles/tokens';
 
-// Avatar Gradient Palette
-export const AVATAR_PALETTES: [string, string][] = [
-    ['#2563EB', '#0EA5E9'],
-    ['#0EA5E9', '#14B8A6'],
-    ['#14B8A6', '#22C55E'],
-    ['#1D4ED8', '#14B8A6'],
-    ['#0891B2', '#2563EB'],
-    ['#0F766E', '#10B981'],
-    ['#0F172A', '#475569'],
-    ['#0284C7', '#06B6D4'],
+// ── Avatar colors — cool-spectrum, muted, health-appropriate ──
+export const AVATAR_COLORS: string[] = [
+    '#3B82F6',
+    '#0D9488',
+    '#6366F1',
+    '#8B5CF6',
+    '#059669',
+    '#0891B2',
+    '#7C3AED',
+    '#2563EB',
 ];
+
+// ── Family card colors — distinct, premium, diverse palette ──
+export const FAMILY_CARD_COLORS: string[] = [
+    '#0F6E56', // deep teal
+    '#7C3AED', // violet
+    '#0E7490', // cyan
+    '#C2410C', // burnt orange
+    '#1D4ED8', // royal blue
+    '#15803D', // forest green
+    '#9D174D', // rose
+    '#854D0E', // amber-brown
+];
+
+/** @deprecated Use AVATAR_COLORS[i] directly */
+export const AVATAR_PALETTES: [string, string][] = AVATAR_COLORS.map(
+    (c) => [c, c] as [string, string],
+);
+
+// ── Category / specialty palette — aligned to semantic tokens ──
 
 export interface CategoryColor {
     color: string;
@@ -18,37 +38,46 @@ export interface CategoryColor {
 }
 
 export const CATEGORY_PALETTES: CategoryColor[] = [
-    { color: '#2563EB', bg: '#EFF6FF' },
-    { color: '#0EA5E9', bg: '#F0F9FF' },
-    { color: '#14B8A6', bg: '#F0FDFA' },
-    { color: '#0F766E', bg: '#ECFDF5' },
-    { color: '#22C55E', bg: '#F0FDF4' },
-    { color: '#F59E0B', bg: '#FFFBEB' },
-    { color: '#EA580C', bg: '#FFF7ED' },
-    { color: '#475569', bg: '#F1F5F9' },
-    { color: '#1D4ED8', bg: '#DBEAFE' },
-    { color: '#06B6D4', bg: '#ECFEFF' },
+    { color: colors.primary, bg: colors.primaryBg },
+    { color: colors.info, bg: colors.infoBg },
+    { color: colors.secondary, bg: colors.secondaryBg },
+    { color: colors.success, bg: colors.successBg },
+    { color: '#0891B2', bg: '#ECFEFF' },
+    { color: '#6366F1', bg: '#EEF2FF' },
+    { color: colors.warning, bg: colors.warningBg },
+    { color: colors.text3, bg: colors.divider },
 ];
 
 export const SPECIALTY_COLORS: Record<string, CategoryColor> = {
-    cardiology: { color: '#2563EB', bg: '#EFF6FF' },
-    general: { color: '#14B8A6', bg: '#F0FDFA' },
-    internal: { color: '#0EA5E9', bg: '#F0F9FF' },
-    dermatology: { color: '#06B6D4', bg: '#ECFEFF' },
-    pediatrics: { color: '#22C55E', bg: '#F0FDF4' },
-    neurology: { color: '#1D4ED8', bg: '#DBEAFE' },
-    orthopedic: { color: '#F59E0B', bg: '#FFFBEB' },
-    ent: { color: '#14B8A6', bg: '#F0FDFA' },
-    obstetrics: { color: '#0EA5E9', bg: '#F0F9FF' },
+    cardiology: { color: colors.primary, bg: colors.primaryBg },
+    general: { color: colors.secondary, bg: colors.secondaryBg },
+    internal: { color: colors.info, bg: colors.infoBg },
+    dermatology: { color: '#0891B2', bg: '#ECFEFF' },
+    pediatrics: { color: colors.success, bg: colors.successBg },
+    neurology: { color: '#6366F1', bg: '#EEF2FF' },
+    orthopedic: { color: colors.warning, bg: colors.warningBg },
+    ent: { color: colors.secondary, bg: colors.secondaryBg },
+    obstetrics: { color: colors.info, bg: colors.infoBg },
     dental: { color: '#0891B2', bg: '#ECFEFF' },
-    ophthalmology: { color: '#2563EB', bg: '#EFF6FF' },
-    endocrine: { color: '#EA580C', bg: '#FFF7ED' },
-    gastro: { color: '#22C55E', bg: '#F0FDF4' },
-    other: { color: '#64748B', bg: '#F1F5F9' },
+    ophthalmology: { color: colors.primary, bg: colors.primaryBg },
+    endocrine: { color: colors.warning, bg: colors.warningBg },
+    gastro: { color: colors.success, bg: colors.successBg },
+    other: { color: colors.text3, bg: colors.divider },
 };
 
+// ── Helpers ──
+
+export function getAvatarColor(index: number): string {
+    return AVATAR_COLORS[index % AVATAR_COLORS.length];
+}
+
 export function getAvatarGradient(index: number): [string, string] {
-    return AVATAR_PALETTES[index % AVATAR_PALETTES.length];
+    const c = getAvatarColor(index);
+    return [c, c];
+}
+
+export function getFamilyCardColor(index: number): string {
+    return FAMILY_CARD_COLORS[index % FAMILY_CARD_COLORS.length];
 }
 
 export function getCategoryColor(index: number): CategoryColor {
@@ -65,6 +94,10 @@ export function hashString(str: string): number {
         hash = str.charCodeAt(i) + ((hash << 5) - hash);
     }
     return Math.abs(hash);
+}
+
+export function getAvatarColorByKey(key: string): string {
+    return getAvatarColor(hashString(key));
 }
 
 export function getAvatarGradientByKey(key: string): [string, string] {
