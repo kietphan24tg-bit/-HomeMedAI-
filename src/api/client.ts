@@ -57,7 +57,7 @@ async function refreshAccessToken() {
                 await useAuthStore.getState().clearSession();
                 appToast.showError(
                     'Error',
-                    'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i!',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
                 );
                 throw error;
             })

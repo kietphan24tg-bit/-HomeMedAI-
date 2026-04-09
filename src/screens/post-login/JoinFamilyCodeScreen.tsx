@@ -62,8 +62,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
         if (!overview?.post_login_flow_completed) {
             appToast.showInfo(
-                'ChÆ°a hoÃ n táº¥t',
-                'Flow tham gia gia Ä‘Ã¬nh hiá»‡n chÆ°a cÃ³ bÆ°á»›c liÃªn káº¿t há»“ sÆ¡ hoÃ n chá»‰nh. Vui lÃ²ng tiáº¿p tá»¥c tá»« lá»i má»i hoáº·c táº¡o há»“ sÆ¡ cÃ¡ nhÃ¢n.',
+                'Chưa hoàn tất',
+                'Flow tham gia gia đình hiện chưa có bước liên kết hồ sơ hoàn chỉnh. Vui lòng tiếp tục từ lời mời hoặc tạo hồ sơ cá nhân.',
             );
             return;
         }

@@ -209,8 +209,8 @@ export default function PersonalInfoScreen({
 
             if (!overview?.post_login_flow_completed) {
                 appToast.showWarning(
-                    'ChÆ°a hoÃ n táº¥t',
-                    'App chÆ°a xÃ¡c nháº­n hoÃ n táº¥t thiáº¿t láº­p ban Ä‘áº§u. Vui lÃ²ng thá»­ láº¡i.',
+                    'Chưa hoàn tất',
+                    'App chưa xác nhận hoàn tất thiết lập ban đầu. Vui lòng thử lại.',
                 );
                 return;
             }
