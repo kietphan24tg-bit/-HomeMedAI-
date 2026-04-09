@@ -1,4 +1,4 @@
-import type { CurrentUserAccount } from '@/src/features/me/types';
+import type { MeOverview } from '@/src/features/me/types';
 import { type User } from './user';
 
 export interface SignInParams {
@@ -19,13 +19,15 @@ export interface SignInWithGoogleParams {
 }
 
 export interface AuthStore {
-    user: CurrentUserAccount | null;
     loading: boolean;
     initialized: boolean;
     hasSeenOnboarding: boolean;
+    postLoginCompleted: boolean;
     accessToken: string | null;
+    markOnboardingSeen: () => Promise<void>;
+    syncMeOverview: () => Promise<MeOverview | null>;
     setAccessToken: (token: string | null) => void;
-    clearStore: () => void;
+    clearSession: () => Promise<void>;
     bootstrap: () => Promise<boolean>;
     signUp: ({
         email,
@@ -48,6 +50,4 @@ export interface AuthStore {
         fcm_token,
     }: SignInWithGoogleParams) => Promise<void>;
     signOut: () => Promise<void>;
-    fetchMe: () => Promise<void>;
-    refresh: () => Promise<boolean>;
 }

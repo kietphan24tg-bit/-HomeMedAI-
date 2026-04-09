@@ -26,7 +26,7 @@ const MOCK_USER = {
     google_id: null,
 };
 
-const MOCK_PROFILE = {
+const DEFAULT_MOCK_PROFILE = {
     id: 'profile-001',
     full_name: 'Nguyễn Văn An',
     date_of_birth: '1987-03-12',
@@ -46,6 +46,16 @@ const MOCK_HEALTH_PROFILE = {
     user_vaccinations: [],
     prescriptions: [],
 };
+
+let mockProfile: typeof DEFAULT_MOCK_PROFILE | null = null;
+
+function getMockProfile() {
+    return mockProfile;
+}
+
+function isPostLoginFlowCompleted() {
+    return !!mockProfile;
+}
 
 type DictionaryType = 'disease' | 'drug' | 'vaccine';
 
@@ -299,15 +309,15 @@ const routes: Route[] = [
         pattern: /^\/users\/me$/,
         handler: () => ({
             user: MOCK_USER,
-            profile: MOCK_PROFILE,
+            profile: getMockProfile(),
             health_profile: MOCK_HEALTH_PROFILE,
-            post_login_flow_completed: true,
+            post_login_flow_completed: isPostLoginFlowCompleted(),
         }),
     },
     {
         method: 'get',
         pattern: /^\/user\/profile$/,
-        handler: () => MOCK_PROFILE,
+        handler: () => getMockProfile(),
     },
     {
         method: 'put',
@@ -321,18 +331,25 @@ const routes: Route[] = [
             const scope =
                 (config.params as Record<string, string>)?.profile_scope ??
                 'all';
-            if (scope === 'without_family') return [];
-            return [MOCK_PROFILE];
+            if (!getMockProfile()) {
+                return [];
+            }
+            if (scope === 'without_family') return [getMockProfile()];
+            return [getMockProfile()];
         },
     },
     {
         method: 'post',
         pattern: /^\/users\/me\/personal-profile$/,
-        handler: (_url, config) => ({
-            ...MOCK_PROFILE,
-            ...(config.data ? JSON.parse(String(config.data)) : {}),
-            id: uid(),
-        }),
+        handler: (_url, config) => {
+            mockProfile = {
+                ...DEFAULT_MOCK_PROFILE,
+                ...(config.data ? JSON.parse(String(config.data)) : {}),
+                id: uid(),
+            };
+
+            return mockProfile;
+        },
     },
 
     // ─── Families ──────────────────────────────────────

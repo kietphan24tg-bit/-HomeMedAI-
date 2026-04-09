@@ -3,13 +3,15 @@ import { useShallow } from 'zustand/shallow';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 
 export default function Index() {
-    const { initialized, hasSeenOnboarding, accessToken } = useAuthStore(
-        useShallow((state) => ({
-            initialized: state.initialized,
-            hasSeenOnboarding: state.hasSeenOnboarding,
-            accessToken: state.accessToken,
-        })),
-    );
+    const { initialized, hasSeenOnboarding, accessToken, postLoginCompleted } =
+        useAuthStore(
+            useShallow((state) => ({
+                initialized: state.initialized,
+                hasSeenOnboarding: state.hasSeenOnboarding,
+                accessToken: state.accessToken,
+                postLoginCompleted: state.postLoginCompleted,
+            })),
+        );
 
     if (!initialized) {
         return null;
@@ -18,5 +20,10 @@ export default function Index() {
     if (!hasSeenOnboarding) {
         return <Redirect href='/onboarding' />;
     }
-    return <Redirect href={accessToken ? '/(tabs)' : '/auth'} />;
+
+    if (!accessToken) {
+        return <Redirect href='/auth' />;
+    }
+
+    return <Redirect href={postLoginCompleted ? '/(tabs)' : '/post-login'} />;
 }

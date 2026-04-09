@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { appToast } from '../../lib/toast';
 import { userService } from '../../services/user.services';
+import { useAuthStore } from '../../stores/useAuthStore';
 import {
     moderateScale,
     scale,
@@ -79,6 +80,7 @@ export default function PersonalInfoScreen({
     width,
     onComplete,
 }: Props): React.JSX.Element {
+    const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
     const [dob, setDob] = useState<Date | null>(null);
     const [dobText, setDobText] = useState('');
     const [showPicker, setShowPicker] = useState(false);
@@ -202,6 +204,16 @@ export default function PersonalInfoScreen({
                 'Tạo hồ sơ thành công',
                 'Thông tin cá nhân của bạn đã được lưu.',
             );
+
+            const overview = await syncMeOverview();
+
+            if (!overview?.post_login_flow_completed) {
+                appToast.showWarning(
+                    'ChÆ°a hoÃ n táº¥t',
+                    'App chÆ°a xÃ¡c nháº­n hoÃ n táº¥t thiáº¿t láº­p ban Ä‘áº§u. Vui lÃ²ng thá»­ láº¡i.',
+                );
+                return;
+            }
 
             if (onComplete) {
                 onComplete();

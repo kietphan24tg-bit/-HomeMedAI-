@@ -13,10 +13,8 @@ import {
 import DeviceInfo from 'react-native-device-info';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
-import { userService } from '@/src/services/user.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { colors, gradients } from '@/src/styles/tokens';
 import { sanitizeVietnamPhoneInput, toVietnamE164 } from '@/src/utils/phone';
@@ -32,7 +30,6 @@ interface Props {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
 export default function AuthScreen({
     initialMode,
@@ -75,20 +72,6 @@ export default function AuthScreen({
         setShowPassword(false);
         setShowConfirmPassword(false);
         setErrors({});
-    };
-
-    const routeAfterSignIn = async () => {
-        const withoutFamilyProfiles =
-            await userService.getProfilesWithoutFamily();
-        const items = Array.isArray(withoutFamilyProfiles)
-            ? withoutFamilyProfiles
-            : Array.isArray(withoutFamilyProfiles?.data)
-              ? withoutFamilyProfiles.data
-              : Array.isArray(withoutFamilyProfiles?.profiles)
-                ? withoutFamilyProfiles.profiles
-                : [];
-
-        router.replace(items.length > 0 ? '/(tabs)' : '/post-login');
     };
 
     const switchMode = (newMode: 'signin' | 'signup') => {
@@ -169,13 +152,15 @@ export default function AuthScreen({
             }
 
             if (mode === 'signin') {
-                await SecureStore.setItemAsync(HAS_SEEN_ONBOARDING, 'true');
-
                 clearForm();
                 if (onSuccess) {
                     onSuccess();
                 } else {
-                    await routeAfterSignIn();
+                    router.replace(
+                        useAuthStore.getState().postLoginCompleted
+                            ? '/(tabs)'
+                            : '/post-login',
+                    );
                 }
                 return;
             }

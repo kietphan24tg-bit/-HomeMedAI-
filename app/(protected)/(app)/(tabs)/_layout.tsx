@@ -1,32 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useShallow } from 'zustand/shallow';
 import { HapticTab } from '@/src/components/HapticTab';
 import { IconSymbol } from '@/src/components/ui/IconSymbol';
-import { useAuthStore } from '@/src/stores/useAuthStore';
 import { colors } from '@/src/styles/tokens';
 export default function TabLayout() {
     const insets = useSafeAreaInsets();
     const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 72 + insets.bottom;
     const PADDING_BOTTOM = Platform.OS === 'ios' ? 24 : insets.bottom + 12;
-
-    const { accessToken, initialized } = useAuthStore(
-        useShallow((state) => ({
-            accessToken: state.accessToken,
-            initialized: state.initialized,
-        })),
-    );
-
-    if (!initialized) {
-        return null;
-    }
-
-    if (!accessToken) {
-        return <Redirect href='/auth' />;
-    }
 
     return (
         <Tabs

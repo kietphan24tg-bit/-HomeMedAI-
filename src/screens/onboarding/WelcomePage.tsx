@@ -19,13 +19,15 @@ interface Props {
     totalPages: number;
     goTo: (page: number) => void;
     setAuthTab: (tab: 'login' | 'register') => void;
+    continueToAuth: () => void;
     renderDots: () => React.JSX.Element;
 }
 
 export default function WelcomePage({
     width,
     goTo,
-    setAuthTab: _setAuthTab,
+    setAuthTab,
+    continueToAuth,
     renderDots,
 }: Props): React.JSX.Element {
     const ringRotate = useRef(new Animated.Value(0)).current;
@@ -214,9 +216,8 @@ export default function WelcomePage({
                         pressed && shared.pressed,
                     ]}
                     onPress={() => {
-                        import('expo-router').then(({ router }) => {
-                            router.push('/auth');
-                        });
+                        setAuthTab('login');
+                        continueToAuth();
                     }}
                 >
                     <Text style={styles.onboardOutlineBtnText}>

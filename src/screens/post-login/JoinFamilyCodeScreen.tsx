@@ -12,8 +12,10 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { appToast } from '@/src/lib/toast';
 import StatePanel from '@/src/components/state/StatePanel';
 import { familiesServices } from '@/src/services/families.services';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
     moderateScale,
     scale,
@@ -26,6 +28,7 @@ import { colors, shadows, typography } from '@/src/styles/tokens';
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
 export default function JoinFamilyCodeScreen(): React.JSX.Element {
+    const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
     const [inviteCode, setInviteCode] = useState('');
     const [previewState, setPreviewState] = useState<PreviewState>('idle');
     const [previewData, setPreviewData] = useState<{
@@ -52,6 +55,20 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             setPreviewData(null);
             setPreviewState('error');
         }
+    };
+
+    const handleComplete = async () => {
+        const overview = await syncMeOverview();
+
+        if (!overview?.post_login_flow_completed) {
+            appToast.showInfo(
+                'ChÆ°a hoÃ n táº¥t',
+                'Flow tham gia gia Ä‘Ã¬nh hiá»‡n chÆ°a cÃ³ bÆ°á»›c liÃªn káº¿t há»“ sÆ¡ hoÃ n chá»‰nh. Vui lÃ²ng tiáº¿p tá»¥c tá»« lá»i má»i hoáº·c táº¡o há»“ sÆ¡ cÃ¡ nhÃ¢n.',
+            );
+            return;
+        }
+
+        router.replace('/(tabs)');
     };
 
     return (
@@ -165,7 +182,9 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 </Text>
                                 <Pressable
                                     style={styles.secondaryBtn}
-                                    onPress={() => router.replace('/(tabs)')}
+                                    onPress={() => {
+                                        void handleComplete();
+                                    }}
                                 >
                                     <Text style={styles.secondaryBtnText}>
                                         Chọn hồ sơ

@@ -11,6 +11,7 @@ import {
     type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 import AuthPage from './AuthPage';
 import FeaturesPage from './FeaturesPage';
 import PermissionPage from './PermissionPage';
@@ -22,6 +23,7 @@ const TOTAL_PAGES = 4;
 
 export default function OnboardingScreen(): React.JSX.Element {
     const router = useRouter();
+    const markOnboardingSeen = useAuthStore((state) => state.markOnboardingSeen);
     const { width } = useWindowDimensions();
     const scrollRef = useRef<ScrollView>(null);
     const [currentPage, setCurrentPage] = useState(0);
@@ -37,8 +39,14 @@ export default function OnboardingScreen(): React.JSX.Element {
         }).start();
     }, []);
 
-    const goMain = (): void => {
-        router.replace('/(tabs)');
+    const continueToAuth = async (): Promise<void> => {
+        await markOnboardingSeen();
+        router.push('/auth');
+    };
+
+    const continueToAuthPage = async (): Promise<void> => {
+        await markOnboardingSeen();
+        goTo(3);
     };
 
     const goTo = (page: number): void => {
@@ -74,6 +82,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                     ref={scrollRef}
                     horizontal
                     pagingEnabled
+                    scrollEnabled={false}
                     showsHorizontalScrollIndicator={false}
                     onMomentumScrollEnd={onScroll}
                     scrollEventThrottle={16}
@@ -86,6 +95,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                         totalPages={TOTAL_PAGES}
                         goTo={goTo}
                         setAuthTab={setAuthTab}
+                        continueToAuth={continueToAuth}
                         renderDots={renderDots}
                     />
                     <FeaturesPage
@@ -96,6 +106,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                     <PermissionPage
                         width={width}
                         goTo={goTo}
+                        continueToAuthPage={continueToAuthPage}
                         renderDots={renderDots}
                     />
                     <AuthPage

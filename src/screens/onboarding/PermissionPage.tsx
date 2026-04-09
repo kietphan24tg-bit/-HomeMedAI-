@@ -9,12 +9,13 @@ import { colors } from '../../styles/tokens';
 interface Props {
     width: number;
     goTo: (page: number) => void;
+    continueToAuthPage: () => void;
     renderDots: () => React.JSX.Element;
 }
 
 export default function PermissionPage({
     width,
-    goTo,
+    continueToAuthPage,
     renderDots,
 }: Props): React.JSX.Element {
     const bellPulse = useRef(new Animated.Value(1)).current;
@@ -123,7 +124,7 @@ export default function PermissionPage({
                         styles.onboardPrimaryBtn,
                         pressed && shared.pressed,
                     ]}
-                    onPress={() => goTo(3)}
+                    onPress={continueToAuthPage}
                 >
                     <View style={styles.onboardPrimaryBtnContent}>
                         <Ionicons name='notifications' size={16} color='#fff' />
@@ -137,7 +138,7 @@ export default function PermissionPage({
                         styles.btnSkip,
                         pressed && shared.pressed,
                     ]}
-                    onPress={() => goTo(3)}
+                    onPress={continueToAuthPage}
                 >
                     <Text style={styles.btnSkipText}>Bỏ qua, để sau</Text>
                 </Pressable>

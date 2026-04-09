@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
@@ -8,6 +8,66 @@ import { mockAdapter } from './mock-adapter';
 const USE_MOCK = process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
 const REFRESH_TOKEN = 'refresh_token';
+const EXCLUDED_REFRESH_PATHS = [
+    '/signin',
+    '/signup',
+    '/signout',
+    '/rag/chat',
+    '/auth/login',
+    '/auth/register',
+    '/auth/logout',
+    '/auth/refresh',
+    '/auth/google',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+] as const;
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+    _retry?: boolean;
+};
+
+let refreshAccessTokenPromise: Promise<string> | null = null;
+
+function shouldSkipRefresh(url?: string) {
+    return !url || EXCLUDED_REFRESH_PATHS.some((path) => url.includes(path));
+}
+
+async function refreshAccessToken() {
+    if (!refreshAccessTokenPromise) {
+        refreshAccessTokenPromise = (async () => {
+            const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN);
+
+            if (!refreshToken) {
+                throw new Error('No refresh token found');
+            }
+
+            const res = await authService.refresh(refreshToken);
+            const accessToken = res.access_token ?? res.accessToken ?? null;
+
+            if (!accessToken) {
+                throw new Error('No access token returned');
+            }
+
+            useAuthStore.getState().setAccessToken(accessToken);
+            await SecureStore.setItemAsync(REFRESH_TOKEN, res.refresh_token);
+
+            return accessToken;
+        })()
+            .catch(async (error) => {
+                await useAuthStore.getState().clearSession();
+                appToast.showError(
+                    'Error',
+                    'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i!',
+                );
+                throw error;
+            })
+            .finally(() => {
+                refreshAccessTokenPromise = null;
+            });
+    }
+
+    return refreshAccessTokenPromise;
+}
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
@@ -19,7 +79,6 @@ const apiClient = axios.create({
     ...(USE_MOCK ? { adapter: mockAdapter } : {}),
 });
 
-// Interceptor cho Request (ví dụ: thêm token vào header)
 apiClient.interceptors.request.use(
     (config) => {
         const token = useAuthStore.getState().accessToken;
@@ -33,57 +92,31 @@ apiClient.interceptors.request.use(
     },
 );
 
-// Interceptor cho Response (ví dụ: xử lý lỗi tập trung)
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error.config;
-        //những api ko cần check
-        if (
-            originalRequest.url.includes('/signin') ||
-            originalRequest.url.includes('/signup') ||
-            originalRequest.url.includes('/signout') ||
-            originalRequest.url.includes('/rag/chat') ||
-            originalRequest.url.includes('/auth/login') ||
-            originalRequest.url.includes('/auth/register') ||
-            originalRequest.url.includes('/auth/refresh') ||
-            originalRequest.url.includes('/auth/google') ||
-            originalRequest.url.includes('/auth/forgot-password') ||
-            originalRequest.url.includes('/auth/reset-password')
-        ) {
+        const originalRequest = error.config as RetriableRequestConfig | undefined;
+
+        if (!originalRequest || shouldSkipRefresh(originalRequest.url)) {
             return Promise.reject(error);
         }
-        originalRequest._retry = originalRequest._retry || 0;
-        if (error.response?.status === 403 && originalRequest._retry < 4) {
-            originalRequest._retry += 1;
-            try {
-                const refreshToken =
-                    await SecureStore.getItemAsync(REFRESH_TOKEN);
 
-                if (!refreshToken) {
-                    throw new Error('No refresh token found');
-                }
-
-                const res = await authService.refresh(refreshToken);
-                const accessToken = res.access_token ?? res.accessToken;
-                useAuthStore.getState().setAccessToken(accessToken);
-                originalRequest.headers['Authorization'] =
-                    `Bearer ${accessToken}`;
-                await SecureStore.setItemAsync(
-                    REFRESH_TOKEN,
-                    res.refresh_token,
-                );
-                return apiClient(originalRequest);
-            } catch (error) {
-                useAuthStore.getState().clearStore();
-                appToast.showError(
-                    'Error',
-                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
-                );
-                return Promise.reject(error);
-            }
+        if (error.response?.status !== 403 || originalRequest._retry) {
+            return Promise.reject(error);
         }
-        return Promise.reject(error);
+
+        originalRequest._retry = true;
+
+        try {
+            const accessToken = await refreshAccessToken();
+
+            originalRequest.headers = originalRequest.headers ?? {};
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+            return apiClient(originalRequest);
+        } catch (refreshError) {
+            return Promise.reject(refreshError);
+        }
     },
 );
 

@@ -1,43 +1,62 @@
-import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import {
+    queryOptions,
+    useQuery,
+    type UseQueryOptions,
+} from '@tanstack/react-query';
 import { meQueryKeys } from './queryKeys';
 import { meService } from './service';
-import type { MedicalRecordLike, MeOverview, VaccinationLike } from './types';
+import {
+    getMedicalRecordsFromOverview,
+    getVaccinationsFromOverview,
+    type MedicalRecordLike,
+    type MeOverview,
+    type VaccinationLike,
+} from './types';
 
-export function useMeOverviewQuery(
-    options?: Omit<UseQueryOptions<MeOverview>, 'queryKey' | 'queryFn'>,
-) {
-    return useQuery({
+type MeOverviewQueryOptions<TData = MeOverview> = Omit<
+    UseQueryOptions<
+        MeOverview,
+        Error,
+        TData,
+        ReturnType<typeof meQueryKeys.overview>
+    >,
+    'queryKey' | 'queryFn'
+>;
+
+export function getMeOverviewQueryOptions() {
+    return queryOptions({
         queryKey: meQueryKeys.overview(),
         queryFn: meService.getOverview,
         staleTime: 1000 * 60 * 10,
         gcTime: 1000 * 60 * 60,
+    });
+}
+
+export function useMeOverviewQuery(
+    options?: MeOverviewQueryOptions,
+) {
+    return useQuery({
+        ...getMeOverviewQueryOptions(),
         ...options,
     });
 }
 
 export function useMyVaccinationsQuery(
-    options?: Omit<UseQueryOptions<VaccinationLike[]>, 'queryKey' | 'queryFn'>,
+    options?: MeOverviewQueryOptions<VaccinationLike[]>,
 ) {
     return useQuery({
-        queryKey: meQueryKeys.vaccinations(),
-        queryFn: meService.getVaccinations,
-        staleTime: 1000 * 60 * 2,
-        gcTime: 1000 * 60 * 20,
+        ...getMeOverviewQueryOptions(),
+        select: getVaccinationsFromOverview,
         ...options,
     });
 }
 
 export function useMyMedicalRecordsQuery(
-    options?: Omit<
-        UseQueryOptions<MedicalRecordLike[]>,
-        'queryKey' | 'queryFn'
-    >,
+    options?: MeOverviewQueryOptions<MedicalRecordLike[]>,
 ) {
     return useQuery({
-        queryKey: meQueryKeys.medicalRecords(),
-        queryFn: meService.getMedicalRecords,
-        staleTime: 1000 * 60 * 2,
-        gcTime: 1000 * 60 * 20,
+        ...getMeOverviewQueryOptions(),
+        select: getMedicalRecordsFromOverview,
         ...options,
     });
 }

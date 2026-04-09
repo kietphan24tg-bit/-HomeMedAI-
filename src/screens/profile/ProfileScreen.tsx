@@ -168,8 +168,7 @@ export default function ProfileScreen(): React.JSX.Element {
     };
 
     const handleLogout = async (): Promise<void> => {
-        await useAuthStore.getState().clearStore();
-        router.replace('/auth');
+        await useAuthStore.getState().signOut();
     };
 
     const bmi = calcBMI(fields.height, fields.weight);

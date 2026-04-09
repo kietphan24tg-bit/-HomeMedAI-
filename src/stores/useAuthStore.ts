@@ -1,8 +1,7 @@
-import { router } from 'expo-router';
 import { create } from 'zustand';
 import * as SecureStore from '@/src/lib/secureStore';
-import { meQueryKeys } from '@/src/features/me/queryKeys';
-import { normalizeMeOverview } from '@/src/features/me/types';
+import { getMeOverviewQueryOptions } from '@/src/features/me/queries';
+import type { MeOverview } from '@/src/features/me/types';
 import { appQueryClient } from '@/src/lib/query-client';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
@@ -16,27 +15,55 @@ import type { User } from '@/src/types/user';
 const REFRESH_TOKEN = 'refresh_token';
 const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
-function cacheMe(data: unknown) {
-    appQueryClient.setQueryData(
-        meQueryKeys.overview(),
-        normalizeMeOverview(data),
-    );
+function getPostLoginCompleted(overview: MeOverview | null | undefined) {
+    return overview?.post_login_flow_completed ?? false;
+}
+
+async function fetchMeOverview() {
+    return appQueryClient.fetchQuery({
+        ...getMeOverviewQueryOptions(),
+        staleTime: 0,
+    });
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
     return {
         accessToken: null,
-        user: null,
         loading: false,
         initialized: false,
         hasSeenOnboarding: false,
+        postLoginCompleted: false,
+        markOnboardingSeen: async () => {
+            await SecureStore.setItemAsync(HAS_SEEN_ONBOARDING, 'true').catch(
+                (error) => {
+                    console.log(error);
+                },
+            );
+            set({ hasSeenOnboarding: true });
+        },
+        syncMeOverview: async () => {
+            try {
+                const overview = await fetchMeOverview();
+                set({
+                    postLoginCompleted: getPostLoginCompleted(overview),
+                });
+                return overview;
+            } catch (error) {
+                console.log(error);
+                return null;
+            }
+        },
         setAccessToken: (token: string | null) => set({ accessToken: token }),
-        clearStore: () => {
-            SecureStore.deleteItemAsync(REFRESH_TOKEN).catch((error) => {
+        clearSession: async () => {
+            await SecureStore.deleteItemAsync(REFRESH_TOKEN).catch((error) => {
                 console.log(error);
             });
-            appQueryClient.removeQueries({ queryKey: meQueryKeys.all });
-            set({ user: null, accessToken: null });
+            appQueryClient.clear();
+            set({
+                accessToken: null,
+                loading: false,
+                postLoginCompleted: false,
+            });
         },
         bootstrap: async () => {
             if (get().initialized) {
@@ -52,7 +79,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     await SecureStore.getItemAsync(REFRESH_TOKEN);
 
                 if (!refreshToken) {
-                    set({ initialized: true, hasSeenOnboarding });
+                    set({
+                        accessToken: null,
+                        initialized: true,
+                        hasSeenOnboarding,
+                        postLoginCompleted: false,
+                    });
                     return false;
                 }
 
@@ -63,15 +95,25 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     throw new Error('No access token returned');
                 }
 
-                set({ accessToken, hasSeenOnboarding });
-                const account = await authService.fetchMe();
-                cacheMe(account);
-                set({ user: account, initialized: true });
-
                 await SecureStore.setItemAsync(
                     REFRESH_TOKEN,
                     res.refresh_token,
                 );
+                set({
+                    accessToken,
+                    initialized: false,
+                    hasSeenOnboarding,
+                    postLoginCompleted: false,
+                });
+
+                const overview = await get().syncMeOverview();
+
+                set({
+                    accessToken,
+                    initialized: true,
+                    hasSeenOnboarding,
+                    postLoginCompleted: getPostLoginCompleted(overview),
+                });
                 return true;
             } catch (error) {
                 console.log(error);
@@ -80,17 +122,18 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                         console.log(deleteError);
                     },
                 );
+                appQueryClient.clear();
                 appToast.showError(
                     'Error',
                     'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
                 );
                 set({
-                    user: null,
                     accessToken: null,
                     initialized: true,
                     hasSeenOnboarding: Boolean(
                         await SecureStore.getItemAsync(HAS_SEEN_ONBOARDING),
                     ),
+                    postLoginCompleted: false,
                 });
                 return false;
             } finally {
@@ -142,9 +185,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 set({
                     accessToken: res.access_token,
                     initialized: true,
-                    hasSeenOnboarding: true,
+                    hasSeenOnboarding: get().hasSeenOnboarding,
+                    postLoginCompleted: false,
                 });
-                await get().fetchMe();
+                await get().syncMeOverview();
                 return true;
             } catch (error) {
                 console.log(error);
@@ -180,12 +224,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 set({
                     accessToken: res.access_token,
                     initialized: true,
-                    hasSeenOnboarding: true,
+                    hasSeenOnboarding: get().hasSeenOnboarding,
+                    postLoginCompleted: false,
                 });
-                await get().fetchMe();
+                await get().syncMeOverview();
             } catch (error) {
                 console.log(error);
-
                 appToast.showError(
                     'Error',
                     'Đăng nhập thất bại. Vui lòng thử lại.',
@@ -196,69 +240,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         },
         signOut: async () => {
             try {
+                set({ loading: true });
                 await authService.signOut();
-                await SecureStore.deleteItemAsync(REFRESH_TOKEN);
-                get().clearStore();
-                appToast.showSuccess('Thành công', 'Đăng xuất thành công!');
-            } catch (error) {
-                console.log(error);
-                appToast.showError(
-                    'Error',
-                    'Đăng xuất thất bại. Vui lòng thử lại.',
-                );
-            }
-        },
-        fetchMe: async () => {
-            try {
-                set({ loading: true });
-                const account = await authService.fetchMe();
-                cacheMe(account);
-                set({ user: account });
             } catch (error) {
                 console.log(error);
             } finally {
-                set({ loading: false });
-            }
-        },
-        refresh: async () => {
-            try {
-                set({ loading: true });
-                const refreshToken =
-                    await SecureStore.getItemAsync(REFRESH_TOKEN);
-
-                if (refreshToken) {
-                    const res = await authService.refresh(refreshToken);
-                    const accessToken =
-                        res.access_token ?? res.accessToken ?? null;
-
-                    if (!accessToken) {
-                        throw new Error('No access token returned');
-                    }
-
-                    set({ accessToken });
-                    if (!get().user) {
-                        await get().fetchMe();
-                    }
-
-                    await SecureStore.setItemAsync(
-                        REFRESH_TOKEN,
-                        res.refresh_token,
-                    );
-                    return true;
-                } else {
-                    throw new Error('No refresh token found');
-                }
-            } catch (error) {
-                console.log(error);
-                appToast.showError(
-                    'Error',
-                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
+                await get().clearSession();
+                appToast.showSuccess(
+                    'Thành công',
+                    'Đăng xuất thành công!',
                 );
-                get().clearStore();
-                router.push('/auth');
-                return false;
-            } finally {
-                set({ loading: false });
             }
         },
     };

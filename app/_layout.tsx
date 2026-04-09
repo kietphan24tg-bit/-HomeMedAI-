@@ -1,4 +1,3 @@
-import LaunchScreen from '@/src/components/LaunchScreen';
 import { useColorScheme } from '@/src/hooks/use-color-scheme';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
@@ -27,7 +26,9 @@ import { appQueryClient } from '@/src/lib/query-client';
 import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch((error) => {
+    console.log(error);
+});
 
 export const unstable_settings = {
     initialRouteName: 'onboarding',
@@ -36,7 +37,7 @@ export const unstable_settings = {
 export default function RootLayout() {
     const colorScheme = useColorScheme();
     const bootstrap = useAuthStore((state) => state.bootstrap);
-    const [showLaunchScreen, setShowLaunchScreen] = useState(true);
+    const [appReady, setAppReady] = useState(false);
     const [loaded, error] = useFonts({
         Inter_400Regular,
         Inter_500Medium,
@@ -54,23 +55,33 @@ export default function RootLayout() {
         let active = true;
 
         const initializeApp = async () => {
-            await SplashScreen.hideAsync();
-            await bootstrap();
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
-            if (active) {
-                setShowLaunchScreen(false);
+            try {
+                await bootstrap();
+            } finally {
+                if (active) {
+                    setAppReady(true);
+                }
             }
         };
 
-        initializeApp();
+        void initializeApp();
 
         return () => {
             active = false;
         };
     }, [bootstrap, loaded, error]);
 
-    if (!loaded && !error) {
+    useEffect(() => {
+        if (!appReady) {
+            return;
+        }
+
+        void SplashScreen.hideAsync().catch((hideError) => {
+            console.log(hideError);
+        });
+    }, [appReady]);
+
+    if ((!loaded && !error) || !appReady) {
         return null;
     }
 
@@ -83,40 +94,17 @@ export default function RootLayout() {
                             colorScheme === 'dark' ? DarkTheme : DefaultTheme
                         }
                     >
-                        {showLaunchScreen ? (
-                            <LaunchScreen />
-                        ) : (
-                            <Stack screenOptions={MOTION_PRESETS.root}>
-                                <Stack.Screen
-                                    name='onboarding'
-                                    options={MOTION_PRESETS.launch}
-                                />
-                                <Stack.Screen
-                                    name='(tabs)'
-                                    options={MOTION_PRESETS.tabEntry}
-                                />
-                                <Stack.Screen
-                                    name='auth'
-                                    options={MOTION_PRESETS.flowEntry}
-                                />
-                                <Stack.Screen
-                                    name='personal-info'
-                                    options={MOTION_PRESETS.drillDown}
-                                />
-                                <Stack.Screen
-                                    name='post-login'
-                                    options={MOTION_PRESETS.flowEntry}
-                                />
-                                <Stack.Screen
-                                    name='join-family-code'
-                                    options={MOTION_PRESETS.drillDown}
-                                />
-                                <Stack.Screen
-                                    name='medical-dictionary/[entryType]/[itemId]'
-                                    options={MOTION_PRESETS.drillDown}
-                                />
-                            </Stack>
-                        )}
+                        <Stack screenOptions={MOTION_PRESETS.root}>
+                            <Stack.Screen
+                                name='onboarding'
+                                options={MOTION_PRESETS.launch}
+                            />
+                            <Stack.Screen
+                                name='auth'
+                                options={MOTION_PRESETS.flowEntry}
+                            />
+                            <Stack.Screen name='(protected)' />
+                        </Stack>
                         <StatusBar style='auto' />
                     </ThemeProvider>
                 </SafeAreaProvider>
