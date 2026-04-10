@@ -218,7 +218,7 @@ export default function PersonalInfoScreen({
             if (onComplete) {
                 onComplete();
             } else {
-                router.replace('/(tabs)');
+                router.replace('/');
             }
         } catch (error: any) {
             appToast.showError('Lưu hồ sơ thất bại', buildDescription(error));

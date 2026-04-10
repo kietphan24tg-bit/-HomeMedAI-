@@ -25,7 +25,7 @@ export default function AuthRoute() {
     }
 
     if (accessToken) {
-        return <Redirect href={postLoginCompleted ? '/(tabs)' : '/post-login'} />;
+        return <Redirect href={postLoginCompleted ? '/' : '/post-login'} />;
     }
 
     return <AuthScreen initialMode={initialMode} />;

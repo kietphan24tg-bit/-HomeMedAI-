@@ -12,8 +12,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { appToast } from '@/src/lib/toast';
 import StatePanel from '@/src/components/state/StatePanel';
+import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
@@ -68,7 +68,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             return;
         }
 
-        router.replace('/(tabs)');
+        router.replace('/');
     };
 
     return (

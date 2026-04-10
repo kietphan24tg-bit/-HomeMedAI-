@@ -23,7 +23,7 @@ export default function OnboardingRoute() {
             return <Redirect href='/auth' />;
         }
 
-        return <Redirect href={postLoginCompleted ? '/(tabs)' : '/post-login'} />;
+        return <Redirect href={postLoginCompleted ? '/' : '/post-login'} />;
     }
 
     return <OnboardingScreen />;

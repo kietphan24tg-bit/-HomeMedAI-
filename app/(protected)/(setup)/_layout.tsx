@@ -16,12 +16,15 @@ export default function SetupFlowLayout() {
     }
 
     if (postLoginCompleted) {
-        return <Redirect href='/(tabs)' />;
+        return <Redirect href='/' />;
     }
 
     return (
         <Stack screenOptions={MOTION_PRESETS.root}>
-            <Stack.Screen name='post-login' options={MOTION_PRESETS.flowEntry} />
+            <Stack.Screen
+                name='post-login'
+                options={MOTION_PRESETS.flowEntry}
+            />
             <Stack.Screen
                 name='personal-info'
                 options={MOTION_PRESETS.drillDown}

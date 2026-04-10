@@ -193,7 +193,7 @@ export default function FamilyAddMemberScreen({
                     subtitle='Nhập SĐT người thân đã có tài khoản HomeMedAI'
                     style={{ marginBottom: 0 }}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/search-phone`)
+                        router.push(`/family/${family.id}/search-phone`)
                     }
                 />
 

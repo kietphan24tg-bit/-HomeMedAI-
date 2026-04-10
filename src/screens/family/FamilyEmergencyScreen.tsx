@@ -336,9 +336,15 @@ export default function FamilyEmergencyScreen({
                             <Pressable
                                 style={styles.quickActionBtn}
                                 onPress={() =>
-                                    router.push(
-                                        `/(tabs)/family/${familyId}/member/${member.id}?tab=health`,
-                                    )
+                                    router.push({
+                                        pathname:
+                                            '/family/[familyId]/member/[memberId]',
+                                        params: {
+                                            familyId,
+                                            memberId: member.id,
+                                            tab: 'health',
+                                        },
+                                    })
                                 }
                             >
                                 <Text style={styles.quickActionText}>

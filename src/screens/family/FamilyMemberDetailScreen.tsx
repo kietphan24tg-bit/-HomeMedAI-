@@ -338,7 +338,7 @@ export default function FamilyMemberDetailScreen({
         _canManageMembers && !member.isSelf && !member.isOwner;
     const _showRemoveOther =
         _canManageMembers && !member.isSelf && !member.isOwner;
-    const memberBasePath = `/(tabs)/family/${family.id}/member/${member.id}`;
+    const memberBasePath = `/family/${family.id}/member/${member.id}`;
     const emergencyContacts = DEFAULT_EMERGENCY_CONTACTS;
     const healthInfoItems = [
         {

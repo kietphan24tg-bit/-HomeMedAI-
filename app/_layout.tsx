@@ -1,4 +1,3 @@
-import { useColorScheme } from '@/src/hooks/use-color-scheme';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
     Inter_400Regular,
@@ -19,9 +18,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Toaster } from 'sonner-native';
+import { useColorScheme } from '@/src/hooks/use-color-scheme';
 import { appQueryClient } from '@/src/lib/query-client';
 import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
@@ -108,7 +106,6 @@ export default function RootLayout() {
                         <StatusBar style='auto' />
                     </ThemeProvider>
                 </SafeAreaProvider>
-                <Toaster />
             </QueryClientProvider>
         </GestureHandlerRootView>
     );

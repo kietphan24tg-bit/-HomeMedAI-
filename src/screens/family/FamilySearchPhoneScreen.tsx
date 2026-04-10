@@ -523,7 +523,7 @@ export default function FamilySearchPhoneScreen({
                                 style={{ width: '100%', alignItems: 'center' }}
                                 onPress={() =>
                                     router.push(
-                                        `/(tabs)/family/${family.id}/add-member`,
+                                        `/family/${family.id}/add-member`,
                                     )
                                 }
                             >

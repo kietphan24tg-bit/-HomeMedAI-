@@ -1,18 +1,10 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import {
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    Text,
-    View,
-} from 'react-native';
-import DeviceInfo from 'react-native-device-info';
+import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { getDeviceMetadata } from '@/src/lib/device';
 import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
 import { useAuthStore } from '@/src/stores/useAuthStore';
@@ -56,13 +48,6 @@ export default function AuthScreen({
     useEffect(() => {
         setMode(initialMode);
     }, [initialMode]);
-
-    useEffect(() => {
-        GoogleSignin.configure({
-            webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID || '',
-            iosClientId: process.env.EXPO_PUBLIC_IOS_CLIENT_ID || '',
-        });
-    }, []);
 
     const clearForm = () => {
         setEmail('');
@@ -125,9 +110,8 @@ export default function AuthScreen({
         }
 
         try {
-            const device_id = await DeviceInfo.getUniqueId();
-            const device_name = await DeviceInfo.getDeviceName();
-            const platform = Platform.OS;
+            const { device_id, device_name, platform } =
+                await getDeviceMetadata();
 
             let success = false;
 
@@ -158,7 +142,7 @@ export default function AuthScreen({
                 } else {
                     router.replace(
                         useAuthStore.getState().postLoginCompleted
-                            ? '/(tabs)'
+                            ? '/'
                             : '/post-login',
                     );
                 }

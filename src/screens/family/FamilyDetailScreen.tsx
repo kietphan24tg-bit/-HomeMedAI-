@@ -215,7 +215,7 @@ export default function FamilyDetailScreen({
                             isLast={index === members.length - 1}
                             onPress={() =>
                                 router.push(
-                                    `/(tabs)/family/${family.id}/member/${member.id}`,
+                                    `/family/${family.id}/member/${member.id}`,
                                 )
                             }
                         />
@@ -231,9 +231,7 @@ export default function FamilyDetailScreen({
                                   },
                         ]}
                         onPress={() =>
-                            router.push(
-                                `/(tabs)/family/${family.id}/add-member`,
-                            )
+                            router.push(`/family/${family.id}/add-member`)
                         }
                     >
                         <View style={styles.addMic}>
@@ -253,9 +251,7 @@ export default function FamilyDetailScreen({
             <View style={localStyles.bottomBar}>
                 <Pressable
                     style={localStyles.bottomBarItem}
-                    onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/medicine`)
-                    }
+                    onPress={() => router.push(`/family/${family.id}/medicine`)}
                 >
                     <View
                         style={[
@@ -275,7 +271,7 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/reminders`)
+                        router.push(`/family/${family.id}/reminders`)
                     }
                 >
                     <View
@@ -296,7 +292,7 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/emergency`)
+                        router.push(`/family/${family.id}/emergency`)
                     }
                 >
                     <View

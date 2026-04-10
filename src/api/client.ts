@@ -5,7 +5,7 @@ import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { mockAdapter } from './mock-adapter';
 
-const USE_MOCK = process.env.EXPO_PUBLIC_MOCK_API === 'true';
+const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
 const REFRESH_TOKEN = 'refresh_token';
 const EXCLUDED_REFRESH_PATHS = [
@@ -95,7 +95,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error.config as RetriableRequestConfig | undefined;
+        const originalRequest = error.config as
+            | RetriableRequestConfig
+            | undefined;
 
         if (!originalRequest || shouldSkipRefresh(originalRequest.url)) {
             return Promise.reject(error);

@@ -26,7 +26,9 @@ import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 import type { VaccineDetailItem, VaccineDose } from '../../types/health';
 
-interface Props {}
+interface Props {
+    onClose: () => void;
+}
 
 type VaxView = 'list' | 'detail';
 

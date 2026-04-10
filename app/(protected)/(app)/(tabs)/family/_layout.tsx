@@ -12,7 +12,7 @@ export default function FamilyLayout() {
             <Stack.Screen name='index' options={MOTION_PRESETS.tabEntry} />
             <Stack.Screen name='invites' options={MOTION_PRESETS.modal} />
             <Stack.Screen
-                name='[familyId]/index'
+                name='[familyId]'
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
@@ -32,7 +32,7 @@ export default function FamilyLayout() {
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
-                name='[familyId]/member/[memberId]/history/records/index'
+                name='[familyId]/member/[memberId]/history/records'
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
@@ -44,7 +44,7 @@ export default function FamilyLayout() {
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
-                name='[familyId]/member/[memberId]/history/vaccines/index'
+                name='[familyId]/member/[memberId]/history/vaccines'
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
@@ -52,7 +52,7 @@ export default function FamilyLayout() {
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
-                name='[familyId]/member/[memberId]/history/metrics/index'
+                name='[familyId]/member/[memberId]/history/metrics'
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
@@ -60,7 +60,7 @@ export default function FamilyLayout() {
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
-                name='[familyId]/member/[memberId]/history/followups/index'
+                name='[familyId]/member/[memberId]/history/followups'
                 options={MOTION_PRESETS.drillDown}
             />
             <Stack.Screen
