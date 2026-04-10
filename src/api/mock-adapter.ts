@@ -298,7 +298,6 @@ const routes: Route[] = [
 
             return {
                 answer,
-                session_id: body.session_id ?? '1',
             };
         },
     },

@@ -1,5 +1,5 @@
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // Note: Install @react-native-async-storage/async-storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -34,12 +34,37 @@ type ChatSession = {
 };
 
 const initialMessages: ChatMessage[] = [];
+const CHATBOT_SESSIONS_KEY = 'chatbot_sessions_v1';
+const MAX_STORED_SESSIONS = 3;
+const MAX_MESSAGES_PER_SESSION = 20;
 
 function formatTimestamp(date: Date) {
     return date.toLocaleTimeString('vi-VN', {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+function buildSessionTitle(messages: ChatMessage[]) {
+    return (
+        messages
+            .find((message) => message.sender === 'user')
+            ?.text.slice(0, 50) || 'New Chat'
+    );
+}
+
+function clampMessages(messages: ChatMessage[]) {
+    return messages.slice(-MAX_MESSAGES_PER_SESSION);
+}
+
+function normalizeSessions(sessions: ChatSession[]) {
+    return [...sessions]
+        .map((session) => ({
+            ...session,
+            messages: clampMessages(session.messages || []),
+        }))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, MAX_STORED_SESSIONS);
 }
 
 export default function ChatbotScreen(): React.JSX.Element {
@@ -52,9 +77,19 @@ export default function ChatbotScreen(): React.JSX.Element {
     const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     useEffect(() => {
-        loadSessions();
-        const newId = `session-${Date.now()}`;
-        setCurrentSessionId(newId);
+        const bootstrap = async () => {
+            const loaded = await loadSessions();
+            if (loaded.length > 0) {
+                const latest = loaded[0];
+                setSessions(loaded);
+                setCurrentSessionId(latest.id);
+                setMessages(latest.messages);
+                return;
+            }
+            setCurrentSessionId(`session-${Date.now()}`);
+        };
+
+        void bootstrap();
     }, []);
 
     useEffect(() => {
@@ -63,34 +98,60 @@ export default function ChatbotScreen(): React.JSX.Element {
         }
     }, [messages, isLoading]);
 
-    const loadSessions = async () => {
-        // Mock: In real app, load from AsyncStorage
-        // const stored = await AsyncStorage.getItem('chatbot_sessions');
-        // if (stored) setSessions(JSON.parse(stored));
+    const loadSessions = async (): Promise<ChatSession[]> => {
+        try {
+            const stored = await AsyncStorage.getItem(CHATBOT_SESSIONS_KEY);
+            if (!stored) return [];
+
+            const parsed = JSON.parse(stored) as unknown;
+            if (!Array.isArray(parsed)) return [];
+
+            return normalizeSessions(
+                parsed.filter((item): item is ChatSession => {
+                    return (
+                        typeof item === 'object' &&
+                        item !== null &&
+                        typeof (item as ChatSession).id === 'string' &&
+                        Array.isArray((item as ChatSession).messages) &&
+                        typeof (item as ChatSession).title === 'string' &&
+                        typeof (item as ChatSession).timestamp === 'number'
+                    );
+                }),
+            );
+        } catch {
+            return [];
+        }
     };
 
     const saveSessions = async (newSessions: ChatSession[]) => {
-        // Mock: In real app, save to AsyncStorage
-        // await AsyncStorage.setItem('chatbot_sessions', JSON.stringify(newSessions));
-
-        setSessions(newSessions);
+        const normalized = normalizeSessions(newSessions);
+        setSessions(normalized);
+        try {
+            await AsyncStorage.setItem(
+                CHATBOT_SESSIONS_KEY,
+                JSON.stringify(normalized),
+            );
+        } catch {
+            // Keep UX smooth even when storage is temporarily unavailable.
+        }
     };
 
-    const saveCurrentSession = () => {
-        if (messages.length === 0) return;
-        const title =
-            messages.find((m) => m.sender === 'user')?.text.slice(0, 50) ||
-            'New Chat';
+    const saveCurrentSession = async (
+        targetMessages: ChatMessage[] = messages,
+        targetSessionId: string = currentSessionId,
+    ) => {
+        if (!targetSessionId || targetMessages.length === 0) return;
+
         const session: ChatSession = {
-            id: currentSessionId,
-            messages,
-            title,
+            id: targetSessionId,
+            messages: clampMessages(targetMessages),
+            title: buildSessionTitle(targetMessages),
             timestamp: Date.now(),
         };
         const updated = sessions
-            .filter((s) => s.id !== currentSessionId)
+            .filter((s) => s.id !== targetSessionId)
             .concat(session);
-        saveSessions(updated);
+        await saveSessions(updated);
     };
 
     const loadSession = (session: ChatSession) => {
@@ -100,14 +161,14 @@ export default function ChatbotScreen(): React.JSX.Element {
     };
 
     const resetChat = () => {
-        saveCurrentSession();
+        void saveCurrentSession();
         const newId = `session-${Date.now()}`;
         setCurrentSessionId(newId);
         setMessages(initialMessages);
     };
 
     const handleBackPress = () => {
-        saveCurrentSession();
+        void saveCurrentSession();
         router.back();
     };
 
@@ -124,35 +185,54 @@ export default function ChatbotScreen(): React.JSX.Element {
             return;
         }
 
+        const resolvedSessionId = currentSessionId || `session-${Date.now()}`;
+        if (!currentSessionId) {
+            setCurrentSessionId(resolvedSessionId);
+        }
+
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
             sender: 'user',
             text: trimmed,
             time: formatTimestamp(new Date()),
         };
+        const baseMessages = [...messages, userMessage];
 
-        setMessages((prev) => [...prev, userMessage]);
+        setMessages(baseMessages);
         setInputValue('');
         setIsLoading(true);
-        console.log(trimmed);
-        const repliedMessage = await apiClient.post('/rag/chat', {
-            session_id: String(1),
-            question: trimmed,
-        });
 
-        console.log(repliedMessage.data.answer);
-        setTimeout(() => {
+        try {
+            const repliedMessage = await apiClient.post('/rag/chat', {
+                question: trimmed,
+            });
+
+            const answer = String(
+                repliedMessage?.data?.answer ||
+                    'Mình chưa có phản hồi phù hợp, bạn thử đặt câu hỏi chi tiết hơn nhé.',
+            );
             const reply: ChatMessage = {
                 id: `ai-${Date.now()}`,
                 sender: 'ai',
-                text: repliedMessage.data.answer,
+                text: answer,
                 time: formatTimestamp(new Date()),
             };
-            setMessages((prev) => [...prev, reply]);
+            const finalMessages = [...baseMessages, reply];
+            setMessages(finalMessages);
+            await saveCurrentSession(finalMessages, resolvedSessionId);
+        } catch {
+            const fallbackReply: ChatMessage = {
+                id: `ai-${Date.now()}`,
+                sender: 'ai',
+                text: 'Hiện tại kết nối đang gián đoạn. Bạn vui lòng thử lại sau ít phút.',
+                time: formatTimestamp(new Date()),
+            };
+            const finalMessages = [...baseMessages, fallbackReply];
+            setMessages(finalMessages);
+            await saveCurrentSession(finalMessages, resolvedSessionId);
+        } finally {
             setIsLoading(false);
-            // Save after AI reply
-            setTimeout(saveCurrentSession, 100);
-        }, 1200);
+        }
     };
 
     const handleSubmitEditing = () => {
@@ -317,7 +397,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                             </Text>
                         ) : (
                             <FlatList
-                                data={sessions.sort(
+                                data={[...sessions].sort(
                                     (a, b) => b.timestamp - a.timestamp,
                                 )}
                                 keyExtractor={(item) => item.id}
@@ -348,18 +428,4 @@ export default function ChatbotScreen(): React.JSX.Element {
             </Modal>
         </SafeAreaView>
     );
-}
-
-function getMockReply(text: string) {
-    const normalized = text.toLowerCase();
-
-    if (normalized.includes('đau') || normalized.includes('sốt')) {
-        return 'Với triệu chứng đó, bạn nên theo dõi nhiệt độ và nghỉ ngơi. Nếu kéo dài, nên đến cơ sở y tế để khám.';
-    }
-
-    if (normalized.includes('thuốc') || normalized.includes('uống')) {
-        return 'Hãy đọc kỹ hướng dẫn sử dụng thuốc và hỏi bác sĩ nếu bạn có thắc mắc về liều lượng hoặc tác dụng phụ.';
-    }
-
-    return 'Mình đã nhận được câu hỏi của bạn. Bạn có thể cho mình thêm chi tiết để mình tư vấn chính xác hơn không?';
 }
