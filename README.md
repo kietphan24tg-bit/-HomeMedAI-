@@ -1,7 +1,6 @@
 # 🏥 HomeMedAI - Technical Documentation
 
-Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình. 
----
+## Dự án mobile ứng dụng React Native & Expo phục vụ quản lý sức khỏe gia đình.
 
 ## 🏗 Kiến trúc Dự án (Architecture)
 
@@ -54,8 +53,6 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 ---
 
-
-
 ### Nguyên tắc code UI:
 
 1. **SafeAreaView**: Luôn dùng `SafeAreaView` từ thư viện `react-native-safe-area-context`.
@@ -66,7 +63,17 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 
 - `npm start`: Chạy Expo server.
 - `npm run lint`: Kiểm tra code style.
+- `npm run typecheck`: Kiểm tra TypeScript toàn repo.
+- `npm run check:auth-session`: Kiểm tra các invariant quan trọng của flow auth/session.
+- `npm run test:auth-session-runtime`: Chạy runtime tests cho session core và refresh coordinator.
+- `npm run check-all`: Chạy toàn bộ chuỗi kiểm tra chính.
 - `npm run reset-project`: Cài đặt lại môi trường mẫu (Thận trọng khi dùng).
+
+### Tài liệu Auth/Session
+
+- `modify.md`: mô tả các thay đổi đã áp dụng cho auth/session.
+- `auth-session-qa.md`: checklist QA thủ công trước release.
+- `docs/auth-session.md`: trang index cho docs và command liên quan auth/session.
 
 ---
 
@@ -77,5 +84,3 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 - `react-native-safe-area-context`: Quản lý vùng an toàn trên các thiết bị mobile mới.
 
 ---
-
-

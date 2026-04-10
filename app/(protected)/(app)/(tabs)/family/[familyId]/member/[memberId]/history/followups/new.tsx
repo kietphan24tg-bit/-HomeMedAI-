@@ -27,8 +27,8 @@ export default function MemberFollowupNewRoute() {
 
     // Reminders
     const [remindActive, setRemindActive] = useState(true);
-    const [remindBefore, setRemindBefore] = useState('1 ngày');
-    const [remindExtra, setRemindExtra] = useState('Sáng hôm đó');
+    const remindBefore = '1 ngày';
+    const remindExtra = 'Sáng hôm đó';
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Pressable,
@@ -19,8 +19,6 @@ import { colors, typography } from '@/src/styles/tokens';
 type NextDoseChoice = 'completed' | 'pending';
 
 export default function MemberVaxDetailRoute() {
-    const { vaxId } = useLocalSearchParams<{ vaxId: string }>();
-
     const [vaccineName, setVaccineName] = useState('COVID-19 (Pfizer)');
     const [doseCurrent, setDoseCurrent] = useState('3');
     const [doseTotal, setDoseTotal] = useState('3');

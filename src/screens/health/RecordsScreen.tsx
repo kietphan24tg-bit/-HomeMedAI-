@@ -700,27 +700,29 @@ export function RecordDetail({
     onClose: () => void;
 }): React.JSX.Element {
     const [activeTab, setActiveTab] = useState(0);
+    const recordCategory = record.category;
+    const isRecordSpecialty = SPECIALTIES.some(
+        (item) => item.key === recordCategory,
+    );
     const [showAddFu, setShowAddFu] = useState(true);
     const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
-    const [fuTimeObj, setFuTimeObj] = useState<Date | null>(null);
+    const [, setFuTimeObj] = useState<Date | null>(null);
     const [fuHospital, setFuHospital] = useState('');
-    const [fuDept, setFuDept] = useState('');
-    const [fuDoctor, setFuDoctor] = useState('');
+    const [, setFuDept] = useState('');
+    const [, setFuDoctor] = useState('');
     const [fuPurpose, setFuPurpose] = useState('');
-    const [fuPrep, setFuPrep] = useState('');
+    const [, setFuPrep] = useState('');
     const [fuReminder, setFuReminder] = useState(true);
     const [fuReminderTime, setFuReminderTime] = useState('1 ngày');
-    const [showFuSpec, setShowFuSpec] = useState(false);
-    const [showFuRemind, setShowFuRemind] = useState(false);
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
 
-    const specEntry = SPECIALTIES.find((s) => s.key === record.category);
+    const specEntry = SPECIALTIES.find((s) => s.key === recordCategory);
     const specLabel =
         specEntry?.label ??
-        (record.category === 'general'
+        (recordCategory === 'general'
             ? 'Tổng quát'
-            : record.category === 'internal'
+            : recordCategory === 'internal'
               ? 'Nội khoa'
               : record.tag);
     const [editableTestResults, setEditableTestResults] = useState(
@@ -730,9 +732,7 @@ export function RecordDetail({
         record.department ?? specLabel ?? '',
     );
     const [editableDepartmentKey, setEditableDepartmentKey] = useState(
-        SPECIALTIES.some((item) => item.key === record.category)
-            ? record.category
-            : '',
+        isRecordSpecialty ? recordCategory : '',
     );
     const [editableDiagnosis, setEditableDiagnosis] = useState(
         record.diagnosis ?? '',
@@ -763,11 +763,7 @@ export function RecordDetail({
 
     useEffect(() => {
         setEditableDepartment(record.department ?? specLabel ?? '');
-        setEditableDepartmentKey(
-            SPECIALTIES.some((item) => item.key === record.category)
-                ? record.category
-                : '',
-        );
+        setEditableDepartmentKey(isRecordSpecialty ? recordCategory : '');
         setEditableDiagnosis(record.diagnosis ?? '');
         setEditableHospital(record.hospital ?? '');
         setEditableDoctor(record.doctor ?? '');
@@ -794,6 +790,8 @@ export function RecordDetail({
         record.testResults,
         record.doctorAdvice,
         record.prescriptions,
+        recordCategory,
+        isRecordSpecialty,
         specLabel,
     ]);
 

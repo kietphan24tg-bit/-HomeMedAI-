@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import * as SecureStore from '@/src/lib/secureStore';
 import { getMeOverviewQueryOptions } from '@/src/features/me/queries';
 import type { MeOverview } from '@/src/features/me/types';
 import { appQueryClient } from '@/src/lib/query-client';
+import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
 import { authService } from '@/src/services/auth.services';
 import type {
@@ -17,6 +17,22 @@ const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
 function getPostLoginCompleted(overview: MeOverview | null | undefined) {
     return overview?.post_login_flow_completed ?? false;
+}
+
+function getAccessTokenFromResponse(
+    payload: Partial<{ access_token: string; accessToken: string }>,
+) {
+    return payload.access_token ?? payload.accessToken ?? null;
+}
+
+function requireRefreshToken(
+    payload: Partial<{ refresh_token: string }>,
+): string {
+    if (!payload.refresh_token) {
+        throw new Error('No refresh token returned');
+    }
+
+    return payload.refresh_token;
 }
 
 async function fetchMeOverview() {
@@ -36,12 +52,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         markOnboardingSeen: async () => {
             await SecureStore.setItemAsync(HAS_SEEN_ONBOARDING, 'true').catch(
                 (error) => {
-                    console.log(error);
+                    console.error(error);
                 },
             );
             set({ hasSeenOnboarding: true });
         },
-        syncMeOverview: async () => {
+        syncMeOverview: async (options) => {
             try {
                 const overview = await fetchMeOverview();
                 set({
@@ -49,14 +65,17 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 });
                 return overview;
             } catch (error) {
-                console.log(error);
+                console.error(error);
+                if (options?.throwOnError) {
+                    throw error;
+                }
                 return null;
             }
         },
         setAccessToken: (token: string | null) => set({ accessToken: token }),
         clearSession: async () => {
             await SecureStore.deleteItemAsync(REFRESH_TOKEN).catch((error) => {
-                console.log(error);
+                console.error(error);
             });
             appQueryClient.clear();
             set({
@@ -89,16 +108,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 }
 
                 const res = await authService.refresh(refreshToken);
-                const accessToken = res.access_token ?? res.accessToken ?? null;
+                const accessToken = getAccessTokenFromResponse(res);
+                const nextRefreshToken = requireRefreshToken(res);
 
                 if (!accessToken) {
                     throw new Error('No access token returned');
                 }
 
-                await SecureStore.setItemAsync(
-                    REFRESH_TOKEN,
-                    res.refresh_token,
-                );
+                await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
                 set({
                     accessToken,
                     initialized: false,
@@ -106,7 +123,13 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     postLoginCompleted: false,
                 });
 
-                const overview = await get().syncMeOverview();
+                const overview = await get().syncMeOverview({
+                    throwOnError: true,
+                });
+
+                if (!overview) {
+                    throw new Error('No me overview returned');
+                }
 
                 set({
                     accessToken,
@@ -116,10 +139,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 });
                 return true;
             } catch (error) {
-                console.log(error);
+                console.error(error);
                 await SecureStore.deleteItemAsync(REFRESH_TOKEN).catch(
                     (deleteError) => {
-                        console.log(deleteError);
+                        console.error(deleteError);
                     },
                 );
                 appQueryClient.clear();
@@ -150,7 +173,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 await authService.signUp({ email, password, phone_number });
                 return true;
             } catch (error) {
-                console.log(error);
+                console.error(error);
                 appToast.showError(
                     'Error',
                     'Đăng ký thất bại. Vui lòng thử lại.',
@@ -168,6 +191,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             platform,
             fcm_token,
         }: SignInParams) => {
+            let shouldRollbackSession = false;
             try {
                 set({ loading: true });
                 const res = await authService.signIn({
@@ -178,20 +202,37 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     platform,
                     fcm_token,
                 });
-                await SecureStore.setItemAsync(
-                    REFRESH_TOKEN,
-                    res.refresh_token,
-                );
+                const accessToken = getAccessTokenFromResponse(res);
+                const nextRefreshToken = requireRefreshToken(res);
+
+                if (!accessToken) {
+                    throw new Error('No access token returned');
+                }
+
+                shouldRollbackSession = true;
+                await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
                 set({
-                    accessToken: res.access_token,
+                    accessToken,
                     initialized: true,
                     hasSeenOnboarding: get().hasSeenOnboarding,
                     postLoginCompleted: false,
                 });
-                await get().syncMeOverview();
+
+                const overview = await get().syncMeOverview({
+                    throwOnError: true,
+                });
+
+                if (!overview) {
+                    throw new Error('No me overview returned');
+                }
+
+                shouldRollbackSession = false;
                 return true;
             } catch (error) {
-                console.log(error);
+                console.error(error);
+                if (shouldRollbackSession) {
+                    await get().clearSession();
+                }
                 appToast.showError(
                     'Error',
                     'Đăng nhập thất bại. Vui lòng thử lại.',
@@ -208,6 +249,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             platform,
             fcm_token,
         }: SignInWithGoogleParams) => {
+            let shouldRollbackSession = false;
             try {
                 set({ loading: true });
                 const res = await authService.signInWithGoogle({
@@ -217,23 +259,42 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     platform,
                     fcm_token,
                 });
-                await SecureStore.setItemAsync(
-                    REFRESH_TOKEN,
-                    res.refresh_token,
-                );
+                const accessToken = getAccessTokenFromResponse(res);
+                const nextRefreshToken = requireRefreshToken(res);
+
+                if (!accessToken) {
+                    throw new Error('No access token returned');
+                }
+
+                shouldRollbackSession = true;
+                await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
                 set({
-                    accessToken: res.access_token,
+                    accessToken,
                     initialized: true,
                     hasSeenOnboarding: get().hasSeenOnboarding,
                     postLoginCompleted: false,
                 });
-                await get().syncMeOverview();
+
+                const overview = await get().syncMeOverview({
+                    throwOnError: true,
+                });
+
+                if (!overview) {
+                    throw new Error('No me overview returned');
+                }
+
+                shouldRollbackSession = false;
+                return true;
             } catch (error) {
-                console.log(error);
+                console.error(error);
+                if (shouldRollbackSession) {
+                    await get().clearSession();
+                }
                 appToast.showError(
                     'Error',
                     'Đăng nhập thất bại. Vui lòng thử lại.',
                 );
+                return false;
             } finally {
                 set({ loading: false });
             }
@@ -243,13 +304,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 set({ loading: true });
                 await authService.signOut();
             } catch (error) {
-                console.log(error);
+                console.error(error);
             } finally {
                 await get().clearSession();
-                appToast.showSuccess(
-                    'Thành công',
-                    'Đăng xuất thành công!',
-                );
+                appToast.showSuccess('Thành công', 'Đăng xuất thành công!');
             }
         },
     };

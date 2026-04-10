@@ -25,7 +25,9 @@ export interface AuthStore {
     postLoginCompleted: boolean;
     accessToken: string | null;
     markOnboardingSeen: () => Promise<void>;
-    syncMeOverview: () => Promise<MeOverview | null>;
+    syncMeOverview: (options?: {
+        throwOnError?: boolean;
+    }) => Promise<MeOverview | null>;
     setAccessToken: (token: string | null) => void;
     clearSession: () => Promise<void>;
     bootstrap: () => Promise<boolean>;
@@ -48,6 +50,6 @@ export interface AuthStore {
         device_name,
         platform,
         fcm_token,
-    }: SignInWithGoogleParams) => Promise<void>;
+    }: SignInWithGoogleParams) => Promise<boolean>;
     signOut: () => Promise<void>;
 }

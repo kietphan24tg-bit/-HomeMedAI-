@@ -19,8 +19,11 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
         "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+        "build:auth-session-tests": "tsc -p tsconfig.auth-tests.json",
+        "check:auth-session": "node ./scripts/check-auth-session.mjs",
+        "test:auth-session-runtime": "npm run build:auth-session-tests && node ./tests/auth/run-runtime-tests.cjs",
         "typecheck": "tsc --noEmit",
-        "check-all": "npm run typecheck && npm run lint && npm run format:check",
+        "check-all": "npm run typecheck && npm run lint && npm run format:check && npm run check:auth-session && npm run test:auth-session-runtime",
         "prepare": "husky",
         "postinstall": "node ./patch-reanimated.js"
     },

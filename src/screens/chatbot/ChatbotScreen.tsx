@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '@/src/api/client';
 import { colors } from '@/src/styles/tokens';
 import { chatbotStyles } from './styles';
+
 type ChatMessage = {
     id: string;
     sender: 'user' | 'ai';
@@ -65,6 +66,20 @@ function normalizeSessions(sessions: ChatSession[]) {
         }))
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, MAX_STORED_SESSIONS);
+}
+
+function getMockReply(text: string) {
+    const normalized = text.toLowerCase();
+
+    if (normalized.includes('dau') || normalized.includes('sot')) {
+        return 'Voi trieu chung do, ban nen theo doi nhiet do va nghi ngoi. Neu keo dai, nen den co so y te de kham.';
+    }
+
+    if (normalized.includes('thuoc') || normalized.includes('uong')) {
+        return 'Hay doc ky huong dan su dung thuoc va hoi bac si neu ban co thac mac ve lieu luong hoac tac dung phu.';
+    }
+
+    return 'Minh da nhan duoc cau hoi cua ban. Ban co the cho minh them chi tiet de minh tu van chinh xac hon khong?';
 }
 
 export default function ChatbotScreen(): React.JSX.Element {
@@ -179,6 +194,7 @@ export default function ChatbotScreen(): React.JSX.Element {
     const handleSessionSelect = (session: ChatSession) => {
         loadSession(session);
     };
+
     const sendMessage = async () => {
         const trimmed = inputValue.trim();
         if (!trimmed || isLoading) {
@@ -203,14 +219,22 @@ export default function ChatbotScreen(): React.JSX.Element {
         setIsLoading(true);
 
         try {
-            const repliedMessage = await apiClient.post('/rag/chat', {
-                question: trimmed,
-            });
+            let answer = '';
 
-            const answer = String(
-                repliedMessage?.data?.answer ||
-                    'Mình chưa có phản hồi phù hợp, bạn thử đặt câu hỏi chi tiết hơn nhé.',
-            );
+            try {
+                const repliedMessage = await apiClient.post('/rag/chat', {
+                    session_id: resolvedSessionId,
+                    question: trimmed,
+                });
+                answer = String(
+                    repliedMessage?.data?.answer ||
+                        'Minh chua co phan hoi phu hop, ban thu dat cau hoi chi tiet hon nhe.',
+                );
+            } catch (error) {
+                console.error(error);
+                answer = getMockReply(trimmed);
+            }
+
             const reply: ChatMessage = {
                 id: `ai-${Date.now()}`,
                 sender: 'ai',
@@ -224,7 +248,7 @@ export default function ChatbotScreen(): React.JSX.Element {
             const fallbackReply: ChatMessage = {
                 id: `ai-${Date.now()}`,
                 sender: 'ai',
-                text: 'Hiện tại kết nối đang gián đoạn. Bạn vui lòng thử lại sau ít phút.',
+                text: 'Hien tai ket noi dang gian doan. Ban vui long thu lai sau it phut.',
                 time: formatTimestamp(new Date()),
             };
             const finalMessages = [...baseMessages, fallbackReply];
@@ -284,7 +308,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                                 />
                             </Pressable>
                             <Text style={chatbotStyles.title}>
-                                AI Tư vấn sức khỏe
+                                AI Tu van suc khoe
                             </Text>
                         </View>
                         <View style={chatbotStyles.headerActions}>
@@ -311,7 +335,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                         </View>
                     </View>
                     <Text style={chatbotStyles.subtitle}>
-                        Nhập triệu chứng, thuốc hoặc thắc mắc của bạn bên dưới.
+                        Nhap trieu chung, thuoc hoac thac mac cua ban ben duoi.
                     </Text>
                 </View>
 
@@ -325,11 +349,11 @@ export default function ChatbotScreen(): React.JSX.Element {
                         {messages.length === 0 ? (
                             <View style={chatbotStyles.emptyStateCard}>
                                 <Text style={chatbotStyles.emptyStateTitle}>
-                                    Xin chào, tôi là trợ lý AI y tế
+                                    Xin chao, toi la tro ly AI y te
                                 </Text>
                                 <Text style={chatbotStyles.emptyStateText}>
-                                    Hãy nhập triệu chứng hoặc câu hỏi để bắt đầu
-                                    tư vấn.
+                                    Hay nhap trieu chung hoac cau hoi de bat dau
+                                    tu van.
                                 </Text>
                             </View>
                         ) : null}
@@ -341,7 +365,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                                     color={colors.primary}
                                 />
                                 <Text style={chatbotStyles.loaderText}>
-                                    Đang trả lời...
+                                    Dang tra loi...
                                 </Text>
                             </View>
                         ) : null}
@@ -353,7 +377,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                         <View style={chatbotStyles.inputWrap}>
                             <TextInput
                                 style={chatbotStyles.textInput}
-                                placeholder='Gõ tin nhắn...'
+                                placeholder='Go tin nhan...'
                                 placeholderTextColor={colors.text3}
                                 value={inputValue}
                                 onChangeText={setInputValue}
@@ -389,11 +413,11 @@ export default function ChatbotScreen(): React.JSX.Element {
                 >
                     <View style={chatbotStyles.modalContent}>
                         <Text style={chatbotStyles.modalTitle}>
-                            Lịch sử trò chuyện
+                            Lich su tro chuyen
                         </Text>
                         {sessions.length === 0 ? (
                             <Text style={chatbotStyles.noSessions}>
-                                Chưa có cuộc trò chuyện nào.
+                                Chua co cuoc tro chuyen nao.
                             </Text>
                         ) : (
                             <FlatList

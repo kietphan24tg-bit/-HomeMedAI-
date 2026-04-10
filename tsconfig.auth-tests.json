@@ -1,0 +1,15 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./.tmp/auth-tests",
+        "rootDir": ".",
+        "module": "node16",
+        "moduleResolution": "node16",
+        "target": "es2020",
+        "declaration": false,
+        "sourceMap": false,
+        "noEmit": false,
+        "isolatedModules": false
+    },
+    "include": ["src/auth/session-core.ts", "src/api/refresh-core.ts"]
+}

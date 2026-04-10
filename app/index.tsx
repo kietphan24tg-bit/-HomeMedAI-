@@ -1,6 +1,8 @@
+import { useAuthStore } from '@/src/stores/useAuthStore';
 import { Redirect } from 'expo-router';
 import { useShallow } from 'zustand/shallow';
-import { useAuthStore } from '@/src/stores/useAuthStore';
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 export default function Index() {
     const { initialized, hasSeenOnboarding, accessToken, postLoginCompleted } =
@@ -25,5 +27,7 @@ export default function Index() {
         return <Redirect href='/auth' />;
     }
 
-    return <Redirect href={postLoginCompleted ? '/' : '/post-login'} />;
+    return (
+        <Redirect href={postLoginCompleted ? APP_TABS_ROUTE : '/post-login'} />
+    );
 }

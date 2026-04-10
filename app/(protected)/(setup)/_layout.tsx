@@ -1,7 +1,9 @@
-import { Redirect, Stack } from 'expo-router';
-import { useShallow } from 'zustand/shallow';
 import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
+import { Redirect, Stack } from 'expo-router';
+import { useShallow } from 'zustand/shallow';
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 export default function SetupFlowLayout() {
     const { initialized, postLoginCompleted } = useAuthStore(
@@ -16,7 +18,7 @@ export default function SetupFlowLayout() {
     }
 
     if (postLoginCompleted) {
-        return <Redirect href='/' />;
+        return <Redirect href={APP_TABS_ROUTE} />;
     }
 
     return (

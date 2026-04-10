@@ -1,18 +1,20 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { getDeviceMetadata } from '@/src/lib/device';
 import { appToast } from '@/src/lib/toast';
 import ForgotPasswordFlow from '@/src/screens/auth/ForgotPasswordFlow';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { colors, gradients } from '@/src/styles/tokens';
 import { sanitizeVietnamPhoneInput, toVietnamE164 } from '@/src/utils/phone';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { authStyles as s } from './authStyles';
 import RegisterForm from './RegisterForm';
 import SignInForm from './SignInForm';
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 interface Props {
     initialMode: 'signin' | 'signup';
@@ -142,7 +144,7 @@ export default function AuthScreen({
                 } else {
                     router.replace(
                         useAuthStore.getState().postLoginCompleted
-                            ? '/'
+                            ? APP_TABS_ROUTE
                             : '/post-login',
                     );
                 }

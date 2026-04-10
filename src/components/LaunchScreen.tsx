@@ -66,7 +66,16 @@ export default function LaunchScreen() {
             500,
             withTiming(0.88, { duration: 2000 }),
         );
-    }, []);
+    }, [
+        ecgOffset,
+        logoOpacity,
+        logoScale,
+        progressWidth,
+        ringOpacity,
+        ringScale,
+        textOpacity,
+        textTranslateY,
+    ]);
 
     const ringStyle = useAnimatedStyle(() => ({
         transform: [{ scale: ringScale.value }],

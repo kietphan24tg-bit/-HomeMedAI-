@@ -1,3 +1,9 @@
+import { usePatchFamilyMutation } from '@/src/features/family/mutations';
+import { useFamilyMembersQuery } from '@/src/features/family/queries';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { buttonSystem, shared } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -21,12 +27,6 @@ import {
     SafeAreaView,
     useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { usePatchFamilyMutation } from '@/src/features/family/mutations';
-import { useFamilyMembersQuery } from '@/src/features/family/queries';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { buttonSystem, shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import { MemberRow, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
@@ -214,9 +214,14 @@ export default function FamilyDetailScreen({
                             member={member}
                             isLast={index === members.length - 1}
                             onPress={() =>
-                                router.push(
-                                    `/family/${family.id}/member/${member.id}`,
-                                )
+                                router.push({
+                                    pathname:
+                                        '/family/[familyId]/member/[memberId]',
+                                    params: {
+                                        familyId: family.id,
+                                        memberId: String(member.id),
+                                    },
+                                })
                             }
                         />
                     ))}
@@ -231,7 +236,10 @@ export default function FamilyDetailScreen({
                                   },
                         ]}
                         onPress={() =>
-                            router.push(`/family/${family.id}/add-member`)
+                            router.push({
+                                pathname: '/family/[familyId]/add-member',
+                                params: { familyId: family.id },
+                            })
                         }
                     >
                         <View style={styles.addMic}>
@@ -251,7 +259,12 @@ export default function FamilyDetailScreen({
             <View style={localStyles.bottomBar}>
                 <Pressable
                     style={localStyles.bottomBarItem}
-                    onPress={() => router.push(`/family/${family.id}/medicine`)}
+                    onPress={() =>
+                        router.push({
+                            pathname: '/family/[familyId]/medicine',
+                            params: { familyId: family.id },
+                        })
+                    }
                 >
                     <View
                         style={[
@@ -271,7 +284,10 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/family/${family.id}/reminders`)
+                        router.push({
+                            pathname: '/family/[familyId]/reminders',
+                            params: { familyId: family.id },
+                        })
                     }
                 >
                     <View
@@ -292,7 +308,10 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/family/${family.id}/emergency`)
+                        router.push({
+                            pathname: '/family/[familyId]/emergency',
+                            params: { familyId: family.id },
+                        })
                     }
                 >
                     <View
