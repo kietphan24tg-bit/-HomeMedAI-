@@ -389,7 +389,11 @@ const routes: Route[] = [
         method: 'get',
         pattern: /^\/families\/invite\/preview$/,
         handler: () => ({
+            family_id: 'phan-family',
             family_name: 'Phan Family',
+            invite_code: 'ABC',
+            address: '123 Nguyễn Trãi, Quận 5, TP.HCM',
+            created_at: '2024-03-15T00:00:00Z',
             invited_by: 'Nguyễn Văn An',
             member_count: 5,
         }),
@@ -470,7 +474,27 @@ const routes: Route[] = [
     {
         method: 'post',
         pattern: /^\/families\/join$/,
-        handler: () => ({ message: 'Thành công.' }),
+        handler: (_url, config) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+
+            if (body.action === 'accept') {
+                const fallbackProfile = familyApiData
+                    .flatMap((family) => family.members)
+                    .find((member) => member.id === body.profile_id);
+
+                mockProfile = {
+                    ...DEFAULT_MOCK_PROFILE,
+                    ...(fallbackProfile?.profile ?? {}),
+                    id: body.profile_id ?? uid(),
+                    full_name:
+                        fallbackProfile?.profile?.full_name ??
+                        body.full_name ??
+                        DEFAULT_MOCK_PROFILE.full_name,
+                };
+            }
+
+            return { message: 'Thành công.' };
+        },
     },
 
     // ─── Family Memberships ────────────────────────────

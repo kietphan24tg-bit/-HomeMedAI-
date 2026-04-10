@@ -298,7 +298,10 @@ export default function FamilyListScreen(): React.JSX.Element {
     };
 
     const navigateToFamily = (familyId: string) => {
-        router.push(`/(tabs)/family/${familyId}`);
+        router.push({
+            pathname: '/family/[familyId]',
+            params: { familyId },
+        });
     };
 
     return (
@@ -330,9 +333,7 @@ export default function FamilyListScreen(): React.JSX.Element {
 
                         <Pressable
                             style={shared.iconBtn}
-                            onPress={() =>
-                                router.push('/(tabs)/family/invites')
-                            }
+                            onPress={() => router.push('/family/invites')}
                         >
                             <View>
                                 <Ionicons

@@ -35,7 +35,7 @@ export default function PermissionPage({
                 }),
             ]),
         ).start();
-    }, []);
+    }, [bellPulse]);
 
     return (
         <View style={[styles.page, { width }]}>

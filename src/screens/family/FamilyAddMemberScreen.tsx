@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     useCreateProfileInFamilyMutation,
-    useRotateInviteMutation,
 } from '@/src/features/family/mutations';
 import { appToast } from '@/src/lib/toast';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
@@ -50,16 +49,7 @@ export default function FamilyAddMemberScreen({
     const [proxyFullName, setProxyFullName] = useState('');
     const [proxyRelationId, setProxyRelationId] = useState<string | null>(null);
 
-    const rotateMutation = useRotateInviteMutation();
     const createProfileMutation = useCreateProfileInFamilyMutation();
-
-    const handleRotate = async () => {
-        try {
-            await rotateMutation.mutateAsync({ familyId: family.id });
-        } catch {
-            // Error handled by mutation
-        }
-    };
 
     const handleCopy = (code: string) => {
         Clipboard.setString(code);
@@ -193,7 +183,10 @@ export default function FamilyAddMemberScreen({
                     subtitle='Nhập SĐT người thân đã có tài khoản HomeMedAI'
                     style={{ marginBottom: 0 }}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/search-phone`)
+                        router.push({
+                            pathname: '/family/[familyId]/search-phone',
+                            params: { familyId: family.id },
+                        })
                     }
                 />
 

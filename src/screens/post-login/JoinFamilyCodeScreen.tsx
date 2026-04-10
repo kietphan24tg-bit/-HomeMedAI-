@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Modal,
     Pressable,
     ScrollView,
     StatusBar,
@@ -12,8 +13,9 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { appToast } from '@/src/lib/toast';
 import StatePanel from '@/src/components/state/StatePanel';
+import { FAMILIES } from '@/src/data/family-data';
+import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
@@ -27,19 +29,65 @@ import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
+type PreviewData = {
+    family_id?: string;
+    family_name?: string;
+    invite_code?: string;
+    address?: string;
+    created_at?: string;
+};
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+const DEFAULT_FAMILY_ADDRESS = 'Chưa cập nhật địa chỉ';
+const PROFILE_AVATAR_BACKGROUNDS = ['#D8F3E5', '#DCEAFE', '#FDE2E2', '#FEF3C7'];
+
+const formatPreviewDate = (value?: string): string => {
+    if (!value) {
+        return '--/--/----';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '--/--/----';
+    }
+
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(date);
+};
+
+const getFamilyInitial = (name?: string): string => {
+    const initial = name?.trim().charAt(0).toUpperCase();
+    return initial || 'G';
+};
+
 export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
     const [inviteCode, setInviteCode] = useState('');
     const [previewState, setPreviewState] = useState<PreviewState>('idle');
-    const [previewData, setPreviewData] = useState<{
-        family_name?: string;
-        invite_code?: string;
-    } | null>(null);
+    const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+        null,
+    );
+
+    const matchedFamily =
+        (previewData?.family_id
+            ? FAMILIES.find((family) => family.id === previewData.family_id)
+            : null) ??
+        FAMILIES.find((family) => family.name === previewData?.family_name) ??
+        null;
+
+    const candidateProfiles =
+        matchedFamily?.members.filter((member) => !member.isSelf) ?? [];
 
     const handlePreview = async () => {
         if (!inviteCode.trim()) {
             setPreviewState('error');
             setPreviewData(null);
+            setShowLinkModal(false);
             return;
         }
 
@@ -50,10 +98,14 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             );
             setPreviewData(res);
             setPreviewState('success');
+            setShowLinkModal(false);
+            setSelectedProfileId(null);
         } catch (error) {
             console.error(error);
             setPreviewData(null);
             setPreviewState('error');
+            setShowLinkModal(false);
+            setSelectedProfileId(null);
         }
     };
 
@@ -68,7 +120,61 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             return;
         }
 
-        router.replace('/(tabs)');
+        router.replace(APP_TABS_ROUTE);
+    };
+
+    const handleOpenLinkModal = () => {
+        if (!candidateProfiles.length) {
+            appToast.showInfo(
+                'Chưa có hồ sơ',
+                'Gia đình này hiện chưa có hồ sơ phù hợp để liên kết.',
+            );
+            return;
+        }
+
+        setSelectedProfileId(candidateProfiles[0]?.id ?? null);
+        setShowLinkModal(true);
+    };
+
+    const handleConfirmLink = async () => {
+        if (!selectedProfileId) {
+            appToast.showInfo(
+                'Chọn hồ sơ',
+                'Vui lòng chọn một hồ sơ để tiếp tục liên kết.',
+            );
+            return;
+        }
+
+        const selectedProfile = candidateProfiles.find(
+            (member) => member.id === selectedProfileId,
+        );
+
+        if (!selectedProfile) {
+            appToast.showError(
+                'Không tìm thấy hồ sơ',
+                'Hồ sơ đã chọn không còn hợp lệ. Vui lòng chọn lại.',
+            );
+            return;
+        }
+
+        try {
+            setShowLinkModal(false);
+            await familiesServices.acceptInvite({
+                invite_id:
+                    previewData?.invite_code ??
+                    previewData?.family_id ??
+                    selectedProfileId,
+                full_name: selectedProfile.name,
+                profile_id: selectedProfile.id,
+            });
+            await handleComplete();
+        } catch (error) {
+            console.error(error);
+            appToast.showError(
+                'Liên kết thất bại',
+                'Không thể liên kết hồ sơ với gia đình lúc này.',
+            );
+        }
     };
 
     return (
@@ -95,7 +201,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                     </View>
                     <Text style={styles.title}>
                         Nhập mã để{'\n'}
-                        <Text style={{ color: colors.primary }}>
+                        <Text style={styles.titleAccent}>
                             tham gia gia đình
                         </Text>
                     </Text>
@@ -141,8 +247,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             ) : null}
                             <Text style={styles.primaryBtnText}>
                                 {previewState === 'loading'
-                                    ? '\u0110ang ki\u1EC3m tra...'
-                                    : 'Ki\u1EC3m tra m\u00E3'}
+                                    ? 'Đang kiểm tra...'
+                                    : 'Kiểm tra mã'}
                             </Text>
                         </View>
                     </Pressable>
@@ -158,44 +264,80 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                     color={colors.primary}
                                 />
                             </View>
-                            <Text style={styles.previewLabel}>Đã tìm thấy</Text>
+                            <Text style={styles.previewLabel}>
+                                Đã tìm thấy gia đình
+                            </Text>
                         </View>
-                        <View style={styles.previewBody}>
-                            <Text style={styles.previewTitle}>
-                                {previewData.family_name || 'Gia đình hợp lệ'}
-                            </Text>
-                            <Text style={styles.previewDesc}>
-                                Mã{' '}
-                                <Text style={styles.previewCode}>
-                                    {(
-                                        previewData.invite_code ||
-                                        inviteCode.trim()
-                                    ).toUpperCase()}
-                                </Text>{' '}
-                                hợp lệ. Bước chọn hồ sơ trong gia đình có thể
-                                được nối tiếp ở vòng triển khai tiếp theo.
-                            </Text>
 
-                            <View style={styles.previewFooterRow}>
-                                <Text style={styles.previewMeta}>
-                                    Sẵn sàng chọn hồ sơ để liên kết
-                                </Text>
-                                <Pressable
-                                    style={styles.secondaryBtn}
-                                    onPress={() => {
-                                        void handleComplete();
-                                    }}
-                                >
-                                    <Text style={styles.secondaryBtnText}>
-                                        Chọn hồ sơ
+                        <View style={styles.previewBody}>
+                            <View style={styles.previewFamilyRow}>
+                                <View style={styles.previewAvatar}>
+                                    <Text style={styles.previewAvatarText}>
+                                        {getFamilyInitial(
+                                            previewData.family_name,
+                                        )}
                                     </Text>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={14}
-                                        color={colors.primary}
-                                    />
-                                </Pressable>
+                                </View>
+
+                                <View style={styles.previewFamilyInfo}>
+                                    <Text style={styles.previewTitle}>
+                                        {previewData.family_name ||
+                                            'Gia đình hợp lệ'}
+                                    </Text>
+                                    <View style={styles.previewLocationRow}>
+                                        <Ionicons
+                                            name='location-sharp'
+                                            size={13}
+                                            color={colors.text3}
+                                        />
+                                        <Text
+                                            style={styles.previewLocationText}
+                                            numberOfLines={1}
+                                        >
+                                            {previewData.address ||
+                                                DEFAULT_FAMILY_ADDRESS}
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
+
+                            <View style={styles.previewInfoCard}>
+                                <View style={styles.previewInfoRow}>
+                                    <Text style={styles.previewInfoLabel}>
+                                        Mã mời
+                                    </Text>
+                                    <View style={styles.previewCodeChip}>
+                                        <Text style={styles.previewCodeText}>
+                                            {(
+                                                previewData.invite_code ||
+                                                inviteCode.trim()
+                                            ).toUpperCase()}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.previewDivider} />
+
+                                <View style={styles.previewInfoRow}>
+                                    <Text style={styles.previewInfoLabel}>
+                                        Ngày tạo
+                                    </Text>
+                                    <Text style={styles.previewInfoValue}>
+                                        {formatPreviewDate(
+                                            previewData.created_at,
+                                        )}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <Pressable
+                                style={styles.joinBtn}
+                                onPress={handleOpenLinkModal}
+                            >
+                                <Text style={styles.joinBtnText}>
+                                    Tham gia gia đình này
+                                </Text>
+                            </Pressable>
                         </View>
                     </View>
                 ) : null}
@@ -205,9 +347,147 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                         variant='error'
                         title='Không kiểm tra được mã gia đình'
                         message='Mã không hợp lệ hoặc hiện chưa thể xác minh. Vui lòng thử lại.'
+                        compact
                     />
                 ) : null}
             </ScrollView>
+
+            <Modal
+                visible={showLinkModal}
+                transparent
+                animationType='slide'
+                onRequestClose={() => setShowLinkModal(false)}
+            >
+                <Pressable
+                    style={styles.modalBackdrop}
+                    onPress={() => setShowLinkModal(false)}
+                >
+                    <Pressable
+                        style={styles.modalSheet}
+                        onPress={(event) => event.stopPropagation()}
+                    >
+                        <View style={styles.modalHandle}>
+                            <View style={styles.modalHandleBar} />
+                        </View>
+
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderTextWrap}>
+                                <Text style={styles.modalTitle}>
+                                    Liên kết tài khoản
+                                </Text>
+                                <Text style={styles.modalSubtitle}>
+                                    Bạn là thành viên nào trong gia đình?
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.modalDivider} />
+
+                        <ScrollView
+                            style={styles.modalScroll}
+                            contentContainerStyle={styles.modalScrollContent}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <View style={styles.modalHintCard}>
+                                <Ionicons
+                                    name='information-circle-outline'
+                                    size={18}
+                                    color={colors.secondary}
+                                />
+                                <Text style={styles.modalHintText}>
+                                    Chọn hồ sơ của bạn trong gia đình để liên
+                                    kết với tài khoản này. Mỗi hồ sơ chỉ liên
+                                    kết được một tài khoản.
+                                </Text>
+                            </View>
+
+                            <Text style={styles.modalSectionTitle}>
+                                Thành viên chưa có tài khoản
+                            </Text>
+
+                            {candidateProfiles.map((member, index) => {
+                                const isSelected =
+                                    selectedProfileId === member.id;
+                                const avatarBg =
+                                    PROFILE_AVATAR_BACKGROUNDS[
+                                        index %
+                                            PROFILE_AVATAR_BACKGROUNDS.length
+                                    ];
+
+                                return (
+                                    <Pressable
+                                        key={member.id}
+                                        style={[
+                                            styles.profileOption,
+                                            isSelected &&
+                                                styles.profileOptionSelected,
+                                        ]}
+                                        onPress={() =>
+                                            setSelectedProfileId(member.id)
+                                        }
+                                    >
+                                        <View
+                                            style={[
+                                                styles.profileAvatar,
+                                                { backgroundColor: avatarBg },
+                                            ]}
+                                        >
+                                            <Text
+                                                style={styles.profileAvatarText}
+                                            >
+                                                {member.initials ||
+                                                    getFamilyInitial(
+                                                        member.name,
+                                                    )}
+                                            </Text>
+                                        </View>
+
+                                        <View style={styles.profileInfo}>
+                                            <Text style={styles.profileName}>
+                                                {member.name}
+                                            </Text>
+                                            <Text style={styles.profileRole}>
+                                                {member.role}
+                                            </Text>
+                                        </View>
+
+                                        <View
+                                            style={[
+                                                styles.profileCheck,
+                                                isSelected &&
+                                                    styles.profileCheckSelected,
+                                            ]}
+                                        >
+                                            {isSelected ? (
+                                                <Ionicons
+                                                    name='checkmark'
+                                                    size={13}
+                                                    color='#fff'
+                                                />
+                                            ) : null}
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </ScrollView>
+
+                        <Pressable
+                            style={[
+                                styles.confirmBtn,
+                                !selectedProfileId && styles.confirmBtnDisabled,
+                            ]}
+                            onPress={() => {
+                                void handleConfirmLink();
+                            }}
+                            disabled={!selectedProfileId}
+                        >
+                            <Text style={styles.confirmBtnText}>
+                                Xác nhận liên kết
+                            </Text>
+                        </Pressable>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -258,6 +538,9 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(8),
         letterSpacing: -0.4,
     },
+    titleAccent: {
+        color: colors.primary,
+    },
     subtitle: {
         color: colors.text2,
         fontFamily: typography.font.regular,
@@ -283,6 +566,18 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
         paddingHorizontal: scale(13),
     },
+    input: {
+        ...inputSystem.text,
+        fontFamily: typography.font.medium,
+        color: colors.text,
+        fontSize: scaleFont(12.5),
+        lineHeight: scaleFont(16),
+        textAlignVertical: 'center',
+    },
+    primaryWrap: {
+        marginTop: verticalScale(8),
+        marginBottom: verticalScale(18),
+    },
     primaryBtn: {
         width: '100%',
         ...buttonSystem.primary,
@@ -300,31 +595,21 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(15, 110, 86, 0.72)',
         opacity: 0.88,
     },
-    primaryBtnText: {
-        ...buttonSystem.textPrimary,
-        fontSize: scaleFont(13.5),
-    },
     primaryBtnContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: scale(8),
     },
-    input: {
-        ...inputSystem.text,
-        fontFamily: typography.font.medium,
-        color: colors.text,
-        fontSize: scaleFont(12.5),
-        lineHeight: scaleFont(16),
-        textAlignVertical: 'center',
-    },
-    primaryWrap: {
-        marginTop: verticalScale(8),
-        marginBottom: verticalScale(18),
+    primaryBtnText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
     },
     previewCard: {
         backgroundColor: colors.card,
-        borderRadius: scale(18),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        borderRadius: scale(20),
         overflow: 'hidden',
         marginBottom: verticalScale(18),
         ...shadows.card,
@@ -356,50 +641,259 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(20),
         paddingVertical: verticalScale(16),
     },
-    previewTitle: {
-        color: '#134E4A',
-        fontFamily: typography.font.black,
-        fontSize: scaleFont(19),
-        lineHeight: verticalScale(26),
-        marginBottom: verticalScale(10),
+    previewFamilyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(14),
+        marginBottom: verticalScale(18),
     },
-    previewDesc: {
-        color: colors.text2,
-        fontFamily: typography.font.regular,
-        fontSize: scaleFont(13),
-        lineHeight: verticalScale(21),
-        marginBottom: verticalScale(16),
+    previewAvatar: {
+        width: moderateScale(48),
+        height: moderateScale(48),
+        borderRadius: moderateScale(16),
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primaryBg,
+        borderWidth: 1,
+        borderColor: 'rgba(15, 110, 86, 0.14)',
     },
-    previewCode: {
+    previewAvatarText: {
         color: colors.primary,
-        fontFamily: typography.font.bold,
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(22),
     },
-    previewFooterRow: {
+    previewFamilyInfo: {
+        flex: 1,
+        minWidth: 0,
+    },
+    previewTitle: {
+        color: colors.text,
+        fontFamily: typography.font.black,
+        fontSize: scaleFont(18),
+        lineHeight: verticalScale(24),
+        marginBottom: verticalScale(4),
+    },
+    previewLocationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(6),
+    },
+    previewLocationText: {
+        flex: 1,
+        color: colors.text2,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+    },
+    previewInfoCard: {
+        backgroundColor: '#F8F8F7',
+        borderRadius: moderateScale(16),
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(6),
+        borderWidth: 1,
+        borderColor: colors.divider,
+        marginBottom: verticalScale(18),
+    },
+    previewInfoRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: scale(10),
+        minHeight: verticalScale(44),
     },
-    previewMeta: {
+    previewInfoLabel: {
         flex: 1,
-        color: '#0D9488',
-        fontFamily: typography.font.bold,
+        color: colors.text2,
+        fontFamily: typography.font.medium,
         fontSize: scaleFont(12.5),
     },
-    secondaryBtn: {
-        ...buttonSystem.outline,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(6),
-        backgroundColor: '#F0FDF4',
-        borderColor: '#A7F3D0',
+    previewCodeChip: {
+        backgroundColor: colors.primaryBg,
         borderRadius: scale(999),
         paddingHorizontal: scale(14),
-        minHeight: verticalScale(34),
+        paddingVertical: verticalScale(6),
+        alignItems: 'center',
     },
-    secondaryBtnText: {
+    previewCodeText: {
         color: colors.primary,
         fontFamily: typography.font.bold,
         fontSize: scaleFont(12.5),
+    },
+    previewDivider: {
+        height: 1,
+        backgroundColor: colors.border,
+    },
+    previewInfoValue: {
+        color: colors.text,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12.5),
+    },
+    joinBtn: {
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(46),
+        borderRadius: moderateScale(14),
+    },
+    joinBtnText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(15,23,42,0.35)',
+        justifyContent: 'flex-end',
+    },
+    modalSheet: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: moderateScale(24),
+        borderTopRightRadius: moderateScale(24),
+        maxHeight: '84%',
+        overflow: 'hidden',
+        paddingBottom: verticalScale(22),
+    },
+    modalHandle: {
+        alignItems: 'center',
+        paddingTop: verticalScale(10),
+        paddingBottom: verticalScale(4),
+    },
+    modalHandleBar: {
+        width: scale(36),
+        height: verticalScale(4),
+        borderRadius: moderateScale(2),
+        backgroundColor: colors.border,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(8),
+        paddingBottom: verticalScale(14),
+    },
+    modalHeaderTextWrap: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    modalTitle: {
+        color: colors.text,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+        marginBottom: verticalScale(2),
+    },
+    modalSubtitle: {
+        color: colors.text2,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        marginTop: verticalScale(3),
+    },
+    modalDivider: {
+        height: 1,
+        backgroundColor: colors.border,
+    },
+    modalScroll: {
+        flexGrow: 0,
+    },
+    modalScrollContent: {
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(16),
+        paddingBottom: verticalScale(16),
+    },
+    modalHintCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: scale(10),
+        backgroundColor: colors.primaryBg,
+        borderRadius: moderateScale(16),
+        borderWidth: 1.5,
+        borderColor: colors.primaryLight,
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(14),
+        marginBottom: verticalScale(18),
+    },
+    modalHintText: {
+        flex: 1,
+        color: colors.text2,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+        lineHeight: verticalScale(21),
+    },
+    modalSectionTitle: {
+        color: colors.text2,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(10.5),
+        textTransform: 'uppercase',
+        letterSpacing: 0.7,
+        marginBottom: verticalScale(12),
+    },
+    profileOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(12),
+        backgroundColor: colors.card,
+        borderRadius: moderateScale(20),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(12),
+        marginBottom: verticalScale(12),
+        ...shadows.card,
+    },
+    profileOptionSelected: {
+        backgroundColor: colors.primaryBg,
+        borderColor: colors.primary,
+    },
+    profileAvatar: {
+        width: moderateScale(44),
+        height: moderateScale(44),
+        borderRadius: moderateScale(13),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileAvatarText: {
+        color: colors.text2,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13.5),
+    },
+    profileInfo: {
+        flex: 1,
+        minWidth: 0,
+    },
+    profileName: {
+        color: colors.text,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+        marginBottom: verticalScale(2),
+    },
+    profileRole: {
+        color: colors.text3,
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(11.5),
+    },
+    profileCheck: {
+        width: moderateScale(24),
+        height: moderateScale(24),
+        borderRadius: moderateScale(12),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileCheckSelected: {
+        backgroundColor: '#22C55E',
+        borderColor: '#22C55E',
+    },
+    confirmBtn: {
+        ...buttonSystem.primary,
+        marginHorizontal: scale(20),
+        marginTop: verticalScale(4),
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(48),
+        borderRadius: moderateScale(16),
+    },
+    confirmBtnDisabled: {
+        backgroundColor: colors.primaryLight,
+    },
+    confirmBtnText: {
+        ...buttonSystem.textPrimary,
+        fontSize: scaleFont(13.5),
     },
 });

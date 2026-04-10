@@ -22,6 +22,8 @@ import { authStyles as s } from './authStyles';
 import RegisterForm from './RegisterForm';
 import SignInForm from './SignInForm';
 
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+
 interface Props {
     initialMode: 'signin' | 'signup';
     onSuccess?: () => void;
@@ -158,7 +160,7 @@ export default function AuthScreen({
                 } else {
                     router.replace(
                         useAuthStore.getState().postLoginCompleted
-                            ? '/(tabs)'
+                            ? APP_TABS_ROUTE
                             : '/post-login',
                     );
                 }

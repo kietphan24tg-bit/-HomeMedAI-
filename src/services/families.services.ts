@@ -93,14 +93,17 @@ export const familiesServices = {
     acceptInvite: async ({
         invite_id,
         full_name,
+        profile_id,
     }: {
         invite_id: string;
         full_name: string;
+        profile_id?: string;
     }) => {
         const res = await apiClient.post(`/families/join`, {
             action: 'accept',
             invite_id,
             full_name,
+            profile_id,
         });
         return res.data;
     },

@@ -37,7 +37,7 @@ export default function OnboardingScreen(): React.JSX.Element {
             duration: 600,
             useNativeDriver: true,
         }).start();
-    }, []);
+    }, [fadeAnim]);
 
     const continueToAuth = async (): Promise<void> => {
         await markOnboardingSeen();

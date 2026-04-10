@@ -3,6 +3,8 @@ import { useShallow } from 'zustand/shallow';
 import { OnboardingScreen } from '@/src/screens';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+
 export default function OnboardingRoute() {
     const { accessToken, hasSeenOnboarding, initialized, postLoginCompleted } =
         useAuthStore(
@@ -23,7 +25,7 @@ export default function OnboardingRoute() {
             return <Redirect href='/auth' />;
         }
 
-        return <Redirect href={postLoginCompleted ? '/(tabs)' : '/post-login'} />;
+        return <Redirect href={postLoginCompleted ? APP_TABS_ROUTE : '/post-login'} />;
     }
 
     return <OnboardingScreen />;

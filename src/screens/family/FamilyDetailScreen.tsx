@@ -214,9 +214,13 @@ export default function FamilyDetailScreen({
                             member={member}
                             isLast={index === members.length - 1}
                             onPress={() =>
-                                router.push(
-                                    `/(tabs)/family/${family.id}/member/${member.id}`,
-                                )
+                                router.push({
+                                    pathname: '/family/[familyId]/member/[memberId]',
+                                    params: {
+                                        familyId: family.id,
+                                        memberId: String(member.id),
+                                    },
+                                })
                             }
                         />
                     ))}
@@ -231,9 +235,10 @@ export default function FamilyDetailScreen({
                                   },
                         ]}
                         onPress={() =>
-                            router.push(
-                                `/(tabs)/family/${family.id}/add-member`,
-                            )
+                            router.push({
+                                pathname: '/family/[familyId]/add-member',
+                                params: { familyId: family.id },
+                            })
                         }
                     >
                         <View style={styles.addMic}>
@@ -254,7 +259,10 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/medicine`)
+                        router.push({
+                            pathname: '/family/[familyId]/medicine',
+                            params: { familyId: family.id },
+                        })
                     }
                 >
                     <View
@@ -275,7 +283,10 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/reminders`)
+                        router.push({
+                            pathname: '/family/[familyId]/reminders',
+                            params: { familyId: family.id },
+                        })
                     }
                 >
                     <View
@@ -296,7 +307,10 @@ export default function FamilyDetailScreen({
                 <Pressable
                     style={localStyles.bottomBarItem}
                     onPress={() =>
-                        router.push(`/(tabs)/family/${family.id}/emergency`)
+                        router.push({
+                            pathname: '/family/[familyId]/emergency',
+                            params: { familyId: family.id },
+                        })
                     }
                 >
                     <View

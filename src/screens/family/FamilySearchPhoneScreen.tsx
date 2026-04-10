@@ -522,9 +522,10 @@ export default function FamilySearchPhoneScreen({
                             <Pressable
                                 style={{ width: '100%', alignItems: 'center' }}
                                 onPress={() =>
-                                    router.push(
-                                        `/(tabs)/family/${family.id}/add-member`,
-                                    )
+                                    router.push({
+                                        pathname: '/family/[familyId]/add-member',
+                                        params: { familyId: family.id },
+                                    })
                                 }
                             >
                                 <Text style={styles.createBtnText}>

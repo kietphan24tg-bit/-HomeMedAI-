@@ -32,6 +32,10 @@ function shouldSkipRefresh(url?: string) {
     return !url || EXCLUDED_REFRESH_PATHS.some((path) => url.includes(path));
 }
 
+function shouldAttemptRefresh(status?: number) {
+    return status === 401 || status === 403;
+}
+
 async function refreshAccessToken() {
     if (!refreshAccessTokenPromise) {
         refreshAccessTokenPromise = (async () => {
@@ -43,13 +47,18 @@ async function refreshAccessToken() {
 
             const res = await authService.refresh(refreshToken);
             const accessToken = res.access_token ?? res.accessToken ?? null;
+            const nextRefreshToken = res.refresh_token ?? null;
 
             if (!accessToken) {
                 throw new Error('No access token returned');
             }
 
+            if (!nextRefreshToken) {
+                throw new Error('No refresh token returned');
+            }
+
             useAuthStore.getState().setAccessToken(accessToken);
-            await SecureStore.setItemAsync(REFRESH_TOKEN, res.refresh_token);
+            await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
 
             return accessToken;
         })()
@@ -95,13 +104,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error.config as RetriableRequestConfig | undefined;
+        const originalRequest = error.config as
+            | RetriableRequestConfig
+            | undefined;
 
         if (!originalRequest || shouldSkipRefresh(originalRequest.url)) {
             return Promise.reject(error);
         }
 
-        if (error.response?.status !== 403 || originalRequest._retry) {
+        if (
+            !shouldAttemptRefresh(error.response?.status) ||
+            originalRequest._retry
+        ) {
             return Promise.reject(error);
         }
 

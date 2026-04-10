@@ -74,13 +74,13 @@ export default function HomeScreen(): React.JSX.Element {
 
     const navigateToFamilyTab = () => {
         closePicker(() => {
-            router.push('/(tabs)/family');
+            router.push('/family');
         });
     };
 
     const navigateToFamilyInvites = () => {
         closePicker(() => {
-            router.push('/(tabs)/family/invites');
+            router.push('/family/invites');
         });
     };
 
@@ -112,7 +112,7 @@ export default function HomeScreen(): React.JSX.Element {
                 <FamilySection />
                 <ScheduleSection />
                 <MedicationSection />
-                <ChatbotBanner onPress={() => router.push('/(tabs)/explore')} />
+                <ChatbotBanner onPress={() => router.push('/explore')} />
                 <ArticlesSection />
             </ScrollView>
 

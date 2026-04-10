@@ -34,7 +34,7 @@ function getTypeLabel(type: DictionaryEntryType): string {
 function getTypeTheme(type: DictionaryEntryType) {
     if (type === 'disease') {
         return {
-            colors: ['#7F1D1D', '#DC2626', '#FB7185'],
+            colors: ['#7F1D1D', '#DC2626', '#FB7185'] as const,
             icon: 'pulse-outline' as const,
             softBg: '#FFF1F2',
             softText: '#BE123C',
@@ -43,7 +43,7 @@ function getTypeTheme(type: DictionaryEntryType) {
 
     if (type === 'drug') {
         return {
-            colors: ['#1E3A8A', '#2563EB', '#60A5FA'],
+            colors: ['#1E3A8A', '#2563EB', '#60A5FA'] as const,
             icon: 'medkit-outline' as const,
             softBg: '#EFF6FF',
             softText: '#1D4ED8',
@@ -51,7 +51,7 @@ function getTypeTheme(type: DictionaryEntryType) {
     }
 
     return {
-        colors: ['#115E59', '#0F766E', '#2DD4BF'],
+        colors: ['#115E59', '#0F766E', '#2DD4BF'] as const,
         icon: 'shield-checkmark-outline' as const,
         softBg: '#F0FDFA',
         softText: '#0F766E',

@@ -35,6 +35,7 @@ import {
 import { colors, typography } from '../../styles/tokens';
 
 const PAGE_BG = colors.bg;
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 const GENDERS = [
     { key: 'male', label: 'Nam', icon: 'male-outline' as const },
@@ -218,7 +219,7 @@ export default function PersonalInfoScreen({
             if (onComplete) {
                 onComplete();
             } else {
-                router.replace('/(tabs)');
+                router.replace(APP_TABS_ROUTE);
             }
         } catch (error: any) {
             appToast.showError('Lưu hồ sơ thất bại', buildDescription(error));
