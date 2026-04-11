@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Line, Path, Svg, Circle as SvgCircle } from 'react-native-svg';
+import { type BP_DATA, getMetricData } from '@/src/data/metrics-data';
 import {
     moderateScale,
     scale,
@@ -25,93 +27,165 @@ const METRIC_TABS = [
     { label: 'Cân nặng', id: 'weight' },
     { label: 'Đường huyết', id: 'glucose' },
 ];
+/**
+ * Chart data generator for different metric types
+ */
+function renderChart(tab: string, metricData: typeof BP_DATA) {
+    if (tab === 'bp') {
+        const systolic = metricData.chartData.systolic || [
+            135, 128, 125, 130, 140,
+        ];
+        const diastolic = metricData.chartData.diastolic || [
+            85, 80, 82, 88, 85,
+        ];
 
-const HISTORY_MOCK = [
-    {
-        dateFull: '15/03/2026 · 08:00',
-        value: '130/85',
-        status: 'Cao',
-        statusColor: colors.danger,
-        badgeBg: '#FEF2F2',
-        badgeBorder: '#FECACA',
-        badgeIcon: (
-            <Ionicons
-                name='warning'
-                size={12}
-                color={colors.warning}
-                style={{ marginRight: 4 }}
-            />
-        ),
-    },
-    {
-        dateFull: '01/03/2026 · 07:30',
-        value: '125/82',
-        status: 'Bình thường',
-        statusColor: colors.success,
-        badgeBg: '#F0FDF4',
-        badgeBorder: '#BBF7D0',
-        badgeIcon: (
-            <Ionicons
-                name='checkmark'
-                size={12}
-                color={colors.success}
-                style={{ marginRight: 4 }}
-            />
-        ),
-    },
-    {
-        dateFull: '15/02/2026 · 08:15',
-        value: '128/80',
-        status: 'Bình thường',
-        statusColor: colors.success,
-        badgeBg: '#F0FDF4',
-        badgeBorder: '#BBF7D0',
-        badgeIcon: (
-            <Ionicons
-                name='checkmark'
-                size={12}
-                color={colors.success}
-                style={{ marginRight: 4 }}
-            />
-        ),
-    },
-    {
-        dateFull: '01/02/2026 · 07:45',
-        value: '132/88',
-        status: 'Cao',
-        statusColor: colors.danger,
-        badgeBg: '#FEF2F2',
-        badgeBorder: '#FECACA',
-        badgeIcon: (
-            <Ionicons
-                name='warning'
-                size={12}
-                color={colors.warning}
-                style={{ marginRight: 4 }}
-            />
-        ),
-    },
-    {
-        dateFull: '15/01/2026 · 08:00',
-        value: '135/85',
-        status: 'Cao',
-        statusColor: colors.danger,
-        badgeBg: '#FEF2F2',
-        badgeBorder: '#FECACA',
-        badgeIcon: (
-            <Ionicons
-                name='warning'
-                size={12}
-                color={colors.warning}
-                style={{ marginRight: 4 }}
-            />
-        ),
-    },
-];
+        const maxSys = Math.max(...systolic);
+        const minSys = Math.min(...systolic);
+        const maxDias = Math.max(...diastolic);
+        const minDias = Math.min(...diastolic);
+
+        const sysScale = (val: number) =>
+            100 - ((val - minSys) / (maxSys - minSys)) * 60;
+        const diasScale = (val: number) =>
+            100 - ((val - minDias) / (maxDias - minDias)) * 30 + 40;
+
+        const sysPaths = systolic
+            .map((val, i) => `${40 + i * 65} ${sysScale(val)}`)
+            .join(' L ');
+        const diasPaths = diastolic
+            .map((val, i) => `${40 + i * 65} ${diasScale(val)}`)
+            .join(' L ');
+
+        return (
+            <Svg width='100%' height='108' viewBox='0 0 340 120'>
+                <Line
+                    x1='10'
+                    y1='20'
+                    x2='330'
+                    y2='20'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+                <Line
+                    x1='10'
+                    y1='50'
+                    x2='330'
+                    y2='50'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+                <Line
+                    x1='10'
+                    y1='80'
+                    x2='330'
+                    y2='80'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+
+                <Path
+                    d={`M ${sysPaths}`}
+                    stroke={colors.danger}
+                    strokeWidth='2'
+                    fill='none'
+                />
+                <Path
+                    d={`M ${diasPaths}`}
+                    stroke='#FCA5A5'
+                    strokeWidth='2'
+                    fill='none'
+                />
+
+                {systolic.map((val, i) => (
+                    <SvgCircle
+                        key={`sys-${i}`}
+                        cx={40 + i * 65}
+                        cy={sysScale(val)}
+                        r='4'
+                        fill={colors.danger}
+                    />
+                ))}
+                {diastolic.map((val, i) => (
+                    <SvgCircle
+                        key={`dias-${i}`}
+                        cx={40 + i * 65}
+                        cy={diasScale(val)}
+                        r='4'
+                        fill='#FFF'
+                        stroke='#FCA5A5'
+                        strokeWidth='2'
+                    />
+                ))}
+            </Svg>
+        );
+    } else {
+        const values = metricData.chartData.values || [57, 56, 55, 54, 55];
+        const maxVal = Math.max(...values);
+        const minVal = Math.min(...values);
+        const valScale = (val: number) =>
+            100 - ((val - minVal) / (maxVal - minVal)) * 60;
+
+        const paths = values
+            .map((val, i) => `${40 + i * 65} ${valScale(val)}`)
+            .join(' L ');
+
+        return (
+            <Svg width='100%' height='108' viewBox='0 0 340 120'>
+                <Line
+                    x1='10'
+                    y1='20'
+                    x2='330'
+                    y2='20'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+                <Line
+                    x1='10'
+                    y1='50'
+                    x2='330'
+                    y2='50'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+                <Line
+                    x1='10'
+                    y1='80'
+                    x2='330'
+                    y2='80'
+                    stroke='#E2E8F0'
+                    strokeWidth='1'
+                />
+
+                <Path
+                    d={`M ${paths}`}
+                    stroke={colors.primary}
+                    strokeWidth='2'
+                    fill='none'
+                />
+                {values.map((val, i) => (
+                    <SvgCircle
+                        key={`val-${i}`}
+                        cx={40 + i * 65}
+                        cy={valScale(val)}
+                        r='4'
+                        fill={colors.primary}
+                    />
+                ))}
+            </Svg>
+        );
+    }
+}
 
 export default function MemberMetricsRoute() {
-    const [tab, setTab] = useState('bp');
+    const params = useLocalSearchParams();
+    const initialTab = (params.metric as string) || 'bp';
+    const [tab, setTab] = useState(initialTab);
     const insets = useSafeAreaInsets();
+
+    const metricData = useMemo(
+        () => getMetricData(tab as 'bp' | 'weight' | 'glucose'),
+        [tab],
+    );
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -132,9 +206,20 @@ export default function MemberMetricsRoute() {
                     />
                 </Pressable>
                 <View style={styles.topbarCenter}>
-                    <Text style={styles.topbarTitle}>Chỉ số sức khỏe</Text>
+                    <Text style={styles.topbarTitle}>{metricData.label}</Text>
                 </View>
-                <View style={styles.topbarRightSpacer} />
+                <Pressable
+                    style={styles.exportBtn}
+                    onPress={() => {
+                        // TODO: Export to PDF functionality
+                    }}
+                >
+                    <MaterialCommunityIcons
+                        name='file-pdf-box'
+                        size={20}
+                        color={colors.primary}
+                    />
+                </Pressable>
             </View>
 
             {/* TABS */}
@@ -161,29 +246,78 @@ export default function MemberMetricsRoute() {
             </View>
 
             <ScrollView
-                style={{ flex: 1, backgroundColor: colors.bgHealth }}
+                style={{ flex: 1, backgroundColor: colors.bg }}
                 contentContainerStyle={{ padding: 14, paddingBottom: 88 }}
                 showsVerticalScrollIndicator={false}
             >
                 {/* LATEST CARD */}
-                <View style={styles.latestCard}>
-                    <Text style={styles.latestLabel}>MỚI NHẤT</Text>
-                    <Text style={styles.latestValueText}>
-                        130/85 <Text style={styles.latestUnitText}>mmHg</Text>
+                <View
+                    style={[
+                        styles.latestCard,
+                        {
+                            borderColor: metricData.badgeBorder,
+                            backgroundColor: metricData.badgeBg,
+                        },
+                    ]}
+                >
+                    <Text
+                        style={[
+                            styles.latestLabel,
+                            { color: metricData.statusColor },
+                        ]}
+                    >
+                        MỚI NHẤT
                     </Text>
-                    <View style={styles.latestTimeRow}>
+                    <Text
+                        style={[
+                            styles.latestValueText,
+                            { color: metricData.statusColor },
+                        ]}
+                    >
+                        {metricData.latestValue}{' '}
+                        <Text style={styles.latestUnitText}>
+                            {metricData.unit}
+                        </Text>
+                    </Text>
+                    <View style={[styles.latestTimeRow, { gap: 6 }]}>
                         <Ionicons
                             name='time-outline'
                             size={14}
-                            color={colors.danger}
+                            color={metricData.statusColor}
                         />
-                        <Text style={styles.latestTimeText}>
-                            Đo lúc 15/03/2026 08:00
+                        <Text
+                            style={[
+                                styles.latestTimeText,
+                                { color: metricData.statusColor },
+                            ]}
+                        >
+                            Đo lúc {metricData.latestDate}
                         </Text>
                     </View>
-                    <View style={styles.latestBadge}>
-                        <Ionicons name='warning' size={12} color='#D97706' />
-                        <Text style={styles.latestBadgeText}>Hơi cao</Text>
+                    <View
+                        style={[
+                            styles.latestBadge,
+                            {
+                                backgroundColor: metricData.badgeBg,
+                                borderColor: metricData.badgeBorder,
+                            },
+                        ]}
+                    >
+                        <Ionicons
+                            name={
+                                metricData.id === 'bp' ? 'warning' : 'checkmark'
+                            }
+                            size={12}
+                            color={metricData.statusColor}
+                        />
+                        <Text
+                            style={[
+                                styles.latestBadgeText,
+                                { color: metricData.statusColor },
+                            ]}
+                        >
+                            {metricData.latestStatus}
+                        </Text>
                     </View>
                 </View>
 
@@ -191,158 +325,72 @@ export default function MemberMetricsRoute() {
                 <View style={[styles.cardBlock, { marginTop: scale(12) }]}>
                     <Text style={styles.chartTitle}>Biểu đồ 3 tháng</Text>
                     <View style={styles.chartArea}>
-                        <Svg width='100%' height='108' viewBox='0 0 340 120'>
-                            {/* Grid lines */}
-                            <Line
-                                x1='10'
-                                y1='20'
-                                x2='330'
-                                y2='20'
-                                stroke='#E2E8F0'
-                                strokeWidth='1'
-                            />
-                            <Line
-                                x1='10'
-                                y1='50'
-                                x2='330'
-                                y2='50'
-                                stroke='#E2E8F0'
-                                strokeWidth='1'
-                            />
-                            <Line
-                                x1='10'
-                                y1='80'
-                                x2='330'
-                                y2='80'
-                                stroke='#E2E8F0'
-                                strokeWidth='1'
-                            />
-
-                            {/* Tâm thu line (Red) */}
-                            <Path
-                                d='M 40 45 L 105 35 L 170 42 L 235 48 L 300 25'
-                                stroke={colors.danger}
-                                strokeWidth='2'
-                                fill='none'
-                            />
-                            <SvgCircle
-                                cx='40'
-                                cy='45'
-                                r='4'
-                                fill={colors.danger}
-                            />
-                            <SvgCircle
-                                cx='105'
-                                cy='35'
-                                r='4'
-                                fill={colors.danger}
-                            />
-                            <SvgCircle
-                                cx='170'
-                                cy='42'
-                                r='4'
-                                fill={colors.danger}
-                            />
-                            <SvgCircle
-                                cx='235'
-                                cy='48'
-                                r='4'
-                                fill={colors.danger}
-                            />
-                            <SvgCircle
-                                cx='300'
-                                cy='25'
-                                r='4'
-                                fill={colors.danger}
-                            />
-
-                            {/* Tâm trương line (Light Pink) */}
-                            <Path
-                                d='M 40 85 L 105 75 L 170 80 L 235 85 L 300 70'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                                fill='none'
-                            />
-                            <SvgCircle
-                                cx='40'
-                                cy='85'
-                                r='4'
-                                fill='#FFF'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                            />
-                            <SvgCircle
-                                cx='105'
-                                cy='75'
-                                r='4'
-                                fill='#FFF'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                            />
-                            <SvgCircle
-                                cx='170'
-                                cy='80'
-                                r='4'
-                                fill='#FFF'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                            />
-                            <SvgCircle
-                                cx='235'
-                                cy='85'
-                                r='4'
-                                fill='#FFF'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                            />
-                            <SvgCircle
-                                cx='300'
-                                cy='70'
-                                r='4'
-                                fill='#FFF'
-                                stroke='#FCA5A5'
-                                strokeWidth='2'
-                            />
-                        </Svg>
+                        {renderChart(tab, metricData)}
                         <View style={styles.chartXAxis}>
-                            <Text style={styles.chartXLabel}>01/01</Text>
-                            <Text style={styles.chartXLabel}>02/02</Text>
-                            <Text style={styles.chartXLabel}>01/03</Text>
-                            <Text style={styles.chartXLabel}>15/03</Text>
+                            {metricData.chartData.dates
+                                .slice(0, 4)
+                                .map((date, i) => (
+                                    <Text key={i} style={styles.chartXLabel}>
+                                        {date}
+                                    </Text>
+                                ))}
                         </View>
                     </View>
                     {/* Legend */}
-                    <View style={styles.chartLegend}>
-                        <View style={styles.legendItem}>
-                            <View
-                                style={[
-                                    styles.legendLine,
-                                    { backgroundColor: colors.danger },
-                                ]}
-                            />
-                            <Text style={styles.legendText}>Tâm thu</Text>
+                    {tab === 'bp' ? (
+                        <View style={styles.chartLegend}>
+                            <View style={styles.legendItem}>
+                                <View
+                                    style={[
+                                        styles.legendLine,
+                                        { backgroundColor: colors.danger },
+                                    ]}
+                                />
+                                <Text style={styles.legendText}>Tâm thu</Text>
+                            </View>
+                            <View style={styles.legendItem}>
+                                <View
+                                    style={[
+                                        styles.legendLine,
+                                        {
+                                            backgroundColor: '#FCA5A5',
+                                            height: 2,
+                                        },
+                                    ]}
+                                />
+                                <Text style={styles.legendText}>
+                                    Tâm trương
+                                </Text>
+                            </View>
                         </View>
-                        <View style={styles.legendItem}>
-                            <View
-                                style={[
-                                    styles.legendLine,
-                                    { backgroundColor: '#FCA5A5', height: 2 },
-                                ]}
-                            />
-                            <Text style={styles.legendText}>Tâm trương</Text>
+                    ) : (
+                        <View style={styles.chartLegend}>
+                            <View style={styles.legendItem}>
+                                <View
+                                    style={[
+                                        styles.legendLine,
+                                        { backgroundColor: colors.primary },
+                                    ]}
+                                />
+                                <Text style={styles.legendText}>
+                                    {metricData.label}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
                 </View>
 
                 {/* HISTORY */}
-                <Text style={styles.sectionHeader}>LỊCH SỬ ĐO</Text>
+                <Text style={[styles.sectionHeader, { color: colors.text3 }]}>
+                    LỊCH SỬ ĐO
+                </Text>
                 <View style={styles.historyListWrap}>
-                    {HISTORY_MOCK.map((item, i) => (
+                    {metricData.readings.map((item, i) => (
                         <View
                             key={i}
                             style={[
                                 styles.historyItem,
-                                i === HISTORY_MOCK.length - 1 && {
+                                i === metricData.readings.length - 1 && {
                                     borderBottomWidth: 0,
                                 },
                             ]}
@@ -351,7 +399,7 @@ export default function MemberMetricsRoute() {
                                 <Text style={styles.historyItemValue}>
                                     {item.value}{' '}
                                     <Text style={styles.historyItemUnit}>
-                                        mmHg
+                                        {metricData.unit}
                                     </Text>
                                 </Text>
                                 <Text style={styles.historyItemDate}>
@@ -367,7 +415,11 @@ export default function MemberMetricsRoute() {
                                     },
                                 ]}
                             >
-                                {item.badgeIcon}
+                                <Ionicons
+                                    name={item.icon as any}
+                                    size={12}
+                                    color={item.iconColor}
+                                />
                                 <Text
                                     style={[
                                         styles.historyBadgeText,
@@ -386,6 +438,22 @@ export default function MemberMetricsRoute() {
                     onPress={() => router.push('./new')}
                 >
                     <Text style={styles.addBtnText}>+ Thêm lần đo mới</Text>
+                </Pressable>
+
+                {/* Export PDF Button */}
+                <Pressable
+                    style={[styles.addBtn, { borderColor: colors.primary }]}
+                    onPress={() => {
+                        // TODO: Export to PDF functionality
+                    }}
+                >
+                    <MaterialCommunityIcons
+                        name='file-pdf-box'
+                        size={16}
+                        color={colors.primary}
+                        style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.addBtnText}>Xuất báo cáo PDF</Text>
                 </Pressable>
             </ScrollView>
         </View>
@@ -407,6 +475,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    exportBtn: {
+        width: moderateScale(34),
+        height: moderateScale(34),
+        borderRadius: moderateScale(10),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     topbarCenter: {
         flex: 1,
         alignItems: 'center',
@@ -415,10 +490,6 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.bold,
         fontSize: scaleFont(17),
         color: colors.text,
-    },
-    topbarRightSpacer: {
-        width: moderateScale(34),
-        height: moderateScale(34),
     },
     tabContainer: {
         flexDirection: 'row',
