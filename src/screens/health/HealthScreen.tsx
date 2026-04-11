@@ -2,6 +2,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
     KeyboardAvoidingView,
@@ -75,6 +76,7 @@ function truncateHealthTag(label: string | null, maxLength = 22): string {
 }
 
 export default function HealthScreen(): React.JSX.Element {
+    const router = useRouter();
     const [screen, setScreen] = useState<SubScreen>('main');
     const [sheet, setSheet] = useState<SheetKey>(null);
     const [blood, setBlood] = useState('O+');
@@ -396,6 +398,43 @@ export default function HealthScreen(): React.JSX.Element {
                         </View>
                     </View>
                     <NoteRow text='BMI chỉ dựa trên chiều cao và cân nặng, chưa phản ánh tỷ lệ cơ/mỡ hay sức khoẻ toàn diện.' />
+                </CardBlock>
+
+                {/* METRICS HISTORY BUTTON */}
+                <SectionHeader title='Thống kê' />
+                <CardBlock>
+                    <Pressable
+                        style={[styles.miniCardRow]}
+                        onPress={() =>
+                            router.push('/(tabs)/health/metrics' as any)
+                        }
+                    >
+                        <View
+                            style={[
+                                styles.miniCardRowIcon,
+                                { backgroundColor: '#FEF3C7' },
+                            ]}
+                        >
+                            <MaterialCommunityIcons
+                                name='chart-line'
+                                size={18}
+                                color='#D97706'
+                            />
+                        </View>
+                        <View style={styles.miniCardRowBody}>
+                            <Text style={styles.hiLabelTitle}>
+                                Thống kê chi tiết sức khỏe
+                            </Text>
+                            <Text style={styles.miniCardRowSub}>
+                                Xem biểu đồ huyết áp, cân nặng, đường huyết
+                            </Text>
+                        </View>
+                        <Ionicons
+                            name='chevron-forward'
+                            size={16}
+                            color={colors.primary}
+                        />
+                    </Pressable>
                 </CardBlock>
 
                 {/* THÔNG TIN SỨC KHOẺ */}
