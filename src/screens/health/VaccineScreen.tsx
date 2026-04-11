@@ -18,13 +18,13 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
-import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
 import { VACCINE_DETAILS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 import type { VaccineDetailItem, VaccineDose } from '../../types/health';
+import { styles } from './styles';
 
 interface Props {
     onClose?: () => void;

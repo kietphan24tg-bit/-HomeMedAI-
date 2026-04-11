@@ -1,3 +1,9 @@
+import { usePatchFamilyMutation } from '@/src/features/family/mutations';
+import { useFamilyMembersQuery } from '@/src/features/family/queries';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { buttonSystem, shared } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -21,12 +27,6 @@ import {
     SafeAreaView,
     useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { usePatchFamilyMutation } from '@/src/features/family/mutations';
-import { useFamilyMembersQuery } from '@/src/features/family/queries';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { buttonSystem, shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import { MemberRow, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
@@ -215,7 +215,8 @@ export default function FamilyDetailScreen({
                             isLast={index === members.length - 1}
                             onPress={() =>
                                 router.push({
-                                    pathname: '/family/[familyId]/member/[memberId]',
+                                    pathname:
+                                        '/family/[familyId]/member/[memberId]',
                                     params: {
                                         familyId: family.id,
                                         memberId: String(member.id),

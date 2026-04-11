@@ -1,3 +1,16 @@
+import StatePanel from '@/src/components/state/StatePanel';
+import { FAMILIES } from '@/src/data/family-data';
+import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
+import { useAuthStore } from '@/src/stores/useAuthStore';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
+import { colors, shadows, typography } from '@/src/styles/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -13,19 +26,6 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import StatePanel from '@/src/components/state/StatePanel';
-import { FAMILIES } from '@/src/data/family-data';
-import { appToast } from '@/src/lib/toast';
-import { familiesServices } from '@/src/services/families.services';
-import { useAuthStore } from '@/src/stores/useAuthStore';
-import {
-    moderateScale,
-    scale,
-    scaleFont,
-    verticalScale,
-} from '@/src/styles/responsive';
-import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
-import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 

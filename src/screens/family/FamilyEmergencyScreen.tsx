@@ -1,15 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
-import React from 'react';
-import {
-    Linking,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     useFamilyMembersQuery,
     useFamilyQuery,
@@ -22,6 +10,18 @@ import {
     shared,
 } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import React from 'react';
+import {
+    Linking,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function roleLabel(role?: string): string {
     if (role === 'OWNER') return 'Chủ gia đình';
@@ -337,7 +337,8 @@ export default function FamilyEmergencyScreen({
                                 style={styles.quickActionBtn}
                                 onPress={() =>
                                     router.push({
-                                        pathname: '/family/[familyId]/member/[memberId]',
+                                        pathname:
+                                            '/family/[familyId]/member/[memberId]',
                                         params: {
                                             familyId,
                                             memberId: String(member.id),

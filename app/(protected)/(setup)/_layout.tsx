@@ -1,7 +1,9 @@
-import { Redirect, Stack } from 'expo-router';
-import { useShallow } from 'zustand/shallow';
 import { MOTION_PRESETS } from '@/src/navigation/motion';
 import { useAuthStore } from '@/src/stores/useAuthStore';
+import { Redirect, Stack } from 'expo-router';
+import { useShallow } from 'zustand/shallow';
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
@@ -23,7 +25,10 @@ export default function SetupFlowLayout() {
 
     return (
         <Stack screenOptions={MOTION_PRESETS.root}>
-            <Stack.Screen name='post-login' options={MOTION_PRESETS.flowEntry} />
+            <Stack.Screen
+                name='post-login'
+                options={MOTION_PRESETS.flowEntry}
+            />
             <Stack.Screen
                 name='personal-info'
                 options={MOTION_PRESETS.drillDown}

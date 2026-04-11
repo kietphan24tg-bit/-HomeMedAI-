@@ -10,35 +10,23 @@ export default function MemberHistoryLayout() {
             }}
         >
             <Stack.Screen name='index' options={{ headerShown: false }} />
-            <Stack.Screen
-                name='records/index'
-                options={{ headerShown: false }}
-            />
+            <Stack.Screen name='records' options={{ headerShown: false }} />
             <Stack.Screen name='records/new' options={{ headerShown: false }} />
             <Stack.Screen
                 name='records/[recordId]'
                 options={{ headerShown: false }}
             />
 
-            <Stack.Screen
-                name='vaccines/index'
-                options={{ headerShown: false }}
-            />
+            <Stack.Screen name='vaccines' options={{ headerShown: false }} />
             <Stack.Screen
                 name='vaccines/[vaxId]'
                 options={{ headerShown: false }}
             />
 
-            <Stack.Screen
-                name='metrics/index'
-                options={{ headerShown: false }}
-            />
+            <Stack.Screen name='metrics' options={{ headerShown: false }} />
             <Stack.Screen name='metrics/new' options={{ headerShown: false }} />
 
-            <Stack.Screen
-                name='followups/index'
-                options={{ headerShown: false }}
-            />
+            <Stack.Screen name='followups' options={{ headerShown: false }} />
             <Stack.Screen
                 name='followups/new'
                 options={{ headerShown: false }}

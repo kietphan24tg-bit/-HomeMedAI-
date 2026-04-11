@@ -1,7 +1,9 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
-import { useShallow } from 'zustand/shallow';
 import AuthScreen from '@/src/screens/auth/AuthScreen';
 import { useAuthStore } from '@/src/stores/useAuthStore';
+import { Redirect, useLocalSearchParams } from 'expo-router';
+import { useShallow } from 'zustand/shallow';
+
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
@@ -27,7 +29,11 @@ export default function AuthRoute() {
     }
 
     if (accessToken) {
-        return <Redirect href={postLoginCompleted ? APP_TABS_ROUTE : '/post-login'} />;
+        return (
+            <Redirect
+                href={postLoginCompleted ? APP_TABS_ROUTE : '/post-login'}
+            />
+        );
     }
 
     return <AuthScreen initialMode={initialMode} />;

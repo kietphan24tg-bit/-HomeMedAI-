@@ -97,6 +97,7 @@ const MetricCard = ({
     latestValueColor,
     lastUpdate,
     memberBasePath,
+    metricId,
 }: any) => {
     return (
         <View style={styles.metricCard}>
@@ -127,7 +128,10 @@ const MetricCard = ({
                 <View style={{ flex: 1 }} />
                 <Pressable
                     onPress={() =>
-                        router.push(`${memberBasePath}/history/metrics` as any)
+                        router.push({
+                            pathname: `${memberBasePath}/history/metrics`,
+                            params: { metric: metricId },
+                        } as any)
                     }
                     style={{ flexDirection: 'row', alignItems: 'center' }}
                 >
@@ -338,7 +342,7 @@ export default function FamilyMemberDetailScreen({
         _canManageMembers && !member.isSelf && !member.isOwner;
     const _showRemoveOther =
         _canManageMembers && !member.isSelf && !member.isOwner;
-    const memberBasePath = `/(tabs)/family/${family.id}/member/${member.id}`;
+    const memberBasePath = `/family/${family.id}/member/${member.id}`;
     const emergencyContacts = DEFAULT_EMERGENCY_CONTACTS;
     const healthInfoItems = [
         {
@@ -1579,6 +1583,7 @@ export default function FamilyMemberDetailScreen({
                             latestValueColor={colors.danger}
                             lastUpdate='15/03/2026'
                             memberBasePath={memberBasePath}
+                            metricId='bp'
                         />
 
                         <MetricCard
@@ -1611,6 +1616,7 @@ export default function FamilyMemberDetailScreen({
                             latestValueColor={colors.primary}
                             lastUpdate='15/03/2026'
                             memberBasePath={memberBasePath}
+                            metricId='weight'
                         />
 
                         <MetricCard
@@ -1643,6 +1649,7 @@ export default function FamilyMemberDetailScreen({
                             latestValueColor='#D97706'
                             lastUpdate='10/03/2026'
                             memberBasePath={memberBasePath}
+                            metricId='glucose'
                         />
                     </>
                 )}

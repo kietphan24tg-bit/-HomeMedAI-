@@ -1,3 +1,12 @@
+import {
+    useInviteUserByPhoneMutation,
+    useSearchUserByPhoneMutation,
+} from '@/src/features/family/mutations';
+import { appToast } from '@/src/lib/toast';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { shared } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -10,15 +19,6 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-    useInviteUserByPhoneMutation,
-    useSearchUserByPhoneMutation,
-} from '@/src/features/family/mutations';
-import { appToast } from '@/src/lib/toast';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import type { SearchState } from './familyShared';
 import {
     RECENT_CONTACTS,
@@ -523,7 +523,8 @@ export default function FamilySearchPhoneScreen({
                                 style={{ width: '100%', alignItems: 'center' }}
                                 onPress={() =>
                                     router.push({
-                                        pathname: '/family/[familyId]/add-member',
+                                        pathname:
+                                            '/family/[familyId]/add-member',
                                         params: { familyId: family.id },
                                     })
                                 }
