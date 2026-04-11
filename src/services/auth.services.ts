@@ -1,10 +1,14 @@
 import apiClient from '../api/client';
+import { getDeviceMetadata } from '../lib/device';
+import * as SecureStore from '../lib/secureStore';
 import type {
     SignInParams,
     SignInWithGoogleParams,
 } from '../types/useAuthStore.type';
 import type { User } from '../types/user';
 import { toVietnamE164 } from '../utils/phone';
+
+const REFRESH_TOKEN_KEY = 'refresh_token';
 
 export const authService = {
     signUp: async ({
@@ -56,8 +60,15 @@ export const authService = {
         return res.data;
     },
     signOut: async () => {
-        const res = await apiClient.get('/auth/logout');
-        return res.data;
+        const refresh_token = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        const { device_id } = await getDeviceMetadata();
+        if (!refresh_token) {
+            return;
+        }
+        await apiClient.post('/auth/logout', {
+            refresh_token,
+            device_id,
+        });
     },
     fetchMe: async () => {
         const res = await apiClient.get('/users/me');
@@ -69,10 +80,8 @@ export const authService = {
         });
         return res.data;
     },
-    profile: async () => {
-        const res = await apiClient.get('/user/profile');
-        return res.data;
-    },
+    /** Same bundle as the app home/health cache — GET /users/me */
+    profile: async () => authService.fetchMe(),
     forgotPassword: async (email: string) => {
         const res = await apiClient.post('/auth/forgot-password', {
             email,
@@ -102,10 +111,9 @@ export const authService = {
         return res.data ?? { success: true };
     },
     changePassword: async (old_password: string, new_password: string) => {
-        const res = await apiClient.put('/user/change-password', {
+        await apiClient.post('/auth/change-password', {
             old_password,
             new_password,
         });
-        return res.data;
     },
 };

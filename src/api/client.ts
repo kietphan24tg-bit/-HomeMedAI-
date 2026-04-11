@@ -20,6 +20,7 @@ const EXCLUDED_REFRESH_PATHS = [
     '/auth/google',
     '/auth/forgot-password',
     '/auth/reset-password',
+    '/auth/change-password',
 ] as const;
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {

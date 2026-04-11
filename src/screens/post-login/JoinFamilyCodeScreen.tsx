@@ -1,16 +1,3 @@
-import StatePanel from '@/src/components/state/StatePanel';
-import { FAMILIES } from '@/src/data/family-data';
-import { appToast } from '@/src/lib/toast';
-import { familiesServices } from '@/src/services/families.services';
-import { useAuthStore } from '@/src/stores/useAuthStore';
-import {
-    moderateScale,
-    scale,
-    scaleFont,
-    verticalScale,
-} from '@/src/styles/responsive';
-import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
-import { colors, shadows, typography } from '@/src/styles/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -26,6 +13,18 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatePanel from '@/src/components/state/StatePanel';
+import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
+import { useAuthStore } from '@/src/stores/useAuthStore';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
+import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -35,6 +34,17 @@ type PreviewData = {
     invite_code?: string;
     address?: string;
     created_at?: string;
+    valid?: boolean;
+    expires_at?: string;
+};
+
+type LinkableProfileRow = {
+    profile_id: string;
+    full_name: string;
+    dob?: string | null;
+    gender?: string | null;
+    avatar_url?: string | null;
+    status?: string | null;
 };
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
@@ -63,6 +73,14 @@ const getFamilyInitial = (name?: string): string => {
     return initial || 'G';
 };
 
+function initialsFromFullName(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return fullName.slice(0, 2).toUpperCase() || '?';
+}
+
 export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
     const [inviteCode, setInviteCode] = useState('');
@@ -72,16 +90,10 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
         null,
     );
-
-    const matchedFamily =
-        (previewData?.family_id
-            ? FAMILIES.find((family) => family.id === previewData.family_id)
-            : null) ??
-        FAMILIES.find((family) => family.name === previewData?.family_name) ??
-        null;
-
-    const candidateProfiles =
-        matchedFamily?.members.filter((member) => !member.isSelf) ?? [];
+    const [linkableProfiles, setLinkableProfiles] = useState<
+        LinkableProfileRow[]
+    >([]);
+    const [linkModalLoading, setLinkModalLoading] = useState(false);
 
     const handlePreview = async () => {
         if (!inviteCode.trim()) {
@@ -123,17 +135,39 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
         router.replace(APP_TABS_ROUTE);
     };
 
-    const handleOpenLinkModal = () => {
-        if (!candidateProfiles.length) {
-            appToast.showInfo(
-                'Chưa có hồ sơ',
-                'Gia đình này hiện chưa có hồ sơ phù hợp để liên kết.',
-            );
+    const handleOpenLinkModal = async () => {
+        const code = inviteCode.trim();
+        if (!code) {
+            appToast.showInfo('Thiếu mã', 'Vui lòng nhập mã gia đình trước.');
             return;
         }
 
-        setSelectedProfileId(candidateProfiles[0]?.id ?? null);
-        setShowLinkModal(true);
+        try {
+            setLinkModalLoading(true);
+            const data =
+                await familiesServices.listLinkableProfilesByInvite(code);
+            const profiles: LinkableProfileRow[] = Array.isArray(data?.profiles)
+                ? data.profiles
+                : [];
+            if (!profiles.length) {
+                appToast.showInfo(
+                    'Chưa có hồ sơ',
+                    'Không tìm thấy hồ sơ nào có thể liên kết với mã này. Kiểm tra mã hoặc liên hệ chủ gia đình.',
+                );
+                return;
+            }
+            setLinkableProfiles(profiles);
+            setSelectedProfileId(profiles[0]?.profile_id ?? null);
+            setShowLinkModal(true);
+        } catch (error) {
+            console.error(error);
+            appToast.showError(
+                'Lỗi',
+                'Không tải được danh sách hồ sơ. Vui lòng thử lại.',
+            );
+        } finally {
+            setLinkModalLoading(false);
+        }
     };
 
     const handleConfirmLink = async () => {
@@ -145,8 +179,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             return;
         }
 
-        const selectedProfile = candidateProfiles.find(
-            (member) => member.id === selectedProfileId,
+        const selectedProfile = linkableProfiles.find(
+            (row) => row.profile_id === selectedProfileId,
         );
 
         if (!selectedProfile) {
@@ -159,13 +193,9 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
         try {
             setShowLinkModal(false);
-            await familiesServices.acceptInvite({
-                invite_id:
-                    previewData?.invite_code ??
-                    previewData?.family_id ??
-                    selectedProfileId,
-                full_name: selectedProfile.name,
-                profile_id: selectedProfile.id,
+            await familiesServices.linkProfileByInvite({
+                invite_code: inviteCode.trim(),
+                profile_id: selectedProfile.profile_id,
             });
             await handleComplete();
         } catch (error) {
@@ -331,12 +361,22 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             </View>
 
                             <Pressable
-                                style={styles.joinBtn}
-                                onPress={handleOpenLinkModal}
+                                style={[
+                                    styles.joinBtn,
+                                    linkModalLoading && { opacity: 0.65 },
+                                ]}
+                                onPress={() => {
+                                    void handleOpenLinkModal();
+                                }}
+                                disabled={linkModalLoading}
                             >
-                                <Text style={styles.joinBtnText}>
-                                    Tham gia gia đình này
-                                </Text>
+                                {linkModalLoading ? (
+                                    <ActivityIndicator color='#fff' />
+                                ) : (
+                                    <Text style={styles.joinBtnText}>
+                                        Tham gia gia đình này
+                                    </Text>
+                                )}
                             </Pressable>
                         </View>
                     </View>
@@ -405,9 +445,9 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 Thành viên chưa có tài khoản
                             </Text>
 
-                            {candidateProfiles.map((member, index) => {
+                            {linkableProfiles.map((member, index) => {
                                 const isSelected =
-                                    selectedProfileId === member.id;
+                                    selectedProfileId === member.profile_id;
                                 const avatarBg =
                                     PROFILE_AVATAR_BACKGROUNDS[
                                         index %
@@ -416,14 +456,16 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
                                 return (
                                     <Pressable
-                                        key={member.id}
+                                        key={member.profile_id}
                                         style={[
                                             styles.profileOption,
                                             isSelected &&
                                                 styles.profileOptionSelected,
                                         ]}
                                         onPress={() =>
-                                            setSelectedProfileId(member.id)
+                                            setSelectedProfileId(
+                                                member.profile_id,
+                                            )
                                         }
                                     >
                                         <View
@@ -435,19 +477,20 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                             <Text
                                                 style={styles.profileAvatarText}
                                             >
-                                                {member.initials ||
-                                                    getFamilyInitial(
-                                                        member.name,
-                                                    )}
+                                                {initialsFromFullName(
+                                                    member.full_name,
+                                                )}
                                             </Text>
                                         </View>
 
                                         <View style={styles.profileInfo}>
                                             <Text style={styles.profileName}>
-                                                {member.name}
+                                                {member.full_name}
                                             </Text>
                                             <Text style={styles.profileRole}>
-                                                {member.role}
+                                                {member.status
+                                                    ? String(member.status)
+                                                    : 'Chưa liên kết tài khoản'}
                                             </Text>
                                         </View>
 

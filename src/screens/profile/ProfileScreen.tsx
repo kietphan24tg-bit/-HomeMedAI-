@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/shallow';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
@@ -56,7 +57,12 @@ export default function ProfileScreen(): React.JSX.Element {
         phone: '0901 234 567',
     });
     const [contactDraft, setContactDraft] = useState(contacts);
-
+    const { accessToken } = useAuthStore(
+        useShallow((state) => ({
+            accessToken: state.accessToken,
+        })),
+    );
+    console.log('Access Token lay ra duoc la: ', accessToken);
     const [fields, setFields] = useState({
         dob: '12/03/1987',
         gender: 'Nam',

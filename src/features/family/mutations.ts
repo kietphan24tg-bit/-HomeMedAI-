@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { appQueryClient } from '@/src/lib/query-client';
 import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
+import { familyMembershipsServices } from '@/src/services/familyMemberships.services';
 import { familyQueryKeys } from './queryKeys';
 
 export function useRejectFamilyInviteMutation() {
@@ -232,6 +233,45 @@ export function useCreateProfileInFamilyMutation() {
                 error?.message ||
                 'Không thể tạo hồ sơ lúc này.';
             appToast.showError('Lỗi', String(message));
+        },
+    });
+}
+
+export function useUpdateFamilyMemberRoleMutation() {
+    return useMutation({
+        mutationFn: ({ memberId, role }: { memberId: string; role: string }) =>
+            familyMembershipsServices.updateMemberRole(memberId, {
+                role: role as any,
+            }),
+        onSuccess: () => {
+            appQueryClient.invalidateQueries({ queryKey: familyQueryKeys.all });
+            appToast.showSuccess(
+                'Thành công',
+                'Đã cập nhật vai trò thành viên.',
+            );
+        },
+        onError: (error: any) => {
+            appToast.showError(
+                'Lỗi',
+                error?.response?.data?.detail || 'Không thể cập nhật vai trò.',
+            );
+        },
+    });
+}
+
+export function useRemoveFamilyMemberMutation() {
+    return useMutation({
+        mutationFn: (memberId: string) =>
+            familyMembershipsServices.removeMember(memberId),
+        onSuccess: () => {
+            appQueryClient.invalidateQueries({ queryKey: familyQueryKeys.all });
+            appToast.showSuccess('Thành công', 'Đã xóa thành viên gia đình.');
+        },
+        onError: (error: any) => {
+            appToast.showError(
+                'Lỗi',
+                error?.response?.data?.detail || 'Không thể xóa thành viên.',
+            );
         },
     });
 }

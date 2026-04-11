@@ -229,7 +229,8 @@ const routes: Route[] = [
             return {
                 access_token: MOCK_ACCESS_TOKEN,
                 refresh_token: MOCK_REFRESH_TOKEN,
-                user: MOCK_USER,
+                token_type: 'bearer',
+                expires_in: 3600,
             };
         },
     },
@@ -239,13 +240,19 @@ const routes: Route[] = [
         handler: () => ({
             access_token: MOCK_ACCESS_TOKEN,
             refresh_token: MOCK_REFRESH_TOKEN,
-            user: MOCK_USER,
+            token_type: 'bearer',
+            expires_in: 3600,
         }),
     },
     {
-        method: 'get',
+        method: 'post',
         pattern: /^\/auth\/logout$/,
-        handler: () => ({ message: 'Đã đăng xuất.' }),
+        handler: () => undefined,
+    },
+    {
+        method: 'post',
+        pattern: /^\/auth\/change-password$/,
+        handler: () => undefined,
     },
     {
         method: 'post',
@@ -315,16 +322,6 @@ const routes: Route[] = [
     },
     {
         method: 'get',
-        pattern: /^\/user\/profile$/,
-        handler: () => getMockProfile(),
-    },
-    {
-        method: 'put',
-        pattern: /^\/user\/change-password$/,
-        handler: () => ({ message: 'Đổi mật khẩu thành công.' }),
-    },
-    {
-        method: 'get',
         pattern: /^\/users\/me\/profiles$/,
         handler: (_url, config) => {
             const scope =
@@ -383,20 +380,66 @@ const routes: Route[] = [
     {
         method: 'get',
         pattern: /^\/families\/invites$/,
-        handler: () => ({ total: 0, page: 1, limit: 10, data: [] }),
+        handler: () => [],
     },
     {
         method: 'get',
         pattern: /^\/families\/invite\/preview$/,
         handler: () => ({
-            family_id: 'phan-family',
             family_name: 'Phan Family',
             invite_code: 'ABC',
-            address: '123 Nguyễn Trãi, Quận 5, TP.HCM',
-            created_at: '2024-03-15T00:00:00Z',
-            invited_by: 'Nguyễn Văn An',
-            member_count: 5,
+            valid: true,
+            expires_at: new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
         }),
+    },
+    {
+        method: 'get',
+        pattern: /^\/families\/invite\/linkable-profiles$/,
+        handler: (_url, config) => {
+            const params = (config.params ?? {}) as Record<string, unknown>;
+            const invite_code = String(params.invite_code ?? 'DEMO');
+            return {
+                family_id: '00000000-0000-4000-8000-000000000001',
+                family_name: 'Phan Family',
+                invite_code,
+                profiles: [
+                    {
+                        profile_id: '00000000-0000-4000-8000-000000000011',
+                        health_profile_id: null,
+                        full_name: 'Trần Thị Lan',
+                        dob: null,
+                        gender: null,
+                        avatar_url: null,
+                        status: 'PENDING',
+                        linked_user_id: null,
+                    },
+                ],
+            };
+        },
+    },
+    {
+        method: 'post',
+        pattern: /^\/families\/invite\/link-profile$/,
+        handler: (_url, config) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            mockProfile = {
+                ...DEFAULT_MOCK_PROFILE,
+                id: String(body.profile_id ?? uid()),
+                full_name: 'Trần Thị Lan',
+            };
+            return {
+                success: true,
+                family_id: '00000000-0000-4000-8000-000000000001',
+                profile_id:
+                    body.profile_id ?? '00000000-0000-4000-8000-000000000011',
+                health_profile_id: null,
+                linked_user_id: MOCK_USER.id,
+                membership_created: true,
+                post_login_flow_completed: true,
+            };
+        },
     },
     {
         method: 'get',

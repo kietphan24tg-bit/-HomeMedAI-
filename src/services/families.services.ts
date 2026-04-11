@@ -54,6 +54,31 @@ export const familiesServices = {
         });
         return res.data;
     },
+    listLinkableProfilesByInvite: async (invite_code: string) => {
+        const res = await apiClient.get('/families/invite/linkable-profiles', {
+            params: { invite_code },
+        });
+        return res.data;
+    },
+    linkProfileByInvite: async (body: {
+        invite_code: string;
+        profile_id: string;
+    }) => {
+        const res = await apiClient.post('/families/invite/link-profile', body);
+        return res.data;
+    },
+    joinFamilyByInviteCode: async (body: {
+        invite_code: string;
+        profile_id?: string | null;
+        full_name?: string | null;
+    }) => {
+        const res = await apiClient.post('/families/join', {
+            invite_code: body.invite_code,
+            profile_id: body.profile_id ?? undefined,
+            full_name: body.full_name ?? undefined,
+        });
+        return res.data;
+    },
     findUserByPhoneNumber: async (
         family_id: string,
         phone_number: string,
