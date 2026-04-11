@@ -5,6 +5,8 @@ import { useShallow } from 'zustand/shallow';
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+
 export default function OnboardingRoute() {
     const { accessToken, hasSeenOnboarding, initialized, postLoginCompleted } =
         useAuthStore(

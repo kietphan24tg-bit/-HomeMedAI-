@@ -5,6 +5,8 @@ import { useShallow } from 'zustand/shallow';
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 
+const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+
 export default function SetupFlowLayout() {
     const { initialized, postLoginCompleted } = useAuthStore(
         useShallow((state) => ({
