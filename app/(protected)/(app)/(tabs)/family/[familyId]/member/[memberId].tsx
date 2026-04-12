@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 import { useFamilyQuery } from '@/src/features/family/queries';
 import FamilyMemberDetailScreen from '@/src/screens/family/FamilyMemberDetailScreen';
@@ -9,7 +9,15 @@ export default function FamilyMemberRoute() {
         memberId: string;
         tab?: string;
     }>();
-    const { data: family, isLoading } = useFamilyQuery(familyId);
+    const normalizedFamilyId =
+        typeof familyId === 'string' ? familyId : (familyId?.[0] ?? '');
+    const normalizedMemberId =
+        typeof memberId === 'string' ? memberId : (memberId?.[0] ?? '');
+    const { data: family, isLoading } = useFamilyQuery(normalizedFamilyId);
+
+    if (!normalizedFamilyId) {
+        return <Redirect href='/family' />;
+    }
 
     if (isLoading) {
         return (
@@ -26,21 +34,11 @@ export default function FamilyMemberRoute() {
     }
 
     if (!family) {
-        return (
-            <View
-                style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-            >
-                <Text>Không tìm thấy gia đình.</Text>
-            </View>
-        );
+        return <Redirect href='/family' />;
     }
 
     const member = family.members.find(
-        (m: any) => String(m.id) === String(memberId),
+        (m: any) => String(m.id) === String(normalizedMemberId),
     );
 
     if (!member) {

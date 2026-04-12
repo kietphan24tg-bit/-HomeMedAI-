@@ -1,9 +1,7 @@
-import { OnboardingScreen } from '@/src/screens';
-import { useAuthStore } from '@/src/stores/useAuthStore';
 import { Redirect } from 'expo-router';
 import { useShallow } from 'zustand/shallow';
-
-const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+import { OnboardingScreen } from '@/src/screens';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 

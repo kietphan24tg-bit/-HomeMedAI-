@@ -1,15 +1,25 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import StatePanel from '@/src/components/state/StatePanel';
+import { useFamilyQuery } from '@/src/features/family/queries';
 import FamilyMedicineInventoryScreen from '@/src/screens/family/FamilyMedicineInventoryScreen';
-import { getFamilyById } from '@/src/screens/family/familyShared';
 import { colors } from '@/src/styles/tokens';
 
 export default function FamilyMedicineRoute() {
-    const { familyId } = useLocalSearchParams<{ familyId: string }>();
-    const family = getFamilyById(familyId);
+    const { familyId: familyIdParam } = useLocalSearchParams<{
+        familyId?: string | string[];
+    }>();
+    const familyId =
+        typeof familyIdParam === 'string'
+            ? familyIdParam
+            : (familyIdParam?.[0] ?? '');
+    const { data: family, isLoading } = useFamilyQuery(familyId);
 
-    if (!family) {
+    if (!familyId) {
+        return <Redirect href='/family' />;
+    }
+
+    if (isLoading) {
         return (
             <View
                 style={{
@@ -19,12 +29,15 @@ export default function FamilyMedicineRoute() {
                 }}
             >
                 <StatePanel
-                    variant='empty'
-                    title='Không tìm thấy gia đình'
-                    message='Không thể mở tủ thuốc vì gia đình này không còn tồn tại.'
+                    variant='loading'
+                    title='Đang tải dữ liệu gia đình...'
                 />
             </View>
         );
+    }
+
+    if (!family) {
+        return <Redirect href='/family' />;
     }
 
     return <FamilyMedicineInventoryScreen family={family} />;

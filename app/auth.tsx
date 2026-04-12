@@ -1,9 +1,7 @@
-import AuthScreen from '@/src/screens/auth/AuthScreen';
-import { useAuthStore } from '@/src/stores/useAuthStore';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useShallow } from 'zustand/shallow';
-
-const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
+import AuthScreen from '@/src/screens/auth/AuthScreen';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
 

@@ -19,7 +19,15 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import { MedicineInventoryCard } from '@/src/components/ui';
 import type { FamilyMedicineItem } from '@/src/data/family-medicine-data';
-import { useFamilyMedicineInventoryQuery } from '@/src/features/family/queries';
+import {
+    useFamilyMedicineInventoryQuery,
+    useFamilyProfilesQuery,
+} from '@/src/features/family/queries';
+import { familyQueryKeys } from '@/src/features/family/queryKeys';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
+import { appQueryClient } from '@/src/lib/query-client';
+import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
 import {
     moderateScale,
     scale,
@@ -29,6 +37,8 @@ import {
 import { buttonSystem, cardSystem, inputSystem } from '@/src/styles/shared';
 import { colors, shadows, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
+import { localHHMMToUtcHHMM } from '@/src/utils/reminder-time';
+import MedicineDetailSheet from './MedicineDetailSheet';
 import MedicineDropdownSheet, {
     FORM_CATEGORIES,
     STOCK_UNIT_CATEGORIES,
@@ -359,10 +369,15 @@ export default function FamilyMedicineInventoryScreen({
     const [newExp, setNewExp] = useState('');
     const [newLocation, setNewLocation] = useState('');
     const [newNote, setNewNote] = useState('');
+    const [scheduleDetailItem, setScheduleDetailItem] =
+        useState<FamilyMedicineItem | null>(null);
+    const [scheduleSaving, setScheduleSaving] = useState(false);
 
     const { data: remoteItems = [] } = useFamilyMedicineInventoryQuery(
         family.id,
     );
+    const { data: meOverview } = useMeOverviewQuery();
+    const { data: familyProfiles = [] } = useFamilyProfilesQuery(family.id);
 
     const medicineFormOptions = useMemo(
         () =>
@@ -466,6 +481,77 @@ export default function FamilyMedicineInventoryScreen({
         setNewLocation(selectedItem.location || 'Tủ thuốc');
         setNewNote(selectedItem.note || '');
         setAddPopupOpen(true);
+    };
+
+    const handleMedicineScheduleSave = async (
+        data: Record<string, unknown>,
+    ) => {
+        if (!scheduleDetailItem?.id) return;
+        setScheduleSaving(true);
+        try {
+            const uid = meOverview?.user?.id;
+            const prof =
+                familyProfiles.find(
+                    (p: Record<string, unknown>) =>
+                        String(p.owner_user_id) === String(uid) ||
+                        String(p.linked_user_id) === String(uid),
+                ) ?? familyProfiles[0];
+            const profileId = prof?.id as string | undefined;
+            if (!profileId) {
+                appToast.showError('Chưa xác định được hồ sơ trong gia đình.');
+                return;
+            }
+            const reminderOn = Boolean(data.reminder_on);
+            const timesLocal = Array.isArray(data.reminder_times_local)
+                ? (data.reminder_times_local as string[])
+                : [];
+            const dosageRaw = data.dosage_per_time;
+            const dosagePerTime =
+                typeof dosageRaw === 'number'
+                    ? dosageRaw
+                    : parseFloat(String(dosageRaw || '')) || undefined;
+
+            const listRaw = await familiesServices.listMedicineSchedules(
+                scheduleDetailItem.id,
+            );
+            const list = Array.isArray(listRaw) ? listRaw : [];
+            for (const s of list) {
+                if (
+                    String((s as { profile_id?: string }).profile_id) ===
+                    profileId
+                ) {
+                    await familiesServices.deleteMedicineSchedule(
+                        String((s as { id: string }).id),
+                    );
+                }
+            }
+            if (reminderOn && timesLocal.length > 0) {
+                for (const t of timesLocal) {
+                    const utc = localHHMMToUtcHHMM(t);
+                    await familiesServices.createMedicineSchedule(
+                        scheduleDetailItem.id,
+                        {
+                            profile_id: profileId,
+                            remind_time: utc,
+                            dosage_per_time: dosagePerTime,
+                        },
+                    );
+                }
+            }
+            appToast.showSuccess('Đã cập nhật lịch nhắc uống thuốc.');
+            setScheduleDetailItem(null);
+            void appQueryClient.invalidateQueries({
+                queryKey: familyQueryKeys.medicineInventory(family.id),
+            });
+            void appQueryClient.invalidateQueries({
+                queryKey: ['notifications', 'me'],
+            });
+        } catch (e) {
+            console.error(e);
+            appToast.showError('Không lưu được lịch nhắc. Thử lại sau.');
+        } finally {
+            setScheduleSaving(false);
+        }
     };
 
     const addPopupTitle =
@@ -750,6 +836,29 @@ export default function FamilyMedicineInventoryScreen({
                                 </Text>
                             </View>
                         </View>
+
+                        <Pressable
+                            style={styles.usageReminderBtn}
+                            onPress={() => {
+                                if (selectedItem) {
+                                    setScheduleDetailItem(selectedItem);
+                                }
+                            }}
+                        >
+                            <Ionicons
+                                name='alarm-outline'
+                                size={18}
+                                color={ACCENT}
+                            />
+                            <Text style={styles.usageReminderBtnText}>
+                                Nhắc uống thuốc — cài đặt giờ (UTC qua máy chủ)
+                            </Text>
+                            <Ionicons
+                                name='chevron-forward'
+                                size={16}
+                                color={colors.text3}
+                            />
+                        </Pressable>
 
                         <Text style={styles.usageSectionTitle}>
                             XÁC NHẬN SỬ DỤNG
@@ -1092,6 +1201,14 @@ export default function FamilyMedicineInventoryScreen({
                 searchable={false}
             />
 
+            <MedicineDetailSheet
+                visible={!!scheduleDetailItem}
+                item={scheduleDetailItem}
+                isPending={scheduleSaving}
+                onClose={() => setScheduleDetailItem(null)}
+                onSave={handleMedicineScheduleSave}
+            />
+
             <CloneSheet
                 visible={!!cloneItem}
                 item={cloneItem}
@@ -1187,6 +1304,24 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         fontFamily: typography.font.bold,
         fontSize: scaleFont(13),
+        color: colors.text2,
+    },
+    usageReminderBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(8),
+        marginBottom: verticalScale(18),
+        paddingVertical: verticalScale(12),
+        paddingHorizontal: scale(14),
+        borderRadius: moderateScale(12),
+        backgroundColor: '#E6F7F5',
+        borderWidth: 1,
+        borderColor: 'rgba(14,138,125,0.25)',
+    },
+    usageReminderBtnText: {
+        flex: 1,
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12.5),
         color: colors.text2,
     },
     usageTopStats: {

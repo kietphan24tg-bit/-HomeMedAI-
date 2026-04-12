@@ -1,18 +1,43 @@
-import { useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Redirect, useLocalSearchParams } from 'expo-router';
+import { View } from 'react-native';
+import StatePanel from '@/src/components/state/StatePanel';
+import { useFamilyQuery } from '@/src/features/family/queries';
 import FamilySearchPhoneScreen from '@/src/screens/family/FamilySearchPhoneScreen';
-import { getFamilyById } from '@/src/screens/family/familyShared';
+import { colors } from '@/src/styles/tokens';
 
 export default function FamilySearchPhoneRoute() {
-    const { familyId } = useLocalSearchParams<{ familyId: string }>();
-    const family = getFamilyById(familyId);
+    const { familyId: familyIdParam } = useLocalSearchParams<{
+        familyId?: string | string[];
+    }>();
+    const familyId =
+        typeof familyIdParam === 'string'
+            ? familyIdParam
+            : (familyIdParam?.[0] ?? '');
+    const { data: family, isLoading } = useFamilyQuery(familyId);
 
-    if (!family) {
+    if (!familyId) {
+        return <Redirect href='/family' />;
+    }
+
+    if (isLoading) {
         return (
-            <View>
-                <Text>Không tìm thấy gia đình.</Text>
+            <View
+                style={{
+                    flex: 1,
+                    backgroundColor: colors.bg,
+                    justifyContent: 'center',
+                }}
+            >
+                <StatePanel
+                    variant='loading'
+                    title='Đang tải dữ liệu gia đình...'
+                />
             </View>
         );
+    }
+
+    if (!family) {
+        return <Redirect href='/family' />;
     }
 
     return <FamilySearchPhoneScreen family={family} />;

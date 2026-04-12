@@ -168,4 +168,40 @@ export const familiesServices = {
         );
         return res.data;
     },
+
+    listMedicineSchedules: async (item_id: string) => {
+        const res = await apiClient.get(
+            `/medicine-inventory/${item_id}/schedules`,
+        );
+        return res.data;
+    },
+    createMedicineSchedule: async (
+        item_id: string,
+        data: {
+            profile_id: string;
+            remind_time: string;
+            title?: string | null;
+            dosage_per_time?: number | string | null;
+            rrule?: string | null;
+        },
+    ) => {
+        const res = await apiClient.post(
+            `/medicine-inventory/${item_id}/schedules`,
+            data,
+        );
+        return res.data;
+    },
+    patchMedicineSchedule: async (
+        schedule_id: string,
+        data: Record<string, unknown>,
+    ) => {
+        const res = await apiClient.patch(
+            `/medicine-inventory/schedules/${schedule_id}`,
+            data,
+        );
+        return res.data;
+    },
+    deleteMedicineSchedule: async (schedule_id: string) => {
+        await apiClient.delete(`/medicine-inventory/schedules/${schedule_id}`);
+    },
 };
