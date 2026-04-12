@@ -56,8 +56,58 @@ export const authService = {
         return res.data;
     },
     signOut: async () => {
-        const res = await apiClient.get('/auth/logout');
-        return res.data;
+        try {
+            const res = await apiClient.post('/auth/logout');
+            return res.data;
+        } catch (error: any) {
+            const status = error?.response?.status;
+
+            if (status === 405) {
+                try {
+                    const res = await apiClient.get('/auth/logout');
+                    return res.data;
+                } catch {
+                    return null;
+                }
+            }
+
+            if (
+                status === 401 ||
+                status === 403 ||
+                status === 404 ||
+                status === 422
+            ) {
+                return null;
+            }
+
+            throw error;
+        }
+    },
+    signOutWithDevice: async (payload: {
+        refresh_token?: string | null;
+        device_id?: string | null;
+    }) => {
+        try {
+            const res = await apiClient.post('/auth/logout', payload);
+            return res.data;
+        } catch (error: any) {
+            const status = error?.response?.status;
+
+            if (status === 405) {
+                try {
+                    const res = await apiClient.get('/auth/logout');
+                    return res.data;
+                } catch {
+                    return null;
+                }
+            }
+
+            if ([401, 403, 404, 422].includes(status)) {
+                return null;
+            }
+
+            throw error;
+        }
     },
     fetchMe: async () => {
         const res = await apiClient.get('/users/me');
@@ -70,7 +120,7 @@ export const authService = {
         return res.data;
     },
     profile: async () => {
-        const res = await apiClient.get('/user/profile');
+        const res = await apiClient.get('/users/me');
         return res.data;
     },
     forgotPassword: async (email: string) => {
@@ -102,10 +152,19 @@ export const authService = {
         return res.data ?? { success: true };
     },
     changePassword: async (old_password: string, new_password: string) => {
-        const res = await apiClient.put('/user/change-password', {
+        const res = await apiClient.post('/auth/change-password', {
             old_password,
             new_password,
         });
+        return res.data;
+    },
+    updateDeviceToken: async (payload: {
+        device_id: string;
+        fcm_token?: string | null;
+        device_name?: string | null;
+        platform?: string | null;
+    }) => {
+        const res = await apiClient.post('/auth/device-token', payload);
         return res.data;
     },
 };

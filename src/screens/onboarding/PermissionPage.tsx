@@ -1,6 +1,8 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { registerForPushNotificationsAsync } from '@/src/lib/notifications';
+import * as SecureStore from '@/src/lib/secureStore';
 import { styles } from './styles';
 import { PERMS } from '../../data/onboarding-data';
 import { shared } from '../../styles/shared';
@@ -18,6 +20,8 @@ export default function PermissionPage({
     continueToAuthPage,
     renderDots,
 }: Props): React.JSX.Element {
+    const PUSH_PERMISSION_PROMPTED = 'push_permission_prompted';
+    const PUSH_PERMISSION_GRANTED = 'push_permission_granted';
     const bellPulse = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
@@ -36,6 +40,34 @@ export default function PermissionPage({
             ]),
         ).start();
     }, [bellPulse]);
+
+    const handleAllowNotifications = async () => {
+        try {
+            await SecureStore.setItemAsync(PUSH_PERMISSION_PROMPTED, 'true');
+            const token = await registerForPushNotificationsAsync({
+                allowPrompt: true,
+            });
+            await SecureStore.setItemAsync(
+                PUSH_PERMISSION_GRANTED,
+                token ? 'true' : 'false',
+            );
+        } catch (error) {
+            console.error(error);
+        } finally {
+            await continueToAuthPage();
+        }
+    };
+
+    const handleSkipNotifications = async () => {
+        try {
+            await SecureStore.setItemAsync(PUSH_PERMISSION_PROMPTED, 'true');
+            await SecureStore.setItemAsync(PUSH_PERMISSION_GRANTED, 'false');
+        } catch (error) {
+            console.error(error);
+        } finally {
+            await continueToAuthPage();
+        }
+    };
 
     return (
         <View style={[styles.page, { width }]}>
@@ -124,7 +156,7 @@ export default function PermissionPage({
                         styles.onboardPrimaryBtn,
                         pressed && shared.pressed,
                     ]}
-                    onPress={continueToAuthPage}
+                    onPress={handleAllowNotifications}
                 >
                     <View style={styles.onboardPrimaryBtnContent}>
                         <Ionicons name='notifications' size={16} color='#fff' />
@@ -138,7 +170,7 @@ export default function PermissionPage({
                         styles.btnSkip,
                         pressed && shared.pressed,
                     ]}
-                    onPress={continueToAuthPage}
+                    onPress={handleSkipNotifications}
                 >
                     <Text style={styles.btnSkipText}>Bỏ qua, để sau</Text>
                 </Pressable>

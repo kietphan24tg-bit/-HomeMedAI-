@@ -50,7 +50,7 @@ function buildSessionTitle(messages: ChatMessage[]) {
     return (
         messages
             .find((message) => message.sender === 'user')
-            ?.text.slice(0, 50) || 'New Chat'
+            ?.text.slice(0, 50) || 'Cuộc trò chuyện mới'
     );
 }
 
@@ -68,18 +68,26 @@ function normalizeSessions(sessions: ChatSession[]) {
         .slice(0, MAX_STORED_SESSIONS);
 }
 
+/** Chỉ dùng để so khớp từ khóa; chuỗi hiển thị vẫn giữ Unicode đầy đủ. */
+function foldForMatch(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+
 function getMockReply(text: string) {
-    const normalized = text.toLowerCase();
+    const f = foldForMatch(text);
 
-    if (normalized.includes('dau') || normalized.includes('sot')) {
-        return 'Voi trieu chung do, ban nen theo doi nhiet do va nghi ngoi. Neu keo dai, nen den co so y te de kham.';
+    if (f.includes('dau') || f.includes('sot')) {
+        return 'Với triệu chứng đó, bạn nên theo dõi nhiệt độ và nghỉ ngơi. Nếu kéo dài, nên đến cơ sở y tế để khám.';
     }
 
-    if (normalized.includes('thuoc') || normalized.includes('uong')) {
-        return 'Hay doc ky huong dan su dung thuoc va hoi bac si neu ban co thac mac ve lieu luong hoac tac dung phu.';
+    if (f.includes('thuoc') || f.includes('uong')) {
+        return 'Hãy đọc kỹ hướng dẫn sử dụng thuốc và hỏi bác sĩ nếu bạn có thắc mắc về liều lượng hoặc tác dụng phụ.';
     }
 
-    return 'Minh da nhan duoc cau hoi cua ban. Ban co the cho minh them chi tiet de minh tu van chinh xac hon khong?';
+    return 'Mình đã nhận được câu hỏi của bạn. Bạn có thể cho mình thêm chi tiết để mình tư vấn chính xác hơn không?';
 }
 
 export default function ChatbotScreen(): React.JSX.Element {
@@ -228,7 +236,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                 });
                 answer = String(
                     repliedMessage?.data?.answer ||
-                        'Minh chua co phan hoi phu hop, ban thu dat cau hoi chi tiet hon nhe.',
+                        'Mình chưa có phản hồi phù hợp, bạn thử đặt câu hỏi chi tiết hơn nhé.',
                 );
             } catch (error) {
                 console.error(error);
@@ -248,7 +256,7 @@ export default function ChatbotScreen(): React.JSX.Element {
             const fallbackReply: ChatMessage = {
                 id: `ai-${Date.now()}`,
                 sender: 'ai',
-                text: 'Hien tai ket noi dang gian doan. Ban vui long thu lai sau it phut.',
+                text: 'Hiện tại kết nối đang gián đoạn. Bạn vui lòng thử lại sau ít phút.',
                 time: formatTimestamp(new Date()),
             };
             const finalMessages = [...baseMessages, fallbackReply];
@@ -308,7 +316,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                                 />
                             </Pressable>
                             <Text style={chatbotStyles.title}>
-                                AI Tu van suc khoe
+                                AI tư vấn sức khỏe
                             </Text>
                         </View>
                         <View style={chatbotStyles.headerActions}>
@@ -335,7 +343,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                         </View>
                     </View>
                     <Text style={chatbotStyles.subtitle}>
-                        Nhap trieu chung, thuoc hoac thac mac cua ban ben duoi.
+                        Nhập triệu chứng, thuốc hoặc thắc mắc của bạn bên dưới.
                     </Text>
                 </View>
 
@@ -349,11 +357,11 @@ export default function ChatbotScreen(): React.JSX.Element {
                         {messages.length === 0 ? (
                             <View style={chatbotStyles.emptyStateCard}>
                                 <Text style={chatbotStyles.emptyStateTitle}>
-                                    Xin chao, toi la tro ly AI y te
+                                    Xin chào, tôi là trợ lý AI y tế
                                 </Text>
                                 <Text style={chatbotStyles.emptyStateText}>
-                                    Hay nhap trieu chung hoac cau hoi de bat dau
-                                    tu van.
+                                    Hãy nhập triệu chứng hoặc câu hỏi để bắt đầu
+                                    tư vấn.
                                 </Text>
                             </View>
                         ) : null}
@@ -365,7 +373,7 @@ export default function ChatbotScreen(): React.JSX.Element {
                                     color={colors.primary}
                                 />
                                 <Text style={chatbotStyles.loaderText}>
-                                    Dang tra loi...
+                                    Đang trả lời...
                                 </Text>
                             </View>
                         ) : null}
@@ -413,11 +421,11 @@ export default function ChatbotScreen(): React.JSX.Element {
                 >
                     <View style={chatbotStyles.modalContent}>
                         <Text style={chatbotStyles.modalTitle}>
-                            Lich su tro chuyen
+                            Lịch sử trò chuyện
                         </Text>
                         {sessions.length === 0 ? (
                             <Text style={chatbotStyles.noSessions}>
-                                Chua co cuoc tro chuyen nao.
+                                Chưa có cuộc trò chuyện nào.
                             </Text>
                         ) : (
                             <FlatList

@@ -37,6 +37,12 @@ Dự án sử dụng kiến trúc **Modular Screen-based**, chia phân vùng the
 
 ---
 
+## Push Notifications (Android)
+
+- Add `google-services.json` from Firebase into the app root.
+- `app.json` already sets `expo.android.googleServicesFile`.
+- Use EAS/dev-client build to receive real FCM tokens (Expo Go does not support device push tokens).
+
 ## 🎨 Design System & Styling
 
 ### Design Tokens (`src/styles/tokens.ts`)

@@ -148,6 +148,9 @@ export default function MedicineDetailSheet({
             expiry_date: exp || null,
             min_stock_alert: parseFloat(lowAlert) || null,
             instruction: note,
+            reminder_on: reminderOn,
+            reminder_times_local: [...times],
+            dosage_per_time: parseFloat(dosePerUseVal) || undefined,
         });
     };
 

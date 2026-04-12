@@ -11,6 +11,42 @@ import { FAMILY_MEDICINES } from '@/src/data/family-medicine-data';
 let _nextId = 1000;
 const uid = () => `mock-${++_nextId}`;
 
+/** In-memory MEDICINE schedules (key = medicine inventory item id) */
+const _mockMedicineSchedules: Record<string, Record<string, unknown>[]> = {};
+
+function _schedulesForItem(itemId: string) {
+    if (!_mockMedicineSchedules[itemId]) {
+        _mockMedicineSchedules[itemId] = [];
+    }
+    return _mockMedicineSchedules[itemId];
+}
+
+function _patchMockScheduleById(
+    scheduleId: string,
+    body: Record<string, unknown>,
+): Record<string, unknown> | { detail: string } {
+    for (const itemId of Object.keys(_mockMedicineSchedules)) {
+        const rows = _mockMedicineSchedules[itemId];
+        const idx = rows.findIndex((r) => r.id === scheduleId);
+        if (idx >= 0) {
+            rows[idx] = { ...rows[idx], ...body };
+            return rows[idx] as Record<string, unknown>;
+        }
+    }
+    return { detail: 'Not found' };
+}
+
+function _deleteMockScheduleById(scheduleId: string): void {
+    for (const itemId of Object.keys(_mockMedicineSchedules)) {
+        const rows = _mockMedicineSchedules[itemId];
+        const next = rows.filter((r) => r.id !== scheduleId);
+        if (next.length !== rows.length) {
+            _mockMedicineSchedules[itemId] = next;
+            return;
+        }
+    }
+}
+
 const MOCK_ACCESS_TOKEN = 'mock-access-token-abc123';
 const MOCK_REFRESH_TOKEN = 'mock-refresh-token-xyz789';
 
@@ -48,6 +84,37 @@ const MOCK_HEALTH_PROFILE = {
 };
 
 let mockProfile: typeof DEFAULT_MOCK_PROFILE | null = null;
+
+const MOCK_NOTIFICATIONS = [
+    {
+        id: 'noti-001',
+        category: 'MEDICINE',
+        status: 'ACTIVE',
+        title: 'Nhac uong thuoc',
+        body: 'Metformin 500mg',
+        remind_time: '18:00',
+        scheduled_at: new Date().toISOString(),
+        medicine_name: 'Metformin 500mg',
+        dosage_per_time: '1',
+        profile_id: 'profile-001',
+        profile_name: 'Nguyen Van An',
+        family_name: 'Phan Family',
+    },
+    {
+        id: 'noti-002',
+        category: 'MEDICINE',
+        status: 'COMPLETED',
+        title: 'Nhac uong thuoc',
+        body: 'Amlodipine 5mg',
+        remind_time: '07:00',
+        scheduled_at: new Date(Date.now() - 86400000).toISOString(),
+        medicine_name: 'Amlodipine 5mg',
+        dosage_per_time: '1',
+        profile_id: 'profile-001',
+        profile_name: 'Nguyen Van An',
+        family_name: 'Phan Family',
+    },
+];
 
 function getMockProfile() {
     return mockProfile;
@@ -315,6 +382,21 @@ const routes: Route[] = [
     },
     {
         method: 'get',
+        pattern: /^\/notifications\/me$/,
+        handler: () => ({
+            items: MOCK_NOTIFICATIONS,
+        }),
+    },
+    {
+        method: 'post',
+        pattern: /^\/notifications\/me\/schedules\/[^/]+\/compliance$/,
+        handler: () => ({
+            success: true,
+            message: 'Recorded.',
+        }),
+    },
+    {
+        method: 'get',
         pattern: /^\/user\/profile$/,
         handler: () => getMockProfile(),
     },
@@ -430,6 +512,51 @@ const routes: Route[] = [
         handler: (_url, config, p) => {
             const body = config.data ? JSON.parse(String(config.data)) : {};
             return { id: uid(), family_id: p.familyId, ...body };
+        },
+    },
+    {
+        method: 'get',
+        pattern: /^\/medicine-inventory\/(?<itemId>[^/]+)\/schedules$/,
+        handler: (_url, _config, p) => _schedulesForItem(p.itemId),
+    },
+    {
+        method: 'post',
+        pattern: /^\/medicine-inventory\/(?<itemId>[^/]+)\/schedules$/,
+        handler: (_url, config, p) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            const row = {
+                id: uid(),
+                profile_id: body.profile_id,
+                medicine_id: p.itemId,
+                title: body.title ?? null,
+                category: 'MEDICINE',
+                remind_time: body.remind_time,
+                dosage_per_time:
+                    body.dosage_per_time !== undefined &&
+                    body.dosage_per_time !== null
+                        ? String(body.dosage_per_time)
+                        : null,
+                rrule: body.rrule ?? 'FREQ=DAILY',
+                status: 'ACTIVE',
+            };
+            _schedulesForItem(p.itemId).push(row);
+            return row;
+        },
+    },
+    {
+        method: 'patch',
+        pattern: /^\/medicine-inventory\/schedules\/(?<scheduleId>[^/]+)$/,
+        handler: (_url, config, p) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            return _patchMockScheduleById(p.scheduleId, body);
+        },
+    },
+    {
+        method: 'delete',
+        pattern: /^\/medicine-inventory\/schedules\/(?<scheduleId>[^/]+)$/,
+        handler: (_url, _config, p) => {
+            _deleteMockScheduleById(p.scheduleId);
+            return null;
         },
     },
     {

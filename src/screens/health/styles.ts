@@ -3352,4 +3352,27 @@ export const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: colors.card,
     },
+    notiEmptyState: {
+        marginTop: verticalScale(24),
+        borderRadius: moderateScale(18),
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(18),
+        alignItems: 'center',
+    },
+    notiEmptyTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+        color: colors.text,
+    },
+    notiEmptyDesc: {
+        marginTop: verticalScale(6),
+        textAlign: 'center',
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text3,
+        lineHeight: verticalScale(16),
+    },
 });

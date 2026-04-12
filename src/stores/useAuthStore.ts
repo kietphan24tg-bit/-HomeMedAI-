@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getMeOverviewQueryOptions } from '@/src/features/me/queries';
 import type { MeOverview } from '@/src/features/me/types';
+import { getDeviceMetadata } from '@/src/lib/device';
 import { appQueryClient } from '@/src/lib/query-client';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
@@ -302,9 +303,23 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         signOut: async () => {
             try {
                 set({ loading: true });
-                await authService.signOut();
+                const refreshToken =
+                    await SecureStore.getItemAsync(REFRESH_TOKEN);
+                const { device_id } = await getDeviceMetadata();
+
+                if (refreshToken && device_id) {
+                    await authService.signOutWithDevice({
+                        refresh_token: refreshToken,
+                        device_id,
+                    });
+                } else {
+                    await authService.signOut();
+                }
             } catch (error) {
-                console.error(error);
+                const status = (error as any)?.response?.status;
+                if (![401, 403, 404, 405].includes(status)) {
+                    console.error(error);
+                }
             } finally {
                 await get().clearSession();
                 appToast.showSuccess('Thành công', 'Đăng xuất thành công!');

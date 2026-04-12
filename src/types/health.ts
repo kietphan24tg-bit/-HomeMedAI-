@@ -147,4 +147,6 @@ export interface NotificationItem {
     statusTone?: NotiTone;
     chips?: NotificationChip[];
     actions?: NotificationAction[];
+    /** When true, show Đã uống / Bỏ qua for MEDICINE schedules from API */
+    showComplianceActions?: boolean;
 }
