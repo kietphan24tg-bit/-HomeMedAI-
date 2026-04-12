@@ -135,6 +135,16 @@ export const familiesServices = {
         );
         return res.data;
     },
+    patchMedicineInventory: async (
+        item_id: string,
+        data: Record<string, unknown>,
+    ) => {
+        const res = await apiClient.patch(
+            `/medicine-inventory/${item_id}`,
+            data,
+        );
+        return res.data;
+    },
     rotateInviteCode: async (family_id: string) => {
         const res = await apiClient.post(
             `/families/${family_id}/invite/rotate`,

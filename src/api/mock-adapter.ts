@@ -225,23 +225,48 @@ function buildFamilyApiData() {
     }));
 }
 
-function buildMedicineApiData(familyId: string) {
-    return FAMILY_MEDICINES.filter((m) => m.familyId === familyId).map((m) => ({
+/** Extra rows from POST /families/:id/medicine-inventory (mock persistence) */
+const _mockMedicineInventoryExtra: Record<string, Record<string, unknown>[]> =
+    {};
+
+/** Patches by item id (seed or extra) for PATCH /medicine-inventory/:id */
+const _mockMedicineInventoryPatch: Record<string, Record<string, unknown>> = {};
+
+function mapFamilyMedicineSeedToApiRow(
+    m: (typeof FAMILY_MEDICINES)[number],
+    familyId: string,
+): Record<string, unknown> {
+    return {
         id: m.id,
         family_id: familyId,
-        name: m.name,
-        quantity: m.qty,
-        unit: m.unit,
+        medicine_name: m.name,
+        medicine_type: m.form ?? null,
         expiry_date: m.exp,
-        storage_location: m.location,
-        note: m.note ?? null,
-        group: m.group ?? null,
-        dosage: m.dose ?? null,
-        low_threshold: m.lowThreshold,
-        original_quantity: m.originalQty,
-        form: m.form ?? null,
-        reminder: m.reminder ?? null,
-    }));
+        quantity_stock: m.qty,
+        unit: m.unit,
+        min_stock_alert: m.lowThreshold,
+        instruction: m.note ?? null,
+        expiry_alert_days_before: 30,
+        alert_low_stock: false,
+        alert_expiring: false,
+        alert_expired: false,
+    };
+}
+
+function buildMedicineApiData(familyId: string) {
+    const seed = FAMILY_MEDICINES.filter((m) => m.familyId === familyId).map(
+        (m) => {
+            const base = mapFamilyMedicineSeedToApiRow(m, familyId);
+            const patch = _mockMedicineInventoryPatch[m.id];
+            return patch ? { ...base, ...patch } : base;
+        },
+    );
+    const extras = (_mockMedicineInventoryExtra[familyId] ?? []).map((row) => {
+        const id = String(row.id ?? '');
+        const patch = id ? _mockMedicineInventoryPatch[id] : undefined;
+        return patch ? { ...row, ...patch } : row;
+    });
+    return [...seed, ...extras];
 }
 
 function normalizeText(value: string) {
@@ -511,7 +536,60 @@ const routes: Route[] = [
         pattern: /^\/families\/(?<familyId>[^/]+)\/medicine-inventory$/,
         handler: (_url, config, p) => {
             const body = config.data ? JSON.parse(String(config.data)) : {};
-            return { id: uid(), family_id: p.familyId, ...body };
+            const id = uid();
+            const row = {
+                id,
+                family_id: p.familyId,
+                medicine_name: String(body.medicine_name ?? ''),
+                medicine_type: body.medicine_type ?? null,
+                expiry_date: body.expiry_date ?? null,
+                quantity_stock: body.quantity_stock ?? null,
+                unit: body.unit ?? null,
+                min_stock_alert: body.min_stock_alert ?? null,
+                instruction: body.instruction ?? null,
+                expiry_alert_days_before: body.expiry_alert_days_before ?? 30,
+                alert_low_stock: false,
+                alert_expiring: false,
+                alert_expired: false,
+            };
+            if (!_mockMedicineInventoryExtra[p.familyId]) {
+                _mockMedicineInventoryExtra[p.familyId] = [];
+            }
+            _mockMedicineInventoryExtra[p.familyId].push(row);
+            return row;
+        },
+    },
+    {
+        method: 'patch',
+        pattern: /^\/medicine-inventory\/(?<itemId>[^/]+)$/,
+        handler: (_url, config, p) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            const itemId = p.itemId;
+            _mockMedicineInventoryPatch[itemId] = {
+                ...(_mockMedicineInventoryPatch[itemId] ?? {}),
+                ...body,
+            };
+
+            for (const famId of Object.keys(_mockMedicineInventoryExtra)) {
+                const list = _mockMedicineInventoryExtra[famId];
+                const idx = list.findIndex((r) => String(r.id) === itemId);
+                if (idx >= 0) {
+                    const merged = {
+                        ...list[idx],
+                        ..._mockMedicineInventoryPatch[itemId],
+                    };
+                    list[idx] = merged;
+                    return merged;
+                }
+            }
+
+            const seed = FAMILY_MEDICINES.find((m) => m.id === itemId);
+            if (seed) {
+                const base = mapFamilyMedicineSeedToApiRow(seed, seed.familyId);
+                return { ...base, ..._mockMedicineInventoryPatch[itemId] };
+            }
+
+            return { detail: 'Not found' };
         },
     },
     {

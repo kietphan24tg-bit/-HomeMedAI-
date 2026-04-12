@@ -20,6 +20,10 @@ import Svg, { Circle } from 'react-native-svg';
 import { MedicineInventoryCard } from '@/src/components/ui';
 import type { FamilyMedicineItem } from '@/src/data/family-medicine-data';
 import {
+    useAddMedicineInventoryMutation,
+    usePatchMedicineInventoryMutation,
+} from '@/src/features/family/mutations';
+import {
     useFamilyMedicineInventoryQuery,
     useFamilyProfilesQuery,
 } from '@/src/features/family/queries';
@@ -335,6 +339,30 @@ function MedicineSection({
     );
 }
 
+/** Accepts mm/dd/yyyy, yyyy-mm-dd, or Date-parsable strings → yyyy-mm-dd for API */
+function parseExpiryInput(raw: string): string | null {
+    const t = raw.trim();
+    if (!t) return null;
+    const mdy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+    if (mdy) {
+        const month = parseInt(mdy[1], 10);
+        const day = parseInt(mdy[2], 10);
+        const year = parseInt(mdy[3], 10);
+        const dt = new Date(Date.UTC(year, month - 1, day));
+        if (
+            dt.getUTCFullYear() === year &&
+            dt.getUTCMonth() === month - 1 &&
+            dt.getUTCDate() === day
+        ) {
+            return dt.toISOString().slice(0, 10);
+        }
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    return null;
+}
+
 // ── Main Screen ──
 export default function FamilyMedicineInventoryScreen({
     family,
@@ -372,6 +400,10 @@ export default function FamilyMedicineInventoryScreen({
     const { data: remoteItems = [] } = useFamilyMedicineInventoryQuery(
         family.id,
     );
+    const addMedicineMutation = useAddMedicineInventoryMutation();
+    const patchMedicineMutation = usePatchMedicineInventoryMutation();
+    const medicineSavePending =
+        addMedicineMutation.isPending || patchMedicineMutation.isPending;
     const { data: meOverview } = useMeOverviewQuery();
     const { data: familyProfiles = [] } = useFamilyProfilesQuery(family.id);
 
@@ -382,10 +414,15 @@ export default function FamilyMedicineInventoryScreen({
             name: ri.medicine_name,
             unit: ri.unit || 'viên',
             form: ri.medicine_type || 'Viên nén',
-            qty: parseInt(ri.quantity_stock) || 0,
-            originalQty: parseInt(ri.quantity_stock) || 0,
-            lowThreshold: parseInt(ri.min_stock_alert) || 5,
-            exp: ri.expiry_date,
+            qty: Math.round(Number(ri.quantity_stock)) || 0,
+            originalQty: Math.round(Number(ri.quantity_stock)) || 0,
+            lowThreshold: Math.round(Number(ri.min_stock_alert)) || 5,
+            exp:
+                typeof ri.expiry_date === 'string'
+                    ? ri.expiry_date
+                    : ri.expiry_date !== undefined && ri.expiry_date !== null
+                      ? String(ri.expiry_date)
+                      : '',
             note: ri.instruction,
             reminder: undefined,
             location: 'Tủ thuốc',
@@ -436,14 +473,81 @@ export default function FamilyMedicineInventoryScreen({
         setAddPopupOpen(true);
     };
 
-    const handleSaveNew = () => {
-        setAddPopupOpen(false);
+    const resetAddForm = () => {
+        setAddFormDDOpen(false);
         setNewName('');
         setNewQty('');
         setNewUnit('viên');
         setNewExp('');
         setNewLocation('');
         setNewNote('');
+    };
+
+    const handleSaveNew = async () => {
+        const name = newName.trim();
+        if (!name) {
+            appToast.showError('Thiếu thông tin', 'Vui lòng nhập tên thuốc.');
+            return;
+        }
+        const qtyNum = parseFloat(String(newQty).replace(',', '.'));
+        if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+            appToast.showError(
+                'Thiếu thông tin',
+                'Vui lòng nhập số lượng hợp lệ.',
+            );
+            return;
+        }
+
+        const expTrim = newExp.trim();
+        let expiryDate: string | null = null;
+        if (expTrim) {
+            expiryDate = parseExpiryInput(expTrim);
+            if (!expiryDate) {
+                appToast.showError(
+                    'Ngày không hợp lệ',
+                    'Dùng mm/dd/yyyy hoặc yyyy-mm-dd.',
+                );
+                return;
+            }
+        }
+
+        const locationNote = newLocation.trim();
+        const textNote = newNote.trim();
+        const instructionParts: string[] = [];
+        if (locationNote) instructionParts.push(`Vị trí: ${locationNote}`);
+        if (textNote) instructionParts.push(textNote);
+        const instruction =
+            instructionParts.length > 0 ? instructionParts.join('\n') : null;
+
+        const payload = {
+            medicine_name: name,
+            medicine_type: newForm || null,
+            quantity_stock: qtyNum,
+            unit: newUnit || 'viên',
+            min_stock_alert: 5,
+            instruction,
+            expiry_date: expiryDate,
+            expiry_alert_days_before: 30,
+        };
+
+        try {
+            if (addPopupMode === 'edit' && selectedItem?.id) {
+                await patchMedicineMutation.mutateAsync({
+                    itemId: selectedItem.id,
+                    familyId: family.id,
+                    data: payload,
+                });
+            } else {
+                await addMedicineMutation.mutateAsync({
+                    familyId: family.id,
+                    data: payload,
+                });
+            }
+            setAddPopupOpen(false);
+            resetAddForm();
+        } catch {
+            // Mutations already surface toast on error
+        }
     };
 
     const changeUsedQty = (delta: number) => {
@@ -1082,11 +1186,17 @@ export default function FamilyMedicineInventoryScreen({
                         </View>
 
                         <Pressable
-                            style={styles.addSaveBtn}
-                            onPress={handleSaveNew}
+                            style={[
+                                styles.addSaveBtn,
+                                medicineSavePending && { opacity: 0.65 },
+                            ]}
+                            disabled={medicineSavePending}
+                            onPress={() => void handleSaveNew()}
                         >
                             <Text style={styles.addSaveText}>
-                                {addPopupButtonText}
+                                {medicineSavePending
+                                    ? 'Đang lưu…'
+                                    : addPopupButtonText}
                             </Text>
                         </Pressable>
                     </View>
