@@ -197,7 +197,6 @@ export default function MedicineScreen({
                 key={item.id}
                 style={styles.cardWrap}
                 title={item.name}
-                subtitle={`Dạng: ${item.form}`}
                 icon={(size, color) => (
                     <MaterialCommunityIcons
                         name={item.iconName}

@@ -210,7 +210,10 @@ export default function MetricsHistoryScreen({
         if (onAddNew) {
             onAddNew();
         } else {
-            router.push('/health/metrics-input' as any);
+            router.push({
+                pathname: '/health/metrics-input',
+                params: { metric: tab },
+            } as any);
         }
     };
 

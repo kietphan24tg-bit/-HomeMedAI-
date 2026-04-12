@@ -548,7 +548,7 @@ export const styles = StyleSheet.create({
     btOpt: {
         width: '23%' as unknown as number,
         borderWidth: 1.5,
-        borderColor: colors.border,
+        borderColor: '#FECACA',
         borderRadius: moderateScale(10),
         minHeight: verticalScale(44),
         alignItems: 'center',
@@ -562,7 +562,7 @@ export const styles = StyleSheet.create({
     btOptText: {
         fontFamily: typography.font.black,
         fontSize: scaleFont(12),
-        color: colors.text2,
+        color: colors.danger,
     },
     btOptTextSel: {
         color: colors.danger,
@@ -1900,12 +1900,12 @@ export const styles = StyleSheet.create({
         paddingVertical: verticalScale(14),
         borderRadius: moderateScale(14),
         borderWidth: 1.5,
-        borderColor: colors.border,
+        borderColor: colors.primaryLight,
         backgroundColor: colors.card,
     },
     specItemActive: {
-        borderColor: colors.text2,
-        backgroundColor: colors.card,
+        borderColor: colors.primary,
+        backgroundColor: colors.primaryBg,
     },
     specIcon: {
         width: moderateScale(36),
@@ -1921,7 +1921,7 @@ export const styles = StyleSheet.create({
         color: colors.text2,
     },
     specLabelActive: {
-        color: colors.text,
+        color: colors.primary,
         fontWeight: '700',
     },
 

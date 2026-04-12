@@ -23,8 +23,6 @@ import {
 import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
 import MedicineDropdownSheet, {
-    DOSAGE_UNIT_CATEGORIES,
-    FORM_CATEGORIES,
     STOCK_UNIT_CATEGORIES,
 } from './MedicineDropdownSheet';
 
@@ -71,9 +69,6 @@ export default function MedicineDetailSheet({
     const headerSub = isCreateMode ? '(Tạo mới)' : '(Đang sửa)';
 
     const [name, setName] = useState('');
-    const [form, setForm] = useState('Viên nén');
-    const [dosageVal, setDosageVal] = useState('');
-    const [dosageUnit, setDosageUnit] = useState('mg');
     const [dosePerUseVal, setDosePerUseVal] = useState('');
     const [dosePerUseUnit, setDosePerUseUnit] = useState('viên');
     const [note, setNote] = useState('');
@@ -97,8 +92,6 @@ export default function MedicineDetailSheet({
     const [tagPreviewVisible, setTagPreviewVisible] = useState(false);
 
     // Dropdowns
-    const [formDDOpen, setFormDDOpen] = useState(false);
-    const [dosageDDOpen, setDosageDDOpen] = useState(false);
     const [dosePerUseDDOpen, setDosePerUseDDOpen] = useState(false);
     const [stockDDOpen, setStockDDOpen] = useState(false);
     const [remBeforeDDOpen, setRemBeforeDDOpen] = useState(false);
@@ -109,7 +102,6 @@ export default function MedicineDetailSheet({
     React.useEffect(() => {
         if (visible && item) {
             setName(item.name ?? '');
-            setForm(item.form ?? 'Viên nén');
             setNote(item.note ?? '');
             setDosePerUseVal(String((item as any).dosePerUseVal ?? ''));
             setDosePerUseUnit((item as any).dosePerUseUnit ?? 'viên');
@@ -121,7 +113,6 @@ export default function MedicineDetailSheet({
             setReminderOn(item.reminder?.includes('ON') ?? false);
         } else if (visible && !item) {
             setName('');
-            setForm('Viên nén');
             setNote('');
             setDosePerUseVal('');
             setDosePerUseUnit('viên');
@@ -137,9 +128,7 @@ export default function MedicineDetailSheet({
     const handleSave = () => {
         onSave?.({
             medicine_name: name,
-            medicine_type: form,
-            dosage_value: dosageVal,
-            dosage_unit: dosageUnit,
+            medicine_type: item?.form ?? 'Viên nén',
             dosage_per_use_value: parseFloat(dosePerUseVal) || 0,
             dosage_per_use_unit: dosePerUseUnit,
             use_tags: tags,
@@ -256,43 +245,6 @@ export default function MedicineDetailSheet({
                             placeholder='Paracetamol'
                             placeholderTextColor={colors.text3}
                         />
-
-                        <Label text='Dạng bào chế' required />
-                        <Pressable
-                            style={s.selectInput}
-                            onPress={() => setFormDDOpen(true)}
-                        >
-                            <Text style={s.selectText}>{form}</Text>
-                            <Ionicons
-                                name='chevron-down'
-                                size={16}
-                                color={colors.text3}
-                            />
-                        </Pressable>
-
-                        <Label text='Hàm lượng' />
-                        <View style={s.row}>
-                            <TextInput
-                                value={dosageVal}
-                                onChangeText={setDosageVal}
-                                style={[s.input, { flex: 2 }]}
-                                placeholder='500'
-                                placeholderTextColor={colors.text3}
-                                keyboardType='numeric'
-                            />
-                            <Pressable
-                                style={[s.selectInput, { flex: 1 }]}
-                                onPress={() => setDosageDDOpen(true)}
-                            >
-                                <Text style={s.selectText}>{dosageUnit}</Text>
-                                <Ionicons
-                                    name='chevron-down'
-                                    size={14}
-                                    color={colors.text3}
-                                />
-                            </Pressable>
-                        </View>
-                        <Text style={s.hint}>(hoặc nhập nhanh: 250mg/5mL)</Text>
 
                         <Label text='Liều dùng/lần' />
                         <View style={s.row}>
@@ -850,23 +802,6 @@ export default function MedicineDetailSheet({
             </SafeAreaView>
 
             {/* Dropdown modals */}
-            <MedicineDropdownSheet
-                visible={formDDOpen}
-                title='CHỌN DẠNG BÀO CHẾ'
-                categories={FORM_CATEGORIES}
-                selected={form}
-                onSelect={setForm}
-                onClose={() => setFormDDOpen(false)}
-            />
-            <MedicineDropdownSheet
-                visible={dosageDDOpen}
-                title='CHỌN ĐƠN VỊ HÀM LƯỢNG'
-                categories={DOSAGE_UNIT_CATEGORIES}
-                selected={dosageUnit}
-                onSelect={setDosageUnit}
-                onClose={() => setDosageDDOpen(false)}
-                searchable={false}
-            />
             <MedicineDropdownSheet
                 visible={stockDDOpen}
                 title='CHỌN ĐƠN VỊ TỒN KHO'

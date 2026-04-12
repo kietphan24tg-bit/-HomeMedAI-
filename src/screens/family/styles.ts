@@ -1150,22 +1150,23 @@ export const styles = StyleSheet.create({
     btOpt: {
         width: '23%' as unknown as number,
         borderWidth: 1.5,
-        borderColor: colors.border,
+        borderColor: '#FECACA',
         borderRadius: moderateScale(12),
         paddingVertical: verticalScale(12),
         alignItems: 'center',
+        backgroundColor: colors.card,
     },
     btOptSel: {
-        borderColor: colors.text2,
-        backgroundColor: colors.card,
+        borderColor: colors.danger,
+        backgroundColor: colors.dangerBg,
     },
     btOptText: {
         fontFamily: typography.font.black,
         fontSize: scaleFont(15),
-        color: colors.text2,
+        color: colors.danger,
     },
     btOptTextSel: {
-        color: colors.text,
+        color: colors.danger,
     },
     tagInputWrap: {
         flexDirection: 'row',
@@ -1695,8 +1696,8 @@ export const styles = StyleSheet.create({
         marginBottom: verticalScale(8),
     },
     sheetSelectActive: {
-        borderColor: colors.text2,
-        backgroundColor: colors.bg,
+        borderColor: colors.primary,
+        backgroundColor: colors.primaryBg,
     },
     sheetSelectText: {
         fontFamily: typography.font.semiBold,
@@ -1704,7 +1705,7 @@ export const styles = StyleSheet.create({
         color: colors.text,
     },
     sheetSelectTextActive: {
-        color: colors.text,
+        color: colors.primary,
     },
     sheetStepperContainer: {
         flexDirection: 'row',
