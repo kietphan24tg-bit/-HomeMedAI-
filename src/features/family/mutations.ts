@@ -165,6 +165,25 @@ export function useAddMedicineInventoryMutation() {
     });
 }
 
+export function usePatchMedicineInventoryMutation() {
+    return useMutation({
+        mutationFn: (vars: {
+            itemId: string;
+            familyId: string;
+            data: Record<string, unknown>;
+        }) => familiesServices.patchMedicineInventory(vars.itemId, vars.data),
+        onSuccess: (_, variables) => {
+            appQueryClient.invalidateQueries({
+                queryKey: familyQueryKeys.medicineInventory(variables.familyId),
+            });
+            appToast.showSuccess('Thành công', 'Đã cập nhật thuốc.');
+        },
+        onError: () => {
+            appToast.showError('Lỗi', 'Không thể cập nhật thuốc lúc này.');
+        },
+    });
+}
+
 export function useRotateInviteMutation() {
     return useMutation({
         mutationFn: ({ familyId }: { familyId: string }) =>
