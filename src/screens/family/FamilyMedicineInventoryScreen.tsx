@@ -44,7 +44,6 @@ import type { FamilyGroup } from '@/src/types/family';
 import { localHHMMToUtcHHMM } from '@/src/utils/reminder-time';
 import MedicineDetailSheet from './MedicineDetailSheet';
 import MedicineDropdownSheet, {
-    FORM_CATEGORIES,
     STOCK_UNIT_CATEGORIES,
 } from './MedicineDropdownSheet';
 
@@ -258,7 +257,6 @@ function UnifiedMedicineCard({
         <MedicineInventoryCard
             style={style}
             title={item.name || 'Chưa có tên'}
-            subtitle={`Dạng: ${item.form || 'Không rõ dạng'}`}
             icon={(size, color) => (
                 <Ionicons
                     name={
@@ -388,10 +386,8 @@ export default function FamilyMedicineInventoryScreen({
         null,
     );
     const [addPopupOpen, setAddPopupOpen] = useState(false);
-    const [addFormDDOpen, setAddFormDDOpen] = useState(false);
     const [addUnitDDOpen, setAddUnitDDOpen] = useState(false);
     const [newName, setNewName] = useState('');
-    const [newForm, setNewForm] = useState('Viên nén');
     const [newQty, setNewQty] = useState('');
     const [newUnit, setNewUnit] = useState('viên');
     const [newExp, setNewExp] = useState('');
@@ -410,14 +406,6 @@ export default function FamilyMedicineInventoryScreen({
         addMedicineMutation.isPending || patchMedicineMutation.isPending;
     const { data: meOverview } = useMeOverviewQuery();
     const { data: familyProfiles = [] } = useFamilyProfilesQuery(family.id);
-
-    const medicineFormOptions = useMemo(
-        () =>
-            FORM_CATEGORIES.flatMap((category) =>
-                category.options.map((option) => option.value),
-            ),
-        [],
-    );
 
     const items = useMemo(() => {
         return remoteItems.map((ri: any) => ({
@@ -476,9 +464,7 @@ export default function FamilyMedicineInventoryScreen({
 
     const handleAddNew = () => {
         setAddPopupMode('create');
-        setAddFormDDOpen(false);
         setNewName('');
-        setNewForm('Viên nén');
         setNewQty('');
         setNewUnit('viên');
         setNewExp('');
@@ -490,7 +476,6 @@ export default function FamilyMedicineInventoryScreen({
     const resetAddForm = () => {
         setAddFormDDOpen(false);
         setNewName('');
-        setNewForm('Viên nén');
         setNewQty('');
         setNewUnit('viên');
         setNewExp('');
@@ -575,9 +560,7 @@ export default function FamilyMedicineInventoryScreen({
     const openEditFromUsage = () => {
         if (!selectedItem) return;
         setAddPopupMode('edit');
-        setAddFormDDOpen(false);
         setNewName(selectedItem.name || '');
-        setNewForm(selectedItem.form || 'Viên nén');
         setNewQty(String(selectedItem.qty ?? ''));
         setNewUnit(selectedItem.unit || 'viên');
         setNewExp(selectedItem.exp || '');
@@ -1088,76 +1071,6 @@ export default function FamilyMedicineInventoryScreen({
                                 placeholderTextColor={colors.text3}
                                 style={styles.addInput}
                             />
-
-                            <Text style={styles.addLabel}>
-                                Dạng bào chế{' '}
-                                <Text style={styles.addReq}>*</Text>
-                            </Text>
-                            <Pressable
-                                style={[styles.addInput, styles.addUnitInput]}
-                                onPress={() =>
-                                    setAddFormDDOpen((prev) => !prev)
-                                }
-                            >
-                                <Text style={styles.addUnitText}>
-                                    {newForm}
-                                </Text>
-                                <Ionicons
-                                    name={
-                                        addFormDDOpen
-                                            ? 'chevron-up'
-                                            : 'chevron-down'
-                                    }
-                                    size={16}
-                                    color={colors.text3}
-                                />
-                            </Pressable>
-                            {addFormDDOpen ? (
-                                <View style={styles.addInlineDropdown}>
-                                    <ScrollView
-                                        nestedScrollEnabled
-                                        showsVerticalScrollIndicator={false}
-                                        style={styles.addInlineDropdownList}
-                                    >
-                                        {medicineFormOptions.map((option) => {
-                                            const isActive = option === newForm;
-                                            return (
-                                                <Pressable
-                                                    key={option}
-                                                    style={[
-                                                        styles.addInlineDropdownItem,
-                                                        isActive &&
-                                                            styles.addInlineDropdownItemActive,
-                                                    ]}
-                                                    onPress={() => {
-                                                        setNewForm(option);
-                                                        setAddFormDDOpen(false);
-                                                    }}
-                                                >
-                                                    <Text
-                                                        style={[
-                                                            styles.addInlineDropdownItemText,
-                                                            isActive &&
-                                                                styles.addInlineDropdownItemTextActive,
-                                                        ]}
-                                                    >
-                                                        {option}
-                                                    </Text>
-                                                    {isActive ? (
-                                                        <Ionicons
-                                                            name='checkmark'
-                                                            size={14}
-                                                            color={
-                                                                colors.primary
-                                                            }
-                                                        />
-                                                    ) : null}
-                                                </Pressable>
-                                            );
-                                        })}
-                                    </ScrollView>
-                                </View>
-                            ) : null}
 
                             <View style={styles.addRowLabel}>
                                 <Text

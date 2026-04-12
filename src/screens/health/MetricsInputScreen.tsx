@@ -19,6 +19,7 @@ import {
     scaleFont,
     verticalScale,
 } from '@/src/styles/responsive';
+import { buttonSystem, shared } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
 
 interface MetricInput {
@@ -38,6 +39,8 @@ interface MetricsInputScreenProps {
     onCancel?: () => void;
 }
 
+type MetricType = NonNullable<MetricsInputScreenProps['metricType']>;
+
 const METRIC_CONFIG = {
     bp: {
         label: 'Huyết áp',
@@ -56,6 +59,24 @@ const METRIC_CONFIG = {
     },
 };
 
+function formatDate(date: Date): string {
+    return `${String(date.getDate()).padStart(2, '0')}/${String(
+        date.getMonth() + 1,
+    ).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+function formatTime(date: Date): string {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(
+        date.getMinutes(),
+    ).padStart(2, '0')}`;
+}
+
+function normalizeMetricType(value: unknown, fallback: MetricType): MetricType {
+    return value === 'weight' || value === 'glucose' || value === 'bp'
+        ? value
+        : fallback;
+}
+
 /**
  * Standalone Metrics Input Screen (C3c-input)
  * For adding/editing health metric measurements
@@ -69,13 +90,13 @@ export default function MetricsInputScreen({
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
 
-    const metric = (params.metric as string) || metricType;
-    const config = METRIC_CONFIG[metric as keyof typeof METRIC_CONFIG];
+    const metric = normalizeMetricType(params.metric, metricType);
+    const config = METRIC_CONFIG[metric];
 
     // Get current date and time
     const now = new Date();
-    const defaultDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-    const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const defaultDate = formatDate(now);
+    const defaultTime = formatTime(now);
 
     const [input, setInput] = useState<MetricInput>({
         systolic: '130',
@@ -123,11 +144,11 @@ export default function MetricsInputScreen({
                     />
                 </Pressable>
                 <View style={styles.topbarCenter}>
-                    <Text style={styles.topbarTitle}>Thêm lần đo</Text>
+                    <Text style={styles.topbarTitle}>
+                        Thêm {config.label.toLowerCase()}
+                    </Text>
                 </View>
-                <Pressable style={styles.saveBtn} onPress={handleSave}>
-                    <Text style={styles.saveBtnText}>Lưu</Text>
-                </Pressable>
+                <View style={styles.headerSpacer} />
             </View>
 
             <KeyboardAvoidingView
@@ -136,12 +157,12 @@ export default function MetricsInputScreen({
             >
                 <ScrollView
                     style={{ flex: 1, backgroundColor: colors.bg }}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                    contentContainerStyle={styles.content}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps='handled'
                 >
                     {/* Metric Type */}
-                    <Text style={styles.label}>Loại chỉ số *</Text>
+                    <Text style={styles.label}>Loại chỉ số</Text>
                     <View style={styles.metricTypeContainer}>
                         <Ionicons
                             name={config.icon as any}
@@ -254,9 +275,7 @@ export default function MetricsInputScreen({
                     )}
 
                     {/* Date & Time */}
-                    <Text style={[styles.label, { marginTop: 20 }]}>
-                        Ngày đo *
-                    </Text>
+                    <Text style={styles.label}>Ngày đo *</Text>
                     <TextInput
                         style={styles.input}
                         placeholder='15/03/2026'
@@ -293,19 +312,15 @@ export default function MetricsInputScreen({
                         textAlignVertical='top'
                     />
 
-                    {/* Action Buttons */}
-                    <View style={styles.buttonContainer}>
+                    <View style={styles.saveInline}>
                         <Pressable
-                            style={[styles.button, styles.cancelButton]}
-                            onPress={handleCancel}
-                        >
-                            <Text style={styles.cancelButtonText}>Hủy</Text>
-                        </Pressable>
-                        <Pressable
-                            style={[styles.button, styles.saveButton]}
                             onPress={handleSave}
+                            style={({ pressed }) => [
+                                styles.saveBtn,
+                                pressed && shared.pressed,
+                            ]}
                         >
-                            <Text style={styles.saveButtonText}>Lưu</Text>
+                            <Text style={styles.saveBtnText}>Lưu lần đo</Text>
                         </Pressable>
                     </View>
                 </ScrollView>
@@ -319,10 +334,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: scale(20),
-        paddingBottom: verticalScale(8),
+        paddingBottom: verticalScale(10),
         backgroundColor: colors.bg,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
     },
     backBtn: {
         width: moderateScale(34),
@@ -340,87 +353,67 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(17),
         color: colors.text,
     },
-    saveBtn: {
-        paddingHorizontal: scale(12),
-        paddingVertical: verticalScale(6),
+    headerSpacer: {
+        width: moderateScale(34),
+        height: moderateScale(34),
     },
-    saveBtnText: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(15),
-        color: colors.primary,
+    content: {
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(20),
+        paddingBottom: verticalScale(32),
     },
     label: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
-        color: colors.text,
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12),
+        color: colors.text2,
         marginBottom: verticalScale(8),
-        marginTop: verticalScale(16),
+        marginTop: verticalScale(14),
     } as any,
     metricTypeContainer: {
+        ...shared.inputField,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.card,
-        borderRadius: moderateScale(10),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        paddingHorizontal: scale(12),
-        paddingVertical: verticalScale(12),
-        marginBottom: verticalScale(16),
+        gap: scale(8),
     },
     metricTypeLabel: {
         fontFamily: typography.font.semiBold,
-        fontSize: scaleFont(14),
+        fontSize: scaleFont(12.5),
         color: colors.text,
     },
     input: {
-        backgroundColor: colors.card,
-        borderRadius: moderateScale(10),
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        paddingHorizontal: scale(12),
-        paddingVertical: verticalScale(12),
-        fontFamily: typography.font.regular,
-        fontSize: scaleFont(14),
-        color: colors.text,
-        marginBottom: verticalScale(12),
+        ...shared.inputField,
+        ...shared.inputTextStrong,
     } as any,
     unitText: {
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(13),
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(12),
         color: colors.text2,
     },
     notesInput: {
         minHeight: verticalScale(80),
-        paddingVertical: scale(12),
+        paddingTop: verticalScale(11),
     },
-    buttonContainer: {
-        flexDirection: 'row',
-        gap: scale(12),
+    saveInline: {
         marginTop: verticalScale(20),
+        marginBottom: verticalScale(10),
     },
-    button: {
-        flex: 1,
-        paddingVertical: verticalScale(13),
+    saveBtn: {
+        ...buttonSystem.primary,
+        backgroundColor: colors.primary,
+        minHeight: verticalScale(42),
         borderRadius: moderateScale(12),
         alignItems: 'center',
-        justifyContent: 'center',
+        shadowColor: colors.primary,
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
+        width: '100%',
     },
-    cancelButton: {
-        backgroundColor: colors.card,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-    },
-    cancelButtonText: {
-        fontFamily: typography.font.bold,
+    saveBtnText: {
+        ...buttonSystem.textPrimary,
         fontSize: scaleFont(14),
-        color: colors.text2,
-    },
-    saveButton: {
-        backgroundColor: colors.primary,
-    },
-    saveButtonText: {
-        fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
-        color: '#FFF',
+        color: '#fff',
+        letterSpacing: 0.1,
     },
 });

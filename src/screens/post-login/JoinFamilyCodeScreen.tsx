@@ -1,16 +1,3 @@
-import StatePanel from '@/src/components/state/StatePanel';
-import { FAMILIES } from '@/src/data/family-data';
-import { appToast } from '@/src/lib/toast';
-import { familiesServices } from '@/src/services/families.services';
-import { useAuthStore } from '@/src/stores/useAuthStore';
-import {
-    moderateScale,
-    scale,
-    scaleFont,
-    verticalScale,
-} from '@/src/styles/responsive';
-import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
-import { colors, shadows, typography } from '@/src/styles/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -26,6 +13,19 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatePanel from '@/src/components/state/StatePanel';
+import { FAMILIES } from '@/src/data/family-data';
+import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
+import { useAuthStore } from '@/src/stores/useAuthStore';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { buttonSystem, formSystem, inputSystem } from '@/src/styles/shared';
+import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -392,7 +392,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 <Ionicons
                                     name='information-circle-outline'
                                     size={18}
-                                    color={colors.secondary}
+                                    color={colors.info}
                                 />
                                 <Text style={styles.modalHintText}>
                                     Chọn hồ sơ của bạn trong gia đình để liên
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(26),
         lineHeight: verticalScale(34),
         marginBottom: verticalScale(8),
-        letterSpacing: -0.4,
+        letterSpacing: 0,
     },
     titleAccent: {
         color: colors.primary,
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.bold,
         fontSize: scaleFont(12),
         textTransform: 'uppercase',
-        letterSpacing: 0.4,
+        letterSpacing: 0,
     },
     previewBody: {
         paddingHorizontal: scale(20),
@@ -775,13 +775,13 @@ const styles = StyleSheet.create({
     modalTitle: {
         color: colors.text,
         fontFamily: typography.font.bold,
-        fontSize: scaleFont(14),
+        fontSize: scaleFont(16),
         marginBottom: verticalScale(2),
     },
     modalSubtitle: {
         color: colors.text2,
         fontFamily: typography.font.medium,
-        fontSize: scaleFont(12),
+        fontSize: scaleFont(12.5),
         marginTop: verticalScale(3),
     },
     modalDivider: {
@@ -800,10 +800,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: scale(10),
-        backgroundColor: colors.primaryBg,
-        borderRadius: moderateScale(16),
+        backgroundColor: colors.infoBg,
+        borderRadius: moderateScale(14),
         borderWidth: 1.5,
-        borderColor: colors.primaryLight,
+        borderColor: 'rgba(2, 132, 199, 0.18)',
         paddingHorizontal: scale(14),
         paddingVertical: verticalScale(14),
         marginBottom: verticalScale(18),
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.bold,
         fontSize: scaleFont(10.5),
         textTransform: 'uppercase',
-        letterSpacing: 0.7,
+        letterSpacing: 0,
         marginBottom: verticalScale(12),
     },
     profileOption: {
@@ -837,7 +837,7 @@ const styles = StyleSheet.create({
         ...shadows.card,
     },
     profileOptionSelected: {
-        backgroundColor: colors.primaryBg,
+        backgroundColor: '#F4FBF8',
         borderColor: colors.primary,
     },
     profileAvatar: {
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
         marginTop: verticalScale(4),
         backgroundColor: colors.primary,
         minHeight: verticalScale(48),
-        borderRadius: moderateScale(16),
+        borderRadius: moderateScale(14),
     },
     confirmBtnDisabled: {
         backgroundColor: colors.primaryLight,

@@ -435,7 +435,12 @@ export default function MemberMetricsRoute() {
 
                 <Pressable
                     style={styles.addBtn}
-                    onPress={() => router.push('./new')}
+                    onPress={() =>
+                        router.push({
+                            pathname: './new',
+                            params: { metric: tab },
+                        } as any)
+                    }
                 >
                     <Text style={styles.addBtnText}>+ Thêm lần đo mới</Text>
                 </Pressable>

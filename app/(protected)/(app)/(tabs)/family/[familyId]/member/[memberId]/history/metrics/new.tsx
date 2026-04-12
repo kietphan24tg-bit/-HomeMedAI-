@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Pressable,
@@ -22,7 +22,15 @@ const METRIC_TYPES = [
 ];
 
 export default function MemberMetricNewRoute() {
-    const [type, setType] = useState('bp');
+    const params = useLocalSearchParams<{ metric?: string }>();
+    const initialType =
+        params.metric === 'weight' || params.metric === 'glucose'
+            ? params.metric
+            : 'bp';
+    const [type, setType] = useState(initialType);
+    const typeLabel =
+        METRIC_TYPES.find((item) => item.value === type)?.label ??
+        METRIC_TYPES[0].label;
     const [date, setDate] = useState(new Date());
     const [time, setTime] = useState('08:00');
     const [note, setNote] = useState('');
@@ -150,7 +158,9 @@ export default function MemberMetricNewRoute() {
                         color={colors.text2}
                     />
                 </Pressable>
-                <Text style={styles.topbarTitle}>Thêm lần đo</Text>
+                <Text style={styles.topbarTitle}>
+                    Thêm {typeLabel.toLowerCase()}
+                </Text>
             </View>
 
             <ScrollView
@@ -161,9 +171,7 @@ export default function MemberMetricNewRoute() {
             >
                 {/* Loại chỉ số */}
                 <View style={styles.group}>
-                    <Text style={styles.label}>
-                        Loại chỉ số <Text style={{ color: '#E11D48' }}>*</Text>
-                    </Text>
+                    <Text style={styles.label}>Loại chỉ số</Text>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         {METRIC_TYPES.map((t) => (
                             <Pressable
