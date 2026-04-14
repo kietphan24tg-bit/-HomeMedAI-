@@ -6,11 +6,10 @@ import {
 import { meQueryKeys } from './queryKeys';
 import { meService } from './service';
 import {
-    getMedicalRecordsFromOverview,
-    getVaccinationsFromOverview,
-    type MedicalRecordLike,
+    type CurrentUserAccount,
+    type HealthProfileLike,
     type MeOverview,
-    type VaccinationLike,
+    type ProfileLike,
 } from './types';
 
 type MeOverviewQueryOptions<TData = MeOverview> = Omit<
@@ -32,31 +31,45 @@ export function getMeOverviewQueryOptions() {
     });
 }
 
-export function useMeOverviewQuery(
-    options?: MeOverviewQueryOptions,
-) {
+export function useMeOverviewQuery(options?: MeOverviewQueryOptions) {
     return useQuery({
         ...getMeOverviewQueryOptions(),
         ...options,
     });
 }
 
-export function useMyVaccinationsQuery(
-    options?: MeOverviewQueryOptions<VaccinationLike[]>,
+export type MeUserAndProfile = {
+    user: CurrentUserAccount | null;
+    profile: ProfileLike;
+};
+
+function selectMeUserAndProfile(overview: MeOverview): MeUserAndProfile {
+    return {
+        user: overview.user,
+        profile: overview.profile,
+    };
+}
+
+function selectMeHealthProfile(overview: MeOverview): HealthProfileLike {
+    return overview.health_profile;
+}
+
+export function useMeUserAndProfileQuery(
+    options?: MeOverviewQueryOptions<MeUserAndProfile>,
 ) {
     return useQuery({
         ...getMeOverviewQueryOptions(),
-        select: getVaccinationsFromOverview,
+        select: selectMeUserAndProfile,
         ...options,
     });
 }
 
-export function useMyMedicalRecordsQuery(
-    options?: MeOverviewQueryOptions<MedicalRecordLike[]>,
+export function useMeHealthProfileQuery(
+    options?: MeOverviewQueryOptions<HealthProfileLike>,
 ) {
     return useQuery({
         ...getMeOverviewQueryOptions(),
-        select: getMedicalRecordsFromOverview,
+        select: selectMeHealthProfile,
         ...options,
     });
 }

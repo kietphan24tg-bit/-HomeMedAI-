@@ -400,8 +400,12 @@ const routes: Route[] = [
         pattern: /^\/users\/me$/,
         handler: () => ({
             user: MOCK_USER,
-            profile: getMockProfile(),
-            health_profile: MOCK_HEALTH_PROFILE,
+            profiles: [
+                {
+                    profile: getMockProfile(),
+                    health_profile: MOCK_HEALTH_PROFILE,
+                },
+            ],
             post_login_flow_completed: isPostLoginFlowCompleted(),
         }),
     },
