@@ -521,7 +521,7 @@ export default function FamilyMedicineInventoryScreen({
 
         const payload = {
             medicine_name: name,
-            medicine_type: newForm || null,
+            medicine_type: selectedItem?.form ?? 'Viên nén',
             quantity_stock: qtyNum,
             unit: newUnit || 'viên',
             min_stock_alert: 5,
