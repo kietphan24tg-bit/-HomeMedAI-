@@ -1,9 +1,3 @@
-import { useCreateProfileInFamilyMutation } from '@/src/features/family/mutations';
-import { appToast } from '@/src/lib/toast';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { formSystem } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -21,6 +15,12 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCreateProfileInFamilyMutation } from '@/src/features/family/mutations';
+import { appToast } from '@/src/lib/toast';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { formSystem } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import { MethodCard, ROLE_OPTIONS } from './familyShared';
 import { styles } from './styles';
 
@@ -114,7 +114,12 @@ export default function FamilyAddMemberScreen({
                     />
                     <Pressable
                         style={styles.backBtn}
-                        onPress={() => router.back()}
+                        onPress={() =>
+                            router.replace({
+                                pathname: '/family/[familyId]',
+                                params: { familyId: family.id },
+                            })
+                        }
                     >
                         <Ionicons name='chevron-back' size={14} color='#fff' />
                         <Text style={styles.backBtnText}>Gia đình</Text>
