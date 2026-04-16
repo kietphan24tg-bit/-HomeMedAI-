@@ -461,6 +461,22 @@ const routes: Route[] = [
             return mockProfile;
         },
     },
+    {
+        method: 'patch',
+        pattern: /^\/profiles\/(?<profileId>[^/]+)$/,
+        handler: (_url, config, p) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            const current = getMockProfile() ?? DEFAULT_MOCK_PROFILE;
+
+            mockProfile = {
+                ...current,
+                ...body,
+                id: p.profileId || current.id || uid(),
+            };
+
+            return mockProfile;
+        },
+    },
 
     // ─── Families ──────────────────────────────────────
     {

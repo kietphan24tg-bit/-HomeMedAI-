@@ -12,6 +12,8 @@ export type CreatePersonalProfilePayload = {
     avatar_url?: string | null;
 };
 
+export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
+
 export const userService = {
     getMyProfiles: async (profile_scope: ProfileScope = 'all') => {
         const res = await apiClient.get('/users/me/profiles', {
@@ -33,6 +35,13 @@ export const userService = {
     },
     createPersonalProfile: async (payload: CreatePersonalProfilePayload) => {
         const res = await apiClient.post('/users/me/personal-profile', payload);
+        return res.data;
+    },
+    patchMyProfile: async (
+        profileId: string,
+        payload: PatchMyProfilePayload,
+    ) => {
+        const res = await apiClient.patch(`/profiles/${profileId}`, payload);
         return res.data;
     },
 };
