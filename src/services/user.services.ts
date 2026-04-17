@@ -12,6 +12,18 @@ export type CreatePersonalProfilePayload = {
     avatar_url?: string | null;
 };
 
+export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
+
+export type PatchMyHealthProfilePayload = {
+    blood_type?: string | null;
+    chronic_diseases?: string[] | null;
+    allergies?: string[] | null;
+    drug_allergies?: string[] | null;
+    food_allergies?: string[] | null;
+    emergency_contact?: string | null;
+    notes?: string | null;
+};
+
 export const userService = {
     getMyProfiles: async (profile_scope: ProfileScope = 'all') => {
         const res = await apiClient.get('/users/me/profiles', {
@@ -33,6 +45,23 @@ export const userService = {
     },
     createPersonalProfile: async (payload: CreatePersonalProfilePayload) => {
         const res = await apiClient.post('/users/me/personal-profile', payload);
+        return res.data;
+    },
+    patchMyProfile: async (
+        profileId: string,
+        payload: PatchMyProfilePayload,
+    ) => {
+        const res = await apiClient.patch(`/profiles/${profileId}`, payload);
+        return res.data;
+    },
+    patchMyHealthProfile: async (
+        profileId: string,
+        payload: PatchMyHealthProfilePayload,
+    ) => {
+        const res = await apiClient.patch(
+            `/profiles/${profileId}/health`,
+            payload,
+        );
         return res.data;
     },
 };

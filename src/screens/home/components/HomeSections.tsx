@@ -3,24 +3,30 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import {
-    ARTICLES,
-    FAMILY,
-    MEDS,
-    SCHEDULE,
-    STAT_CARDS,
-} from '@/src/data/home-data';
+import { ARTICLES, MEDS, SCHEDULE, STAT_CARDS } from '@/src/data/home-data';
 import { colors } from '@/src/styles/tokens';
+import type {
+    HomeFamilyMember,
+    MedItem,
+    ScheduleItem,
+    StatCard,
+} from '@/src/types/home';
 import { styles } from '../styles';
 
-export function OverviewSection(): React.JSX.Element {
+type OverviewSectionProps = {
+    cards?: StatCard[];
+};
+
+export function OverviewSection({
+    cards = STAT_CARDS,
+}: OverviewSectionProps): React.JSX.Element {
     return (
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Tổng quan</Text>
             </View>
             <View style={styles.statGrid}>
-                {STAT_CARDS.map((card) => (
+                {cards.map((card) => (
                     <Pressable key={card.id} style={styles.statCard}>
                         <View style={styles.statTop}>
                             <View
@@ -103,7 +109,36 @@ export function OverviewSection(): React.JSX.Element {
     );
 }
 
-export function FamilySection(): React.JSX.Element {
+type FamilySectionProps = {
+    members: HomeFamilyMember[];
+    onAddFamily?: () => void;
+};
+
+export function FamilySection({
+    members,
+    onAddFamily,
+}: FamilySectionProps): React.JSX.Element | null {
+    if (members.length === 0) {
+        return (
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Thành viên gia đình</Text>
+                </View>
+                <Pressable style={styles.emptyCard} onPress={onAddFamily}>
+                    <Ionicons
+                        name='people-outline'
+                        size={22}
+                        color={colors.text3}
+                    />
+                    <Text style={styles.emptyTitle}>Chưa có thành viên</Text>
+                    <Text style={styles.emptyText}>
+                        Chọn hoặc tạo gia đình để xem hồ sơ người thân.
+                    </Text>
+                </Pressable>
+            </View>
+        );
+    }
+
     return (
         <>
             <View style={styles.section}>
@@ -116,10 +151,10 @@ export function FamilySection(): React.JSX.Element {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.familyScroll}
             >
-                {FAMILY.map((member) => (
+                {members.map((member) => (
                     <Pressable key={member.code} style={styles.famCard}>
                         <LinearGradient
-                            colors={member.gradient as [string, string]}
+                            colors={member.gradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.famAvatar}
@@ -128,8 +163,12 @@ export function FamilySection(): React.JSX.Element {
                                 {member.code}
                             </Text>
                         </LinearGradient>
-                        <Text style={styles.famName}>{member.name}</Text>
-                        <Text style={styles.famRole}>{member.role}</Text>
+                        <Text style={styles.famName} numberOfLines={1}>
+                            {member.name}
+                        </Text>
+                        <Text style={styles.famRole} numberOfLines={1}>
+                            {member.role}
+                        </Text>
                         <View
                             style={[
                                 styles.famStatus,
@@ -138,7 +177,7 @@ export function FamilySection(): React.JSX.Element {
                         />
                     </Pressable>
                 ))}
-                <Pressable style={styles.addFam}>
+                <Pressable style={styles.addFam} onPress={onAddFamily}>
                     <Ionicons
                         name='add-circle-outline'
                         size={22}
@@ -151,90 +190,142 @@ export function FamilySection(): React.JSX.Element {
     );
 }
 
-export function ScheduleSection(): React.JSX.Element {
+type ScheduleSectionProps = {
+    schedules?: ScheduleItem[];
+};
+
+export function ScheduleSection({
+    schedules = SCHEDULE,
+}: ScheduleSectionProps): React.JSX.Element {
     return (
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Lịch sắp tới</Text>
             </View>
-            {SCHEDULE.map((schedule) => (
-                <Pressable
-                    key={schedule.id}
-                    style={({ hovered }: any) => [
-                        styles.schedCard,
-                        hovered && styles.schedCardHover,
-                    ]}
-                >
-                    <View
-                        style={[
-                            styles.schedLeftStrip,
-                            { backgroundColor: schedule.color },
-                        ]}
+            {schedules.length === 0 ? (
+                <View style={styles.emptyCard}>
+                    <Ionicons
+                        name='calendar-outline'
+                        size={22}
+                        color={colors.text3}
                     />
-                    <LinearGradient
-                        colors={schedule.gradient as [string, string]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.schedAvatar}
+                    <Text style={styles.emptyTitle}>Không có lịch hẹn</Text>
+                    <Text style={styles.emptyText}>
+                        Các lịch tái khám, tiêm chủng hoặc nhắc hẹn sẽ hiện ở
+                        đây.
+                    </Text>
+                </View>
+            ) : (
+                schedules.map((schedule) => (
+                    <Pressable
+                        key={schedule.id}
+                        style={({ hovered }: any) => [
+                            styles.schedCard,
+                            hovered && styles.schedCardHover,
+                        ]}
                     >
-                        <Text style={styles.schedAvatarText}>
-                            {schedule.initials}
-                        </Text>
-                    </LinearGradient>
-                    <View style={styles.schedInfo}>
-                        <Text style={styles.schedTitle}>{schedule.title}</Text>
-                        <Text style={styles.schedMeta}>{schedule.meta}</Text>
-                    </View>
-                    <View style={styles.schedTime}>
-                        <Text
+                        <View
                             style={[
-                                styles.schedTimeVal,
-                                { color: schedule.color },
+                                styles.schedLeftStrip,
+                                { backgroundColor: schedule.color },
                             ]}
+                        />
+                        <LinearGradient
+                            colors={schedule.gradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.schedAvatar}
                         >
-                            {schedule.time}
-                        </Text>
-                        <Text style={styles.schedTimeDay}>{schedule.day}</Text>
-                    </View>
-                </Pressable>
-            ))}
+                            <Text style={styles.schedAvatarText}>
+                                {schedule.initials}
+                            </Text>
+                        </LinearGradient>
+                        <View style={styles.schedInfo}>
+                            <Text style={styles.schedTitle} numberOfLines={1}>
+                                {schedule.title}
+                            </Text>
+                            <Text style={styles.schedMeta} numberOfLines={1}>
+                                {schedule.meta}
+                            </Text>
+                        </View>
+                        <View style={styles.schedTime}>
+                            <Text
+                                style={[
+                                    styles.schedTimeVal,
+                                    { color: schedule.color },
+                                ]}
+                            >
+                                {schedule.time}
+                            </Text>
+                            <Text style={styles.schedTimeDay}>
+                                {schedule.day}
+                            </Text>
+                        </View>
+                    </Pressable>
+                ))
+            )}
         </View>
     );
 }
 
-export function MedicationSection(): React.JSX.Element {
+type MedicationSectionProps = {
+    medications?: MedItem[];
+};
+
+export function MedicationSection({
+    medications = MEDS,
+}: MedicationSectionProps): React.JSX.Element {
     return (
         <View style={[styles.section, { marginTop: 24 }]}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Lịch uống thuốc</Text>
             </View>
-            {MEDS.map((medication) => (
-                <Pressable
-                    key={medication.name}
-                    style={({ hovered }: any) => [
-                        styles.medCard,
-                        hovered && styles.medCardHover,
-                    ]}
-                >
-                    <View
-                        style={[
-                            styles.medIcon,
-                            { backgroundColor: medication.bg },
+            {medications.length === 0 ? (
+                <View style={styles.emptyCard}>
+                    <MaterialCommunityIcons
+                        name='pill'
+                        size={22}
+                        color={colors.text3}
+                    />
+                    <Text style={styles.emptyTitle}>Không có nhắc thuốc</Text>
+                    <Text style={styles.emptyText}>
+                        Thuốc có bật nhắc uống sẽ được sắp xếp theo giờ gần
+                        nhất.
+                    </Text>
+                </View>
+            ) : (
+                medications.map((medication) => (
+                    <Pressable
+                        key={`${medication.name}-${medication.time}`}
+                        style={({ hovered }: any) => [
+                            styles.medCard,
+                            hovered && styles.medCardHover,
                         ]}
                     >
-                        <MaterialCommunityIcons
-                            name='pill'
-                            size={18}
-                            color={medication.iconColor}
-                        />
-                    </View>
-                    <View style={styles.medInfo}>
-                        <Text style={styles.medName}>{medication.name}</Text>
-                        <Text style={styles.medDose}>{medication.info}</Text>
-                    </View>
-                    <Text style={styles.medTimeTag}>{medication.time}</Text>
-                </Pressable>
-            ))}
+                        <View
+                            style={[
+                                styles.medIcon,
+                                { backgroundColor: medication.bg },
+                            ]}
+                        >
+                            <MaterialCommunityIcons
+                                name='pill'
+                                size={18}
+                                color={medication.iconColor}
+                            />
+                        </View>
+                        <View style={styles.medInfo}>
+                            <Text style={styles.medName} numberOfLines={1}>
+                                {medication.name}
+                            </Text>
+                            <Text style={styles.medDose} numberOfLines={1}>
+                                {medication.info}
+                            </Text>
+                        </View>
+                        <Text style={styles.medTimeTag}>{medication.time}</Text>
+                    </Pressable>
+                ))
+            )}
         </View>
     );
 }
@@ -263,7 +354,7 @@ export function ChatbotBanner({
                     />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.chatbotTitle}>AI Tư vấn sức khỏe</Text>
+                    <Text style={styles.chatbotTitle}>AI tư vấn sức khỏe</Text>
                     <Text style={styles.chatbotDesc}>
                         Hỏi về triệu chứng, thuốc,{'\n'}cách chăm sóc · 24/7
                     </Text>
