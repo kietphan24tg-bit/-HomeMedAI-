@@ -3,7 +3,13 @@ import DateTimePicker, {
     type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -17,8 +23,13 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useUpsertMyProfileMutation } from '@/src/features/me/mutations';
+import {
+    mapMeUserAndProfileToVM,
+    type MeUserAndProfileVM,
+} from '@/src/features/me/presenters';
+import { useMeUserAndProfileQuery } from '@/src/features/me/queries';
 import { appToast } from '../../lib/toast';
-import { userService } from '../../services/user.services';
 import { useAuthStore } from '../../stores/useAuthStore';
 import {
     moderateScale,
@@ -55,6 +66,26 @@ function toApiDate(d: Date): string {
     return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+function parseApiDob(dob: string | null): Date | null {
+    if (!dob || typeof dob !== 'string') {
+        return null;
+    }
+
+    const raw = dob.includes('T') ? dob.slice(0, 10) : dob;
+    const parts = raw.split('-');
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const [year, month, day] = parts.map((value) => Number(value));
+    if (!year || !month || !day) {
+        return null;
+    }
+
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDobInput(text: string): string {
     let cleaned = text.replace(/\D/g, '');
     if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
@@ -82,6 +113,23 @@ export default function PersonalInfoScreen({
     onComplete,
 }: Props): React.JSX.Element {
     const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
+    const {
+        data: meUserAndProfile,
+        isLoading: isProfileLoading,
+        isError: isProfileError,
+    } = useMeUserAndProfileQuery();
+    const upsertMutation = useUpsertMyProfileMutation();
+    const profileVm: MeUserAndProfileVM = useMemo(
+        () =>
+            mapMeUserAndProfileToVM(
+                meUserAndProfile ?? {
+                    user: null,
+                    profile: null,
+                },
+            ),
+        [meUserAndProfile],
+    );
+    const hydratedProfileIdRef = useRef<string | null | undefined>(undefined);
     const [dob, setDob] = useState<Date | null>(null);
     const [dobText, setDobText] = useState('');
     const [showPicker, setShowPicker] = useState(false);
@@ -90,7 +138,6 @@ export default function PersonalInfoScreen({
     const [height, setHeight] = useState('');
     const [weight, setWeight] = useState('');
     const [address, setAddress] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const anims = useRef(
         Array.from({ length: 7 }, () => new Animated.Value(1)),
@@ -143,6 +190,32 @@ export default function PersonalInfoScreen({
 
     const closePicker = useCallback(() => setShowPicker(false), []);
 
+    useEffect(() => {
+        const profileId = profileVm.profile.id;
+        if (hydratedProfileIdRef.current === profileId) {
+            return;
+        }
+
+        hydratedProfileIdRef.current = profileId;
+        const parsedDob = parseApiDob(profileVm.profile.dob);
+
+        setFullName(profileVm.profile.full_name ?? '');
+        setGender(profileVm.profile.gender ?? '');
+        setHeight(
+            profileVm.profile.height_cm !== null
+                ? String(profileVm.profile.height_cm)
+                : '',
+        );
+        setWeight(
+            profileVm.profile.weight_kg !== null
+                ? String(profileVm.profile.weight_kg)
+                : '',
+        );
+        setAddress(profileVm.profile.address ?? '');
+        setDob(parsedDob);
+        setDobText(parsedDob ? formatDate(parsedDob) : '');
+    }, [profileVm]);
+
     const buildDescription = (error: any) => {
         const detail = error?.response?.data?.detail;
 
@@ -190,19 +263,22 @@ export default function PersonalInfoScreen({
         }
 
         try {
-            setIsSubmitting(true);
-
-            await userService.createPersonalProfile({
-                full_name: trimmedFullName,
-                dob: dob ? toApiDate(dob) : null,
-                gender: gender || null,
-                height_cm: parsedHeight,
-                weight_kg: parsedWeight,
-                address: trimmedAddress || null,
+            await upsertMutation.mutateAsync({
+                profileId: profileVm.profile.id,
+                payload: {
+                    full_name: trimmedFullName,
+                    dob: dob ? toApiDate(dob) : null,
+                    gender: gender || null,
+                    height_cm: parsedHeight,
+                    weight_kg: parsedWeight,
+                    address: trimmedAddress || null,
+                },
             });
 
             appToast.showSuccess(
-                'Tạo hồ sơ thành công',
+                profileVm.profile.id
+                    ? 'Cập nhật thành công'
+                    : 'Tạo hồ sơ thành công',
                 'Thông tin cá nhân của bạn đã được lưu.',
             );
 
@@ -223,8 +299,6 @@ export default function PersonalInfoScreen({
             }
         } catch (error: any) {
             appToast.showError('Lưu hồ sơ thất bại', buildDescription(error));
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
@@ -247,6 +321,21 @@ export default function PersonalInfoScreen({
                 keyboardDismissMode='none'
                 removeClippedSubviews={false}
             >
+                {isProfileLoading && (
+                    <View style={styles.loadingInline}>
+                        <ActivityIndicator color={colors.primary} />
+                        <Text style={styles.loadingInlineText}>
+                            Đang tải thông tin hồ sơ...
+                        </Text>
+                    </View>
+                )}
+                {isProfileError && (
+                    <Text style={styles.loadErrorText}>
+                        Không thể tải dữ liệu hồ sơ. Bạn vẫn có thể nhập và lưu
+                        thủ công.
+                    </Text>
+                )}
+
                 <Animated.View style={[styles.header, anim(0)]}>
                     <View style={styles.badge}>
                         <Ionicons
@@ -441,12 +530,12 @@ export default function PersonalInfoScreen({
                     <Pressable
                         style={[
                             styles.btnSave,
-                            isSubmitting && styles.btnSaveLoading,
+                            upsertMutation.isPending && styles.btnSaveLoading,
                         ]}
                         onPress={handleComplete}
-                        disabled={isSubmitting}
+                        disabled={upsertMutation.isPending}
                     >
-                        {isSubmitting ? (
+                        {upsertMutation.isPending ? (
                             <View style={styles.btnSaveContent}>
                                 <ActivityIndicator size='small' color='#fff' />
                                 <Text style={styles.btnSaveText}>
@@ -518,6 +607,23 @@ const styles = StyleSheet.create({
     },
     inputGroup: {
         marginBottom: verticalScale(16),
+    },
+    loadingInline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(8),
+        marginBottom: verticalScale(12),
+    },
+    loadingInlineText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text2,
+    },
+    loadErrorText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.danger,
+        marginBottom: verticalScale(12),
     },
     label: {
         ...formSystem.fieldLabel,

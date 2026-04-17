@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
@@ -138,6 +139,15 @@ const ALL_TYPES = [
     },
     ...SPECIALTIES,
 ];
+
+const FOLLOW_UP_REMINDER_OPTIONS = [
+    'Không nhắc',
+    '2 giờ trước',
+    '1 ngày trước',
+    '3 ngày trước',
+    '1 tuần trước',
+    'Tùy chỉnh',
+] as const;
 
 interface Props {
     onClose: () => void;
@@ -653,8 +663,12 @@ const RD_TABS = ['Thông tin', 'Tái khám', 'Tệp đính kèm'] as const;
 interface FollowUpEntry {
     id: string;
     date: string;
+    time: string;
+    facility_name: string;
+    doctor_name: string;
     purpose: string;
-    note: string;
+    notes: string;
+    reminder_label: string;
 }
 
 type RecordEditorMode =
@@ -692,6 +706,12 @@ function toAttachmentUploadItems(
     }));
 }
 
+function formatFollowUpTime(date: Date): string {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
 export function RecordDetail({
     record,
     onClose,
@@ -707,14 +727,14 @@ export function RecordDetail({
     const [showAddFu, setShowAddFu] = useState(true);
     const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
-    const [, setFuTimeObj] = useState<Date | null>(null);
+    const [fuTime, setFuTime] = useState(new Date());
     const [fuHospital, setFuHospital] = useState('');
-    const [, setFuDept] = useState('');
-    const [, setFuDoctor] = useState('');
+    const [fuDoctor, setFuDoctor] = useState('');
     const [fuPurpose, setFuPurpose] = useState('');
-    const [, setFuPrep] = useState('');
-    const [fuReminder, setFuReminder] = useState(true);
-    const [fuReminderTime, setFuReminderTime] = useState('1 ngày');
+    const [fuNotes, setFuNotes] = useState('');
+    const [fuReminderTime, setFuReminderTime] = useState('1 ngày trước');
+    const [showFuReminderOptions, setShowFuReminderOptions] = useState(false);
+    const [showFuCustomReminder, setShowFuCustomReminder] = useState(false);
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
 
     const specEntry = SPECIALTIES.find((s) => s.key === recordCategory);
@@ -798,14 +818,14 @@ export function RecordDetail({
     const handleAddFollowUp = useCallback(() => {
         setShowAddFu(true);
         setFuDate(new Date());
-        setFuTimeObj(null);
+        setFuTime(new Date());
         setFuHospital('');
-        setFuDept('');
         setFuDoctor('');
         setFuPurpose('');
-        setFuPrep('');
-        setFuReminder(true);
-        setFuReminderTime('1 ngày');
+        setFuNotes('');
+        setFuReminderTime('1 ngày trước');
+        setShowFuReminderOptions(false);
+        setShowFuCustomReminder(false);
     }, []);
 
     const toggleFollowUpForm = useCallback(() => {
@@ -813,8 +833,15 @@ export function RecordDetail({
             const next = !prev;
             if (next) {
                 setFuDate(new Date());
-                setFuReminder(true);
-                setFuReminderTime('1 ngày');
+                setFuTime(new Date());
+                setFuHospital('');
+                setFuDoctor('');
+                setFuPurpose('');
+                setFuNotes('');
+                setFuReminderTime('1 ngày trước');
+                setShowFuReminderOptions(false);
+                setShowFuCustomReminder(false);
+                setShowFuCustomReminder(false);
             }
             return next;
         });
@@ -827,17 +854,39 @@ export function RecordDetail({
         const entry: FollowUpEntry = {
             id: Date.now().toString(),
             date: `${dd}/${mm}/${yyyy}`,
+            time: formatFollowUpTime(fuTime),
+            facility_name: fuHospital.trim(),
+            doctor_name: fuDoctor.trim(),
             purpose: fuPurpose.trim() || 'Tái khám định kỳ',
-            note: fuHospital ? `Tại ${fuHospital}` : '',
+            notes: fuNotes.trim(),
+            reminder_label: fuReminderTime,
         };
         setFollowUps((prev) => [entry, ...prev]);
         setShowAddFu(false);
-    }, [fuDate, fuPurpose, fuHospital]);
+        setShowFuReminderOptions(false);
+    }, [
+        fuDate,
+        fuTime,
+        fuHospital,
+        fuDoctor,
+        fuPurpose,
+        fuNotes,
+        fuReminderTime,
+    ]);
 
     const cancelFu = useCallback(() => setShowAddFu(false), []);
 
     const deleteFu = useCallback((id: string) => {
         setFollowUps((prev) => prev.filter((f) => f.id !== id));
+    }, []);
+
+    const selectFuReminder = useCallback((option: string) => {
+        setShowFuReminderOptions(false);
+        if (option === 'Tùy chỉnh') {
+            setShowFuCustomReminder(true);
+            return;
+        }
+        setFuReminderTime(option);
     }, []);
 
     const openEditor = useCallback(
@@ -1541,37 +1590,134 @@ export function RecordDetail({
                                             onChange={setFuDate}
                                         />
                                     </View>
-                                    <View
-                                        style={[
-                                            styles.fuField,
-                                            styles.fuReminderInlineRow,
-                                        ]}
-                                    >
-                                        <View
-                                            style={styles.fuReminderInlineCopy}
-                                        >
-                                            <Text style={styles.fuLabel}>
-                                                Nhắc nhở trước {fuReminderTime}
-                                            </Text>
-                                        </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Giờ hẹn
+                                        </Text>
+                                        <DateField
+                                            value={fuTime}
+                                            onChange={setFuTime}
+                                            mode='time'
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Bệnh viện / Phòng khám
+                                        </Text>
+                                        <TextInput
+                                            value={fuHospital}
+                                            onChangeText={setFuHospital}
+                                            placeholder='VD: BV Đại học Y Dược'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuInput}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Bác sĩ
+                                        </Text>
+                                        <TextInput
+                                            value={fuDoctor}
+                                            onChangeText={setFuDoctor}
+                                            placeholder='VD: BS. Nguyễn Văn A'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuInput}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Mục đích tái khám
+                                        </Text>
+                                        <TextInput
+                                            value={fuPurpose}
+                                            onChangeText={setFuPurpose}
+                                            placeholder='VD: Theo dõi huyết áp, tái khám định kỳ…'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuTextarea}
+                                            multiline
+                                            numberOfLines={3}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Ghi chú
+                                        </Text>
+                                        <TextInput
+                                            value={fuNotes}
+                                            onChangeText={setFuNotes}
+                                            placeholder='Ghi chú thêm (nếu có)'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuTextarea}
+                                            multiline
+                                            numberOfLines={4}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Nhắc trước
+                                        </Text>
                                         <Pressable
+                                            style={styles.fuReminderSelect}
                                             onPress={() =>
-                                                setFuReminder(!fuReminder)
+                                                setShowFuReminderOptions(
+                                                    (prev) => !prev,
+                                                )
                                             }
-                                            style={[
-                                                styles.fuReminderSwitch,
-                                                fuReminder &&
-                                                    styles.fuReminderSwitchActive,
-                                            ]}
                                         >
-                                            <View
-                                                style={[
-                                                    styles.fuReminderSwitchThumb,
-                                                    fuReminder &&
-                                                        styles.fuReminderSwitchThumbActive,
-                                                ]}
+                                            <Text
+                                                style={
+                                                    styles.fuReminderSelectText
+                                                }
+                                            >
+                                                {fuReminderTime}
+                                            </Text>
+                                            <Ionicons
+                                                name={
+                                                    showFuReminderOptions
+                                                        ? 'chevron-up'
+                                                        : 'chevron-down'
+                                                }
+                                                size={16}
+                                                color={colors.text3}
                                             />
                                         </Pressable>
+                                        {showFuReminderOptions ? (
+                                            <View
+                                                style={
+                                                    styles.fuReminderOptionWrap
+                                                }
+                                            >
+                                                {FOLLOW_UP_REMINDER_OPTIONS.map(
+                                                    (option) => (
+                                                        <Pressable
+                                                            key={option}
+                                                            style={[
+                                                                styles.fuReminderOption,
+                                                                fuReminderTime ===
+                                                                    option &&
+                                                                    styles.fuReminderOptionActive,
+                                                            ]}
+                                                            onPress={() =>
+                                                                selectFuReminder(
+                                                                    option,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Text
+                                                                style={[
+                                                                    styles.fuReminderOptionText,
+                                                                    fuReminderTime ===
+                                                                        option &&
+                                                                        styles.fuReminderOptionTextActive,
+                                                                ]}
+                                                            >
+                                                                {option}
+                                                            </Text>
+                                                        </Pressable>
+                                                    ),
+                                                )}
+                                            </View>
+                                        ) : null}
                                     </View>
                                     <View style={styles.fuBtnRow}>
                                         <Pressable
@@ -1606,11 +1752,28 @@ export function RecordDetail({
                                     </View>
                                     <View style={styles.fuItemBody}>
                                         <Text style={styles.fuItemDate}>
-                                            {fu.date}
+                                            {fu.date} - {fu.time}
                                         </Text>
                                         <Text style={styles.fuItemPurpose}>
                                             {fu.purpose}
-                                            {fu.note ? ` · ${fu.note}` : ''}
+                                        </Text>
+                                        {fu.facility_name || fu.doctor_name ? (
+                                            <Text style={styles.fuItemPurpose}>
+                                                {[
+                                                    fu.facility_name,
+                                                    fu.doctor_name,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </Text>
+                                        ) : null}
+                                        {fu.notes ? (
+                                            <Text style={styles.fuItemPurpose}>
+                                                {fu.notes}
+                                            </Text>
+                                        ) : null}
+                                        <Text style={styles.fuItemReminder}>
+                                            Nhắc: {fu.reminder_label}
                                         </Text>
                                     </View>
                                     <Pressable
@@ -1727,6 +1890,11 @@ export function RecordDetail({
                         </Pressable>
                     </Pressable>
                 </Modal>
+                <CustomReminderModal
+                    visible={showFuCustomReminder}
+                    onClose={() => setShowFuCustomReminder(false)}
+                    onSave={setFuReminderTime}
+                />
                 <Modal
                     visible={showDepartmentPicker}
                     transparent
@@ -1849,7 +2017,14 @@ function AddRecordForm({
     const [showAddFu, setShowAddFu] = useState(false);
     const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
-    const [fuReminder, setFuReminder] = useState(true);
+    const [fuTime, setFuTime] = useState(new Date());
+    const [fuHospital, setFuHospital] = useState('');
+    const [fuDoctor, setFuDoctor] = useState('');
+    const [fuPurpose, setFuPurpose] = useState('');
+    const [fuNotes, setFuNotes] = useState('');
+    const [fuReminderTime, setFuReminderTime] = useState('1 ngày trước');
+    const [showFuReminderOptions, setShowFuReminderOptions] = useState(false);
+    const [showFuCustomReminder, setShowFuCustomReminder] = useState(false);
 
     const selectedType = ALL_TYPES.find((t) => t.key === type);
 
@@ -1878,7 +2053,14 @@ function AddRecordForm({
             const next = !prev;
             if (next) {
                 setFuDate(new Date());
-                setFuReminder(true);
+                setFuTime(new Date());
+                setFuHospital('');
+                setFuDoctor('');
+                setFuPurpose('');
+                setFuNotes('');
+                setFuReminderTime('1 ngày trước');
+                setShowFuReminderOptions(false);
+                setShowFuCustomReminder(false);
             }
             return next;
         });
@@ -1893,18 +2075,46 @@ function AddRecordForm({
             {
                 id: `${Date.now()}`,
                 date: `${dd}/${mm}/${yyyy}`,
-                purpose: 'Tái khám',
-                note: fuReminder ? 'Nhắc trước 1 ngày' : 'Không bật nhắc',
+                time: formatFollowUpTime(fuTime),
+                facility_name: fuHospital.trim(),
+                doctor_name: fuDoctor.trim(),
+                purpose: fuPurpose.trim() || 'Tái khám định kỳ',
+                notes: fuNotes.trim(),
+                reminder_label: fuReminderTime,
             },
             ...prev,
         ]);
         setShowAddFu(false);
         setFuDate(new Date());
-        setFuReminder(true);
-    }, [fuDate, fuReminder]);
+        setFuTime(new Date());
+        setFuHospital('');
+        setFuDoctor('');
+        setFuPurpose('');
+        setFuNotes('');
+        setFuReminderTime('1 ngày trước');
+        setShowFuReminderOptions(false);
+        setShowFuCustomReminder(false);
+    }, [
+        fuDate,
+        fuTime,
+        fuHospital,
+        fuDoctor,
+        fuPurpose,
+        fuNotes,
+        fuReminderTime,
+    ]);
 
     const deleteFollowUp = useCallback((id: string) => {
         setFollowUps((prev) => prev.filter((item) => item.id !== id));
+    }, []);
+
+    const selectFuReminder = useCallback((option: string) => {
+        setShowFuReminderOptions(false);
+        if (option === 'Tùy chỉnh') {
+            setShowFuCustomReminder(true);
+            return;
+        }
+        setFuReminderTime(option);
     }, []);
 
     return (
@@ -2215,46 +2425,113 @@ function AddRecordForm({
                             <Text style={styles.fuLabel}>Ngày hẹn</Text>
                             <DateField value={fuDate} onChange={setFuDate} />
                         </View>
-                        <View
-                            style={[
-                                styles.fuField,
-                                {
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    marginBottom: 0,
-                                },
-                            ]}
-                        >
-                            <View style={{ flex: 1, paddingRight: 12 }}>
-                                <Text style={styles.fuLabel}>
-                                    Nhắc nhở trước 1 ngày
-                                </Text>
-                            </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Giờ hẹn</Text>
+                            <DateField
+                                value={fuTime}
+                                onChange={setFuTime}
+                                mode='time'
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>
+                                Bệnh viện / Phòng khám
+                            </Text>
+                            <TextInput
+                                value={fuHospital}
+                                onChangeText={setFuHospital}
+                                placeholder='VD: BV Đại học Y Dược'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuInput}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Bác sĩ</Text>
+                            <TextInput
+                                value={fuDoctor}
+                                onChangeText={setFuDoctor}
+                                placeholder='VD: BS. Nguyễn Văn A'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuInput}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>
+                                Mục đích tái khám
+                            </Text>
+                            <TextInput
+                                value={fuPurpose}
+                                onChangeText={setFuPurpose}
+                                placeholder='VD: Theo dõi huyết áp…'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuTextarea}
+                                multiline
+                                numberOfLines={3}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Ghi chú</Text>
+                            <TextInput
+                                value={fuNotes}
+                                onChangeText={setFuNotes}
+                                placeholder='Ghi chú thêm (nếu có)'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuTextarea}
+                                multiline
+                                numberOfLines={4}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Nhắc trước</Text>
                             <Pressable
-                                onPress={() => setFuReminder(!fuReminder)}
-                                style={{
-                                    width: 44,
-                                    height: 24,
-                                    borderRadius: 12,
-                                    backgroundColor: fuReminder
-                                        ? colors.success
-                                        : colors.border,
-                                    padding: 2,
-                                }}
+                                style={styles.fuReminderSelect}
+                                onPress={() =>
+                                    setShowFuReminderOptions((prev) => !prev)
+                                }
                             >
-                                <View
-                                    style={{
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: 10,
-                                        backgroundColor: '#fff',
-                                        alignSelf: fuReminder
-                                            ? 'flex-end'
-                                            : 'flex-start',
-                                    }}
+                                <Text style={styles.fuReminderSelectText}>
+                                    {fuReminderTime}
+                                </Text>
+                                <Ionicons
+                                    name={
+                                        showFuReminderOptions
+                                            ? 'chevron-up'
+                                            : 'chevron-down'
+                                    }
+                                    size={16}
+                                    color={colors.text3}
                                 />
                             </Pressable>
+                            {showFuReminderOptions ? (
+                                <View style={styles.fuReminderOptionWrap}>
+                                    {FOLLOW_UP_REMINDER_OPTIONS.map(
+                                        (option) => (
+                                            <Pressable
+                                                key={option}
+                                                style={[
+                                                    styles.fuReminderOption,
+                                                    fuReminderTime === option &&
+                                                        styles.fuReminderOptionActive,
+                                                ]}
+                                                onPress={() =>
+                                                    selectFuReminder(option)
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.fuReminderOptionText,
+                                                        fuReminderTime ===
+                                                            option &&
+                                                            styles.fuReminderOptionTextActive,
+                                                    ]}
+                                                >
+                                                    {option}
+                                                </Text>
+                                            </Pressable>
+                                        ),
+                                    )}
+                                </View>
+                            ) : null}
                         </View>
                         <View style={styles.fuBtnRow}>
                             <Pressable
@@ -2283,10 +2560,26 @@ function AddRecordForm({
                             />
                         </View>
                         <View style={styles.fuItemBody}>
-                            <Text style={styles.fuItemDate}>{item.date}</Text>
+                            <Text style={styles.fuItemDate}>
+                                {item.date} - {item.time}
+                            </Text>
                             <Text style={styles.fuItemPurpose}>
                                 {item.purpose}
-                                {item.note ? ` · ${item.note}` : ''}
+                            </Text>
+                            {item.facility_name || item.doctor_name ? (
+                                <Text style={styles.fuItemPurpose}>
+                                    {[item.facility_name, item.doctor_name]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </Text>
+                            ) : null}
+                            {item.notes ? (
+                                <Text style={styles.fuItemPurpose}>
+                                    {item.notes}
+                                </Text>
+                            ) : null}
+                            <Text style={styles.fuItemReminder}>
+                                Nhắc: {item.reminder_label}
                             </Text>
                         </View>
                         <Pressable
@@ -2339,6 +2632,11 @@ function AddRecordForm({
                 item={null}
                 onClose={() => setMedicineSheetOpen(false)}
                 onSave={handleAddPrescription}
+            />
+            <CustomReminderModal
+                visible={showFuCustomReminder}
+                onClose={() => setShowFuCustomReminder(false)}
+                onSave={setFuReminderTime}
             />
 
             {/* TYPE PICKER MODAL */}

@@ -8,8 +8,12 @@ import { styles } from '../styles';
 
 export default function HomeTopBar({
     onOpenNotifications,
+    displayName = 'Người dùng',
+    initials = 'ND',
 }: {
     onOpenNotifications: () => void;
+    displayName?: string;
+    initials?: string;
 }): React.JSX.Element {
     return (
         <View style={styles.topbar}>
@@ -20,10 +24,12 @@ export default function HomeTopBar({
                     end={{ x: 1, y: 1 }}
                     style={styles.avatar}
                 >
-                    <Text style={styles.avatarText}>AN</Text>
+                    <Text style={styles.avatarText}>{initials}</Text>
                 </LinearGradient>
                 <View>
-                    <Text style={styles.avatarName}>Nguyễn Văn An</Text>
+                    <Text style={styles.avatarName} numberOfLines={1}>
+                        {displayName}
+                    </Text>
                 </View>
             </Pressable>
             <View style={styles.topbarIcons}>

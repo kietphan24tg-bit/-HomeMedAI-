@@ -4,15 +4,31 @@ import { Pressable, Text, View } from 'react-native';
 import type { HomeMode } from '../home.types';
 import { styles } from '../styles';
 
+function greetingByHour() {
+    const hour = new Date().getHours();
+    if (hour < 11) return 'Chào buổi sáng';
+    if (hour < 14) return 'Chào buổi trưa';
+    if (hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+}
+
 export default function HomeHero({
     mode,
+    displayName,
+    selectedFamilyName,
     onSelectPersonal,
     onSelectFamily,
 }: {
     mode: HomeMode;
+    displayName: string;
+    selectedFamilyName?: string | null;
     onSelectPersonal: () => void;
     onSelectFamily: () => void;
 }): React.JSX.Element {
+    const shortName =
+        displayName.trim().split(/\s+/).slice(-1)[0] || displayName;
+    const familyName = selectedFamilyName ?? 'gia đình';
+
     return (
         <View style={styles.hero}>
             <View style={styles.heroGradient}>
@@ -22,11 +38,18 @@ export default function HomeHero({
                 <View style={styles.heroGlowLg} />
                 <View style={styles.heroGlowSm} />
                 <Text style={styles.heroGreeting}>
-                    👋 Chào buổi sáng, Văn An
+                    {mode === 'family'
+                        ? `Đang xem ${familyName}`
+                        : `${greetingByHour()}, ${shortName}`}
                 </Text>
                 <Text style={styles.heroTitle}>
-                    Chăm sóc sức khỏe{'\n'}
-                    <Text style={styles.heroTitleHighlight}>mỗi ngày</Text>
+                    {mode === 'family'
+                        ? 'Chăm sóc sức khỏe'
+                        : 'Chăm sóc sức khỏe'}
+                    {'\n'}
+                    <Text style={styles.heroTitleHighlight}>
+                        {mode === 'family' ? 'cả gia đình' : 'mỗi ngày'}
+                    </Text>
                 </Text>
                 <View style={styles.modeToggle}>
                     <Pressable

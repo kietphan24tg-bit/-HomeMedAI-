@@ -3,7 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Modal,
@@ -23,6 +23,9 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
+import { getCategoryColor } from '@/src/utils/color-palette';
 import MedicineScreen from './MedicineScreen';
 import NotificationScreen from './NotificationScreen';
 import RecordsScreen from './RecordsScreen';
@@ -34,7 +37,7 @@ import {
     NoteRow,
     SectionHeader,
 } from '../../components/ui';
-import { HEALTH_INFO, MED_ROWS, TIPS, VISITS } from '../../data/health-data';
+import { HEALTH_INFO, TIPS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
 import { colors, gradients } from '../../styles/tokens';
 
@@ -53,6 +56,251 @@ type TagPreviewState = {
     title: string;
     tags: string[];
 } | null;
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object'
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+function nullableString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function numberValue(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
+function stringList(value: unknown): string[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is string =>
+                  typeof item === 'string' && item.trim().length > 0,
+          )
+        : [];
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function initialsFromName(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'ND';
+    return parts
+        .slice(-2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+}
+
+function ageFromDob(dob: unknown): number | null {
+    const raw = nullableString(dob);
+    if (!raw) return null;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - date.getFullYear();
+    const beforeBirthday =
+        now.getMonth() < date.getMonth() ||
+        (now.getMonth() === date.getMonth() && now.getDate() < date.getDate());
+    if (beforeBirthday) age -= 1;
+    return age >= 0 && age < 130 ? age : null;
+}
+
+function genderLabel(gender: unknown) {
+    const normalized = nullableString(gender)?.toLowerCase();
+    if (normalized === 'male' || normalized === 'nam') return 'Nam';
+    if (normalized === 'female' || normalized === 'nữ' || normalized === 'nu') {
+        return 'Nữ';
+    }
+    return 'Chưa rõ';
+}
+
+function calculateBmi(height: number | null, weight: number | null) {
+    if (
+        !height ||
+        !weight ||
+        height < 50 ||
+        height > 250 ||
+        weight < 2 ||
+        weight > 400
+    ) {
+        return null;
+    }
+
+    return Number((weight / (height / 100) ** 2).toFixed(1));
+}
+
+function bmiStatus(bmi: number | null) {
+    if (!bmi) {
+        return {
+            label: 'Cần cập nhật',
+            color: colors.warning,
+            bg: colors.warningBg,
+            left: '0%',
+        };
+    }
+
+    const min = 12;
+    const max = 35;
+    const left = `${Math.round(
+        ((Math.min(max, Math.max(min, bmi)) - min) / (max - min)) * 100,
+    )}%`;
+
+    if (bmi < 18.5) {
+        return {
+            label: 'Thiếu cân',
+            color: colors.info,
+            bg: colors.infoBg,
+            left,
+        };
+    }
+    if (bmi < 23) {
+        return {
+            label: 'Bình thường',
+            color: colors.success,
+            bg: colors.successBg,
+            left,
+        };
+    }
+    if (bmi < 25) {
+        return {
+            label: 'Thừa cân',
+            color: colors.warning,
+            bg: colors.warningBg,
+            left,
+        };
+    }
+    return {
+        label: 'Béo phì',
+        color: colors.danger,
+        bg: colors.dangerBg,
+        left,
+    };
+}
+
+function vaccinationStats(healthProfile: Record<string, unknown>) {
+    const vaccinations = Array.isArray(healthProfile.vaccinations)
+        ? healthProfile.vaccinations.filter(
+              (entry): entry is Record<string, unknown> =>
+                  !!entry && typeof entry === 'object',
+          )
+        : [];
+    let total = 0;
+    let done = 0;
+
+    vaccinations.forEach((vaccination) => {
+        const doses = Array.isArray(vaccination.doses)
+            ? vaccination.doses.filter(
+                  (entry): entry is Record<string, unknown> =>
+                      !!entry && typeof entry === 'object',
+              )
+            : [];
+        const recommendationTotal = numberValue(
+            vaccination.recommendation_total_doses,
+        );
+        const administered = numberValue(vaccination.doses_administered_count);
+        total +=
+            recommendationTotal && recommendationTotal > 0
+                ? recommendationTotal
+                : doses.length;
+        done +=
+            administered !== null
+                ? administered
+                : doses.filter(
+                      (dose) =>
+                          nullableString(dose.dose_status)?.toUpperCase() ===
+                          'ADMINISTERED',
+                  ).length;
+    });
+
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, percent };
+}
+
+function formatShortDate(value: unknown) {
+    const raw = nullableString(value);
+    if (!raw) return '--';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return `${String(date.getDate()).padStart(2, '0')}/${String(
+        date.getMonth() + 1,
+    ).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+function buildMedicalRecordRows(healthProfile: Record<string, unknown>) {
+    return recordList(healthProfile.medical_records)
+        .sort((a, b) => {
+            const aTime = new Date(
+                nullableString(a.visit_date) ?? '',
+            ).getTime();
+            const bTime = new Date(
+                nullableString(b.visit_date) ?? '',
+            ).getTime();
+            return (
+                (Number.isNaN(bTime) ? 0 : bTime) -
+                (Number.isNaN(aTime) ? 0 : aTime)
+            );
+        })
+        .slice(0, 3)
+        .map((record, index) => {
+            const category = getCategoryColor(index);
+            return {
+                id:
+                    nullableString(record.id) ??
+                    `${nullableString(record.title) ?? 'record'}-${index}`,
+                iconName:
+                    index === 0
+                        ? 'heart-outline'
+                        : index === 1
+                          ? 'scan-outline'
+                          : 'medkit-outline',
+                iconColor: category.color,
+                bg: category.bg,
+                title:
+                    nullableString(record.title) ??
+                    nullableString(record.diagnosis_name) ??
+                    'Hồ sơ khám bệnh',
+                sub:
+                    [
+                        nullableString(record.hospital_name),
+                        nullableString(record.doctor_name),
+                    ]
+                        .filter(Boolean)
+                        .join(' · ') ||
+                    nullableString(record.specialty) ||
+                    'Chưa có cơ sở khám',
+                date: formatShortDate(record.visit_date),
+            };
+        });
+}
+
+function buildMedicineRows(healthProfile: Record<string, unknown>) {
+    return recordList(healthProfile.medicine_inventory)
+        .slice(0, 3)
+        .map((medicine, index) => {
+            const category = getCategoryColor(index + 3);
+            return {
+                id:
+                    nullableString(medicine.id) ??
+                    `${nullableString(medicine.medicine_name) ?? 'medicine'}-${index}`,
+                name: nullableString(medicine.medicine_name) ?? 'Thuốc',
+                bg: category.bg,
+                iconColor: category.color,
+            };
+        });
+}
 
 function summarizeHealthTags(values: string[]): {
     lead: string | null;
@@ -76,21 +324,55 @@ function truncateHealthTag(label: string | null, maxLength = 22): string {
 
 export default function HealthScreen(): React.JSX.Element {
     const router = useRouter();
+    const { data: meOverview } = useMeOverviewQuery();
+    const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [screen, setScreen] = useState<SubScreen>('main');
     const [sheet, setSheet] = useState<SheetKey>(null);
-    const [blood, setBlood] = useState('O+');
-    const [draftBlood, setDraftBlood] = useState('O+');
-    const [diseases, setDiseases] = useState<string[]>(['Tăng huyết áp']);
+    const [blood, setBlood] = useState('');
+    const [draftBlood, setDraftBlood] = useState('');
+    const [diseases, setDiseases] = useState<string[]>([]);
     const [draftDiseases, setDraftDiseases] = useState<string[]>([]);
     const [allergies, setAllergies] = useState<string[]>([]);
     const [draftAllergies, setDraftAllergies] = useState<string[]>([]);
-    const [foodAllergies, setFoodAllergies] = useState<string[]>(['Hải sản']);
+    const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
     const [draftFoodAllergies, setDraftFoodAllergies] = useState<string[]>([]);
-    const [healthNote, setHealthNote] = useState('Tiền sử mổ ruột thừa 2018');
+    const [healthNote, setHealthNote] = useState('');
     const [draftHealthNote, setDraftHealthNote] = useState('');
     const [tagText, setTagText] = useState('');
     const [tagPreview, setTagPreview] = useState<TagPreviewState>(null);
-    const vaccinePct = 75;
+    const profile = useMemo(
+        () => asRecord(meOverview?.profile),
+        [meOverview?.profile],
+    );
+    const healthProfile = useMemo(
+        () => asRecord(meOverview?.health_profile),
+        [meOverview?.health_profile],
+    );
+    const profileId = nullableString(profile.id);
+    const displayName =
+        nullableString(profile.full_name) ??
+        nullableString(meOverview?.user?.email) ??
+        'Người dùng';
+    const memberAge = ageFromDob(profile.dob ?? profile.date_of_birth);
+    const memberMeta = `${memberAge !== null ? `${memberAge} tuổi` : 'Chưa rõ tuổi'} · ${genderLabel(profile.gender)}`;
+    const height = numberValue(profile.height_cm);
+    const weight = numberValue(profile.weight_kg);
+    const bmi = calculateBmi(height, weight);
+    const bmiInfo = bmiStatus(bmi);
+    const vaccineStats = vaccinationStats(healthProfile);
+    const vaccinePct = vaccineStats.percent;
+    const medicalRecordRows = useMemo(
+        () => buildMedicalRecordRows(healthProfile),
+        [healthProfile],
+    );
+    const medicineRows = useMemo(
+        () => buildMedicineRows(healthProfile),
+        [healthProfile],
+    );
+    const totalMedicalRecords = recordList(
+        healthProfile.medical_records,
+    ).length;
+    const totalMedicines = recordList(healthProfile.medicine_inventory).length;
     const vaccineDonutSize = 62;
     const vaccineDonutStroke = 6;
     const vaccineDonutRadius = (vaccineDonutSize - vaccineDonutStroke) / 2;
@@ -99,6 +381,22 @@ export default function HealthScreen(): React.JSX.Element {
         vaccineDonutCircumference -
         (Math.max(0, Math.min(100, vaccinePct)) / 100) *
             vaccineDonutCircumference;
+
+    useEffect(() => {
+        setBlood(nullableString(healthProfile.blood_type) ?? '');
+        setDraftBlood(nullableString(healthProfile.blood_type) ?? '');
+        setDiseases(
+            stringList(
+                healthProfile.chronic_diseases ??
+                    healthProfile.chronic_conditions,
+            ),
+        );
+        setAllergies(
+            stringList(healthProfile.drug_allergies ?? healthProfile.allergies),
+        );
+        setFoodAllergies(stringList(healthProfile.food_allergies));
+        setHealthNote(nullableString(healthProfile.notes) ?? '');
+    }, [healthProfile]);
 
     const openSheet = useCallback(
         (key: SheetKey) => {
@@ -118,21 +416,51 @@ export default function HealthScreen(): React.JSX.Element {
     const closeSheet = useCallback(() => setSheet(null), []);
 
     const saveSheet = useCallback(() => {
-        if (sheet === 'blood') setBlood(draftBlood);
-        if (sheet === 'disease') setDiseases([...draftDiseases]);
-        if (sheet === 'allergy') setAllergies([...draftAllergies]);
-        if (sheet === 'foodAllergy') {
-            setFoodAllergies([...draftFoodAllergies]);
+        const nextBlood = sheet === 'blood' ? draftBlood : blood;
+        const nextDiseases =
+            sheet === 'disease' ? [...draftDiseases] : [...diseases];
+        const nextAllergies =
+            sheet === 'allergy' ? [...draftAllergies] : [...allergies];
+        const nextFoodAllergies =
+            sheet === 'foodAllergy'
+                ? [...draftFoodAllergies]
+                : [...foodAllergies];
+        const nextNote = sheet === 'note' ? draftHealthNote.trim() : healthNote;
+
+        setBlood(nextBlood);
+        setDiseases(nextDiseases);
+        setAllergies(nextAllergies);
+        setFoodAllergies(nextFoodAllergies);
+        setHealthNote(nextNote);
+
+        if (profileId) {
+            patchHealthMutation.mutate({
+                profileId,
+                payload: {
+                    blood_type: nextBlood || null,
+                    chronic_diseases: nextDiseases,
+                    allergies: nextAllergies,
+                    drug_allergies: nextAllergies,
+                    food_allergies: nextFoodAllergies,
+                    notes: nextNote || null,
+                },
+            });
         }
-        if (sheet === 'note') setHealthNote(draftHealthNote.trim());
         setSheet(null);
     }, [
         sheet,
+        blood,
+        diseases,
+        allergies,
+        foodAllergies,
+        healthNote,
         draftBlood,
         draftDiseases,
         draftAllergies,
         draftFoodAllergies,
         draftHealthNote,
+        profileId,
+        patchHealthMutation,
     ]);
 
     const addTag = useCallback(
@@ -313,11 +641,13 @@ export default function HealthScreen(): React.JSX.Element {
                         end={{ x: 1, y: 1 }}
                         style={styles.mAvatar}
                     >
-                        <Text style={styles.mAvatarText}>AN</Text>
+                        <Text style={styles.mAvatarText}>
+                            {initialsFromName(displayName)}
+                        </Text>
                     </LinearGradient>
                     <View style={styles.mInfo}>
-                        <Text style={styles.mName}>Nguyễn Văn An</Text>
-                        <Text style={styles.mRole}>38 tuổi · Nam</Text>
+                        <Text style={styles.mName}>{displayName}</Text>
+                        <Text style={styles.mRole}>{memberMeta}</Text>
                     </View>
                     <Ionicons
                         name='chevron-down'
@@ -340,12 +670,30 @@ export default function HealthScreen(): React.JSX.Element {
                         <View style={{ flex: 1 }}>
                             <Text style={styles.bmiLabel}>Chỉ số BMI</Text>
                             <View style={styles.bmiValueRow}>
-                                <Text style={styles.bmiValue}>23.5</Text>
-                                <Text style={styles.bmiUnit}>kg/m²</Text>
+                                <Text style={styles.bmiValue}>
+                                    {bmi ? bmi.toFixed(1) : '--'}
+                                </Text>
+                                {bmi ? (
+                                    <Text style={styles.bmiUnit}>kg/m²</Text>
+                                ) : null}
                             </View>
-                            <Text style={styles.bmiSub}>170 cm · 68 kg</Text>
+                            <Text style={styles.bmiSub}>
+                                {height && weight
+                                    ? `${height} cm · ${weight} kg`
+                                    : 'Cần cập nhật chiều cao/cân nặng'}
+                            </Text>
                         </View>
-                        <Text style={styles.bmiBadge}>Bình thường</Text>
+                        <Text
+                            style={[
+                                styles.bmiBadge,
+                                {
+                                    color: bmiInfo.color,
+                                    backgroundColor: bmiInfo.bg,
+                                },
+                            ]}
+                        >
+                            {bmiInfo.label}
+                        </Text>
                     </View>
                     <View style={styles.bmiGaugeWrap}>
                         <LinearGradient
@@ -359,7 +707,15 @@ export default function HealthScreen(): React.JSX.Element {
                             end={{ x: 1, y: 0 }}
                             style={styles.bmiGaugeTrack}
                         >
-                            <View style={styles.bmiGaugeThumb} />
+                            <View
+                                style={[
+                                    styles.bmiGaugeThumb,
+                                    {
+                                        left: bmiInfo.left as `${number}%`,
+                                        borderColor: bmiInfo.color,
+                                    },
+                                ]}
+                            />
                         </LinearGradient>
                         <View style={styles.bmiGaugeLabels}>
                             <Text
@@ -763,43 +1119,53 @@ export default function HealthScreen(): React.JSX.Element {
                         }
                         iconBg={colors.primaryBg}
                         title='Hồ sơ khám bệnh'
-                        count='12 hồ sơ'
+                        count={`${totalMedicalRecords} hồ sơ`}
                     />
-                    {VISITS.map((v, index) => (
-                        <Pressable
-                            key={v.title}
-                            style={[
-                                styles.miniCardRow,
-                                index === VISITS.length - 1
-                                    ? styles.miniCardRowLast
-                                    : null,
-                            ]}
-                        >
-                            <View
+                    {medicalRecordRows.length > 0 ? (
+                        medicalRecordRows.map((v, index) => (
+                            <Pressable
+                                key={v.id}
                                 style={[
-                                    styles.miniCardRowIcon,
-                                    { backgroundColor: v.bg },
+                                    styles.miniCardRow,
+                                    index === medicalRecordRows.length - 1
+                                        ? styles.miniCardRowLast
+                                        : null,
                                 ]}
                             >
-                                <Ionicons
-                                    name={
-                                        v.iconName as keyof typeof Ionicons.glyphMap
-                                    }
-                                    size={17}
-                                    color={v.iconColor}
-                                />
-                            </View>
-                            <View style={styles.miniCardRowBody}>
-                                <Text style={styles.miniCardRowTitle}>
-                                    {v.title}
-                                </Text>
-                                <Text style={styles.miniCardRowSub}>
-                                    {v.sub}
-                                </Text>
-                            </View>
-                            <Text style={styles.visitDate}>{v.date}</Text>
-                        </Pressable>
-                    ))}
+                                <View
+                                    style={[
+                                        styles.miniCardRowIcon,
+                                        { backgroundColor: v.bg },
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name={
+                                            v.iconName as keyof typeof Ionicons.glyphMap
+                                        }
+                                        size={17}
+                                        color={v.iconColor}
+                                    />
+                                </View>
+                                <View style={styles.miniCardRowBody}>
+                                    <Text style={styles.miniCardRowTitle}>
+                                        {v.title}
+                                    </Text>
+                                    <Text style={styles.miniCardRowSub}>
+                                        {v.sub}
+                                    </Text>
+                                </View>
+                                <Text style={styles.visitDate}>{v.date}</Text>
+                            </Pressable>
+                        ))
+                    ) : (
+                        <View
+                            style={[styles.miniCardRow, styles.miniCardRowLast]}
+                        >
+                            <Text style={styles.hiEmptyText}>
+                                Chưa có hồ sơ khám bệnh
+                            </Text>
+                        </View>
+                    )}
                 </CardBlock>
 
                 {/* TIÊM CHỦNG */}
@@ -860,11 +1226,13 @@ export default function HealthScreen(): React.JSX.Element {
                             <Text style={styles.vpctTitle}>
                                 Hoàn thành{' '}
                                 <Text style={{ color: colors.warning }}>
-                                    75%
+                                    {vaccinePct}%
                                 </Text>
                             </Text>
                             <Text style={styles.vpctSub}>
-                                6 / 8 mũi khuyến nghị
+                                {vaccineStats.total > 0
+                                    ? `${vaccineStats.done} / ${vaccineStats.total} mũi khuyến nghị`
+                                    : 'Chưa có lịch tiêm'}
                             </Text>
                         </View>
                     </View>
@@ -889,38 +1257,50 @@ export default function HealthScreen(): React.JSX.Element {
                         }
                         iconBg={colors.secondaryBg}
                         title='Đơn thuốc'
-                        count='3 đang dùng'
+                        count={`${totalMedicines} đang dùng`}
                         countStyle={{ color: colors.secondary }}
                     />
-                    {MED_ROWS.map((m, index) => (
-                        <Pressable
-                            key={m.name}
-                            style={[
-                                styles.miniCardRow,
-                                index === MED_ROWS.length - 1
-                                    ? styles.miniCardRowLast
-                                    : null,
-                            ]}
-                        >
-                            <View
+                    {medicineRows.length > 0 ? (
+                        medicineRows.map((m, index) => (
+                            <Pressable
+                                key={m.id}
                                 style={[
-                                    styles.miniCardRowIcon,
-                                    { backgroundColor: m.bg },
+                                    styles.miniCardRow,
+                                    index === medicineRows.length - 1
+                                        ? styles.miniCardRowLast
+                                        : null,
                                 ]}
                             >
-                                <MaterialCommunityIcons
-                                    name='pill'
-                                    size={16}
-                                    color={m.iconColor}
-                                />
-                            </View>
-                            <View style={styles.miniCardRowBodyCompact}>
-                                <Text style={styles.miniCardRowTitleCompact}>
-                                    {m.name}
-                                </Text>
-                            </View>
-                        </Pressable>
-                    ))}
+                                <View
+                                    style={[
+                                        styles.miniCardRowIcon,
+                                        { backgroundColor: m.bg },
+                                    ]}
+                                >
+                                    <MaterialCommunityIcons
+                                        name='pill'
+                                        size={16}
+                                        color={m.iconColor}
+                                    />
+                                </View>
+                                <View style={styles.miniCardRowBodyCompact}>
+                                    <Text
+                                        style={styles.miniCardRowTitleCompact}
+                                    >
+                                        {m.name}
+                                    </Text>
+                                </View>
+                            </Pressable>
+                        ))
+                    ) : (
+                        <View
+                            style={[styles.miniCardRow, styles.miniCardRowLast]}
+                        >
+                            <Text style={styles.hiEmptyText}>
+                                Chưa có thuốc đang dùng
+                            </Text>
+                        </View>
+                    )}
                 </CardBlock>
 
                 {/* GỢI Ý SỨC KHOẺ */}

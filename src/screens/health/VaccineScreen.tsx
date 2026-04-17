@@ -5,7 +5,6 @@ import {
     Pressable,
     ScrollView,
     StatusBar,
-    Switch,
     Text,
     TextInput,
     View,
@@ -18,8 +17,7 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
-import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
-import { familiesServices } from '@/src/services/families.services';
+import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
@@ -33,6 +31,15 @@ interface Props {
 }
 
 type VaxView = 'list' | 'detail';
+
+const VACCINE_REMINDER_OPTIONS = [
+    'Không nhắc',
+    '2 giờ trước',
+    '1 ngày trước',
+    '3 ngày trước',
+    '1 tuần trước',
+    'Tùy chỉnh',
+] as const;
 
 function doneMuiCount(v: VaccineDetailItem) {
     return v.doses.filter((d: VaccineDose) => d.date).length;
@@ -975,8 +982,22 @@ function ScheduleDoseSheet({
     onClose: () => void;
 }) {
     const [schedDate, setSchedDate] = useState(new Date());
+    const [schedTime, setSchedTime] = useState(new Date());
     const [schedPlace, setSchedPlace] = useState('');
-    const [schedRemindOn, setSchedRemindOn] = useState(true);
+    const [schedReminder, setSchedReminder] = useState('1 ngày trước');
+    const [showSchedReminderOptions, setShowSchedReminderOptions] =
+        useState(false);
+    const [showSchedCustomReminder, setShowSchedCustomReminder] =
+        useState(false);
+
+    const selectSchedReminder = useCallback((option: string) => {
+        setShowSchedReminderOptions(false);
+        if (option === 'Tùy chỉnh') {
+            setShowSchedCustomReminder(true);
+            return;
+        }
+        setSchedReminder(option);
+    }, []);
 
     return (
         <Modal
@@ -1007,6 +1028,16 @@ function ScheduleDoseSheet({
                             </View>
                             <View>
                                 <Text style={styles.vdFieldLabel}>
+                                    Giờ tiêm
+                                </Text>
+                                <DateField
+                                    value={schedTime}
+                                    onChange={setSchedTime}
+                                    mode='time'
+                                />
+                            </View>
+                            <View>
+                                <Text style={styles.vdFieldLabel}>
                                     Cơ sở y tế
                                 </Text>
                                 <TextInput
@@ -1021,26 +1052,60 @@ function ScheduleDoseSheet({
                                 <Text style={styles.vdFieldLabel}>
                                     Nhắc trước
                                 </Text>
-                                <View style={styles.vdRemindSwitchCard}>
-                                    <View style={styles.vdRemindSwitchContent}>
-                                        <Text style={styles.vdRemindSwitchText}>
-                                            Nhắc nhở trước 1 ngày
-                                        </Text>
-                                        <Text style={styles.vdRemindSwitchHint}>
-                                            Gửi thông báo trước lịch tiêm 24 giờ
-                                        </Text>
-                                    </View>
-                                    <Switch
-                                        value={schedRemindOn}
-                                        onValueChange={setSchedRemindOn}
-                                        trackColor={{
-                                            false: '#E5E7EB',
-                                            true: colors.success,
-                                        }}
-                                        thumbColor='#fff'
-                                        ios_backgroundColor='#E5E7EB'
+                                <Pressable
+                                    style={styles.fuReminderSelect}
+                                    onPress={() =>
+                                        setShowSchedReminderOptions(
+                                            (prev) => !prev,
+                                        )
+                                    }
+                                >
+                                    <Text style={styles.fuReminderSelectText}>
+                                        {schedReminder}
+                                    </Text>
+                                    <Ionicons
+                                        name={
+                                            showSchedReminderOptions
+                                                ? 'chevron-up'
+                                                : 'chevron-down'
+                                        }
+                                        size={16}
+                                        color={colors.text3}
                                     />
-                                </View>
+                                </Pressable>
+                                {showSchedReminderOptions ? (
+                                    <View style={styles.fuReminderOptionWrap}>
+                                        {VACCINE_REMINDER_OPTIONS.map(
+                                            (option) => (
+                                                <Pressable
+                                                    key={option}
+                                                    style={[
+                                                        styles.fuReminderOption,
+                                                        schedReminder ===
+                                                            option &&
+                                                            styles.fuReminderOptionActive,
+                                                    ]}
+                                                    onPress={() =>
+                                                        selectSchedReminder(
+                                                            option,
+                                                        )
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.fuReminderOptionText,
+                                                            schedReminder ===
+                                                                option &&
+                                                                styles.fuReminderOptionTextActive,
+                                                        ]}
+                                                    >
+                                                        {option}
+                                                    </Text>
+                                                </Pressable>
+                                            ),
+                                        )}
+                                    </View>
+                                ) : null}
                             </View>
                             <Pressable style={styles.vdSaveBtn}>
                                 <View style={styles.vdSaveBtnSolid}>
@@ -1051,6 +1116,11 @@ function ScheduleDoseSheet({
                             </Pressable>
                         </View>
                     </View>
+                    <CustomReminderModal
+                        visible={showSchedCustomReminder}
+                        onClose={() => setShowSchedCustomReminder(false)}
+                        onSave={setSchedReminder}
+                    />
                 </Pressable>
             </Pressable>
         </Modal>
