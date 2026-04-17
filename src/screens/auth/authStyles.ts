@@ -320,6 +320,8 @@ export interface AuthFormProps {
 
 export interface SignInFormProps extends AuthFormProps {
     onForgotPassword: () => void;
+    onGoogleSignIn?: () => void;
+    googleLoading?: boolean;
 }
 
 export interface RegisterFormProps extends AuthFormProps {

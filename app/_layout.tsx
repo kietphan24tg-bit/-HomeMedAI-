@@ -113,16 +113,30 @@ export default function RootLayout() {
                     return;
                 }
 
-                const token = await registerForPushNotificationsAsync({
+                const registration = await registerForPushNotificationsAsync({
                     allowPrompt: false,
                 });
-                if (!active || !token) {
-                    await SecureStore.setItemAsync(
-                        PUSH_PERMISSION_GRANTED,
-                        'false',
-                    );
+                if (!active) {
                     return;
                 }
+
+                if (registration.status !== 'granted') {
+                    if (registration.status !== 'unavailable') {
+                        await SecureStore.setItemAsync(
+                            PUSH_PERMISSION_GRANTED,
+                            'false',
+                        );
+                    }
+                    lastSyncedToken.current = null;
+                    return;
+                }
+
+                if (!registration.token) {
+                    lastSyncedToken.current = null;
+                    return;
+                }
+
+                const token = registration.token;
 
                 if (lastSyncedToken.current === token) {
                     return;

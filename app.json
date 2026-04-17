@@ -13,6 +13,7 @@
         },
         "android": {
             "package": "com.homemedaimobile.app",
+            "googleServicesFile": "./google-services.json",
             "adaptiveIcon": {
                 "backgroundColor": "#E6F4FE",
                 "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -28,6 +29,13 @@
         "plugins": [
             "expo-router",
             [
+                "expo-notifications",
+                {
+                    "sounds": [],
+                    "mode": "production"
+                }
+            ],
+            [
                 "expo-splash-screen",
                 {
                     "image": "./assets/images/splash-icon.png",
@@ -40,11 +48,19 @@
                 }
             ],
             "@react-native-community/datetimepicker",
-            "expo-secure-store"
+            "expo-secure-store",
+            "@react-native-google-signin/google-signin"
         ],
         "experiments": {
             "typedRoutes": true,
             "reactCompiler": true
-        }
+        },
+        "extra": {
+            "eas": {
+                "projectId": "74a2bdbf-08a6-4604-9439-e28041256247"
+            },
+            "router": {}
+        },
+        "owner": "nhkt2k19"
     }
 }

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -18,13 +18,15 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
+import { familiesServices } from '@/src/services/families.services';
+import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
 import { VACCINE_DETAILS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 import type { VaccineDetailItem, VaccineDose } from '../../types/health';
-import { styles } from './styles';
 
 interface Props {
     onClose?: () => void;
@@ -37,6 +39,37 @@ function doneMuiCount(v: VaccineDetailItem) {
 }
 
 export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
+    const [apiReminderCount, setApiReminderCount] = useState<number | null>(
+        null,
+    );
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const fams = await familiesServices.getMyFamilies();
+                const list = Array.isArray(fams)
+                    ? fams
+                    : Array.isArray((fams as { data?: unknown })?.data)
+                      ? (fams as { data: unknown[] }).data
+                      : [];
+                const first = list[0] as {
+                    members?: { profile?: { id?: string } }[];
+                };
+                const pid = first?.members?.[0]?.profile?.id;
+                if (!pid) return;
+                const rows =
+                    await appointmentRemindersService.listForProfile(pid);
+                if (!cancelled) setApiReminderCount(rows.length);
+            } catch {
+                if (!cancelled) setApiReminderCount(null);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const [view, setView] = useState<VaxView>('list');
     const [detailVax, setDetailVax] = useState<VaccineDetailItem | null>(null);
     const [showAddVax, setShowAddVax] = useState(false);
@@ -149,6 +182,17 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
+                {apiReminderCount !== null ? (
+                    <Text
+                        style={{
+                            fontSize: 12,
+                            color: colors.text3,
+                            marginBottom: 8,
+                        }}
+                    >
+                        Lịch hẹn nhắc (API): {apiReminderCount}
+                    </Text>
+                ) : null}
                 {/* PROGRESS HERO */}
                 <View style={styles.vaxHero}>
                     <View style={styles.vaxHeroContent}>

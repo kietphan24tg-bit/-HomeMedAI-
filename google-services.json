@@ -12,7 +12,28 @@
                     "package_name": "com.homemedaimobile.app"
                 }
             },
-            "oauth_client": [],
+            "oauth_client": [
+                {
+                    "client_id": "950210168736-bgtkioaruqp26c3as5buldnkcp596hab.apps.googleusercontent.com",
+                    "client_type": 1,
+                    "android_info": {
+                        "package_name": "com.homemedaimobile.app",
+                        "certificate_hash": "22608fb176befefffec57b33065733b51e37e7bd"
+                    }
+                },
+                {
+                    "client_id": "950210168736-lm2qgrnvhb4piojvphatr987fhn6eu83.apps.googleusercontent.com",
+                    "client_type": 1,
+                    "android_info": {
+                        "package_name": "com.homemedaimobile.app",
+                        "certificate_hash": "045db3e30df0f43cc5ec7f9d95abacb9b5bda9b1"
+                    }
+                },
+                {
+                    "client_id": "950210168736-vfklg67b96je56ionla0vje68gf9c5q0.apps.googleusercontent.com",
+                    "client_type": 3
+                }
+            ],
             "api_key": [
                 {
                     "current_key": "AIzaSyCIPBAja50ZRGX4CHcLkUcR7oyLBgGJ47s"
@@ -20,7 +41,12 @@
             ],
             "services": {
                 "appinvite_service": {
-                    "other_platform_oauth_client": []
+                    "other_platform_oauth_client": [
+                        {
+                            "client_id": "950210168736-vfklg67b96je56ionla0vje68gf9c5q0.apps.googleusercontent.com",
+                            "client_type": 3
+                        }
+                    ]
                 }
             }
         }
