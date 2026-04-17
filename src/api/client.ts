@@ -1,16 +1,23 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
 import { useAuthStore } from '@/src/stores/useAuthStore';
+import {
+    resolveAndroidLoopbackFallbackUrl,
+    resolveApiBaseUrl,
+} from './base-url';
 import { mockAdapter } from './mock-adapter';
 import { callRefreshTokenApi } from './token-refresh';
 
 const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
-const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
+const BASE_URL = resolveApiBaseUrl();
 const REFRESH_TOKEN = 'refresh_token';
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
+    _networkRetryWithLoopback?: boolean;
 };
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
@@ -21,6 +28,17 @@ function shouldSkipRefresh(url?: string) {
 
 function shouldAttemptRefresh(status?: number) {
     return status === 401 || status === 403;
+}
+
+function isNetworkError(error: unknown) {
+    const candidate = error as
+        | { message?: string; code?: string; response?: unknown }
+        | undefined;
+
+    return (
+        candidate?.message === 'Network Error' ||
+        (!candidate?.response && candidate?.code === 'ERR_NETWORK')
+    );
 }
 
 async function refreshAccessToken() {
@@ -50,6 +68,9 @@ async function refreshAccessToken() {
             return accessToken;
         })()
             .catch(async (error) => {
+                if (isNetworkError(error)) {
+                    throw error;
+                }
                 await useAuthStore.getState().clearSession();
                 appToast.showError(
                     'Error',
@@ -94,6 +115,53 @@ apiClient.interceptors.response.use(
         const originalRequest = error.config as
             | RetriableRequestConfig
             | undefined;
+
+        if (
+            Platform.OS === 'android' &&
+            !Device.isDevice &&
+            originalRequest &&
+            !error.response &&
+            !originalRequest._networkRetryWithLoopback
+        ) {
+            const currentBaseUrl =
+                originalRequest.baseURL ??
+                apiClient.defaults.baseURL ??
+                BASE_URL;
+            const fallbackBaseUrl = currentBaseUrl
+                ? resolveAndroidLoopbackFallbackUrl(currentBaseUrl)
+                : null;
+
+            if (fallbackBaseUrl) {
+                originalRequest._networkRetryWithLoopback = true;
+                originalRequest.baseURL = fallbackBaseUrl;
+                if (__DEV__) {
+                    console.warn(
+                        '[api] Network Error. Retrying with Android emulator loopback baseURL:',
+                        fallbackBaseUrl,
+                    );
+                }
+                return apiClient(originalRequest);
+            }
+        }
+
+        if (
+            Platform.OS === 'android' &&
+            Device.isDevice &&
+            originalRequest &&
+            !error.response &&
+            __DEV__
+        ) {
+            const currentBaseUrl =
+                originalRequest.baseURL ??
+                apiClient.defaults.baseURL ??
+                BASE_URL;
+            console.warn(
+                '[api] Network Error on physical Android. baseURL=',
+                currentBaseUrl,
+                'path=',
+                originalRequest.url,
+            );
+        }
 
         if (!originalRequest || shouldSkipRefresh(originalRequest.url)) {
             return Promise.reject(error);

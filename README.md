@@ -90,3 +90,122 @@ Tất cả các hằng số màu sắc, khoảng cách (spacing), bo góc (radiu
 - `react-native-safe-area-context`: Quản lý vùng an toàn trên các thiết bị mobile mới.
 
 ---
+
+## 🚀 Cách chạy dự án (Local)
+
+### 1. Chuẩn bị môi trường
+
+- Node.js LTS (khuyến nghị >= 20)
+- npm
+- Expo CLI (qua `npx expo ...`)
+- Android Studio (nếu chạy emulator Android)
+- Điện thoại Android cùng mạng LAN với máy dev (nếu test máy thật)
+
+### 2. Cài dependencies
+
+```powershell
+npm install
+```
+
+### 3. Cấu hình biến môi trường
+
+File `.env` (đang dùng local backend):
+
+```env
+EXPO_PUBLIC_BE_URL=http://192.168.1.7:8080
+EXPO_PUBLIC_MOCK_API=false
+```
+
+Lưu ý:
+
+- `EXPO_PUBLIC_BE_URL` phải là IP LAN máy chạy backend để điện thoại thật truy cập được.
+- Đảm bảo backend đang chạy và mở cổng tương ứng.
+
+### 3.1. Khi đổi mạng Wi-Fi: cập nhật IPv4 LAN nhanh
+
+Mỗi lần máy dev đổi sang mạng khác, IP LAN có thể thay đổi. Cập nhật theo quy trình sau:
+
+1. Tìm IPv4 của máy dev:
+
+```powershell
+ipconfig
+```
+
+Tìm adapter đang dùng Wi-Fi/Ethernet và lấy dòng `IPv4 Address` (ví dụ `192.168.1.25`).
+
+2. Cập nhật `.env`:
+
+```env
+EXPO_PUBLIC_BE_URL=http://<IPv4_MOI>:8080
+```
+
+Ví dụ:
+
+```env
+EXPO_PUBLIC_BE_URL=http://192.168.1.25:8080
+```
+
+3. Kiểm tra backend từ máy dev:
+
+```powershell
+curl http://<IPv4_MOI>:8080/health
+```
+
+4. Khởi động lại Expo để nhận biến môi trường mới:
+
+```powershell
+npx expo start -c
+```
+
+Lưu ý quan trọng:
+
+- Không dùng `localhost`/`127.0.0.1` khi test bằng điện thoại thật.
+- Điện thoại và máy dev phải cùng mạng LAN.
+- Nếu vẫn lỗi network, kiểm tra Firewall Windows có chặn cổng `8080` hay không.
+
+### 4. Chạy app
+
+```powershell
+npx expo start -c
+```
+
+Một số lệnh hữu ích:
+
+- `npm run android`: chạy Android (native run)
+- `npm run android:device`: chạy trên thiết bị Android thật
+- `npm run typecheck`: kiểm tra TypeScript
+
+---
+
+## 📱 Cài APK đã build sẵn (không cần QR)
+
+Khi đã có file `.apk`, chỉ cần gửi cho người dùng để tự cài trên Android.
+
+### 1. Gửi file APK
+
+- Gửi qua Zalo/Telegram/Drive hoặc copy trực tiếp bằng cáp USB.
+- Khuyến nghị đặt tên theo version, ví dụ: `homemedai-v1.0.3.apk`.
+
+### 2. Cài trên điện thoại Android
+
+1. Mở file `.apk` trong File Manager.
+2. Nếu máy báo chặn, bật quyền cài từ nguồn không xác định cho app đang mở file.
+3. Chọn `Install` để cài app.
+
+### 3. Cập nhật phiên bản mới
+
+- Gửi file APK mới cho người dùng.
+- Cài đè lên bản cũ để giữ dữ liệu đăng nhập (trừ khi thay đổi chữ ký ký ứng dụng).
+
+Lưu ý:
+
+- Nếu APK khác chữ ký với bản đang cài, cần gỡ bản cũ trước khi cài bản mới.
+- Sau khi cài bản mới, nên đăng xuất/đăng nhập lại để đồng bộ token push ổn định.
+
+---
+
+## 🔔 Ghi chú cho Push Notification
+
+- Đặt `google-services.json` ở root app (đã khai báo trong `app.json`).
+- Nếu test interactive push/action buttons, ưu tiên test trên bản APK đã cài thay vì chỉ dùng Expo Go.
+- Sau khi cài bản mới, nên đăng xuất/đăng nhập lại để đồng bộ token thiết bị lên backend.

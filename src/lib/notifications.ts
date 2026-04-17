@@ -4,6 +4,10 @@ import * as Device from 'expo-device';
 import type * as ExpoNotifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+const MEDICINE_REMINDER_ACTIONS_CATEGORY = 'MEDICINE_REMINDER_ACTIONS';
+const ACTION_MARK_TAKEN = 'MARK_TAKEN';
+const ACTION_MARK_SKIPPED = 'MARK_SKIPPED';
+
 type NotificationsModule = typeof ExpoNotifications;
 export type PushRegistrationStatus =
     | 'granted'
@@ -49,6 +53,31 @@ async function loadNotificationsModule(): Promise<NotificationsModule | null> {
                             shouldSetBadge: false,
                         }),
                     });
+
+                    // Enables action buttons on reminder push notifications.
+                    void Notifications.setNotificationCategoryAsync(
+                        MEDICINE_REMINDER_ACTIONS_CATEGORY,
+                        [
+                            {
+                                identifier: ACTION_MARK_TAKEN,
+                                buttonTitle: 'Đã uống',
+                                options: {
+                                    opensAppToForeground: false,
+                                },
+                            },
+                            {
+                                identifier: ACTION_MARK_SKIPPED,
+                                buttonTitle: 'Bỏ qua',
+                                options: {
+                                    isDestructive: true,
+                                    opensAppToForeground: false,
+                                },
+                            },
+                        ],
+                    ).catch((error) => {
+                        console.error(error);
+                    });
+
                     isHandlerConfigured = true;
                 }
                 return Notifications;
@@ -145,14 +174,52 @@ export async function registerForPushNotificationsAsync(options?: {
                     '[push] Set expo.extra.eas.projectId in app.json or EXPO_PUBLIC_EAS_PROJECT_ID',
                 );
             }
-            // Backend stores fcm_token and sends via Firebase. In Expo Go, device token is
-            // Expo-specific, so we intentionally skip syncing a token to avoid invalid FCM errors.
+
+            const expoToken = await Notifications.getExpoPushTokenAsync(
+                projectId ? { projectId } : undefined,
+            );
+
+            const normalizedExpoToken =
+                typeof expoToken?.data === 'string'
+                    ? expoToken.data
+                    : expoToken?.data !== undefined && expoToken?.data !== null
+                      ? String(expoToken.data)
+                      : null;
+
+            // Backend hybrid notification service supports ExponentPushToken[...] via Expo Push API,
+            // so we can safely sync this token even when running in Expo Go.
             return {
                 status: 'granted',
-                token: null,
+                token: normalizedExpoToken,
             };
         }
 
+        const projectId = resolveExpoProjectId();
+        if (projectId) {
+            try {
+                const expoToken = await Notifications.getExpoPushTokenAsync({
+                    projectId,
+                });
+                const normalizedExpoToken =
+                    typeof expoToken?.data === 'string'
+                        ? expoToken.data
+                        : expoToken?.data !== undefined &&
+                            expoToken?.data !== null
+                          ? String(expoToken.data)
+                          : null;
+
+                if (normalizedExpoToken) {
+                    return {
+                        status: 'granted',
+                        token: normalizedExpoToken,
+                    };
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Fallback when Expo token is unavailable: still keep native push token.
         const token = await Notifications.getDevicePushTokenAsync();
         return {
             status: 'granted',
@@ -177,6 +244,50 @@ function getNotificationData(
         return undefined;
     }
     return raw as Record<string, unknown>;
+}
+
+function getScheduleIdFromNotificationData(
+    data: Record<string, unknown> | undefined,
+): string | null {
+    if (!data) {
+        return null;
+    }
+
+    const scheduleId = data.schedule_id;
+    if (typeof scheduleId !== 'string' || scheduleId.trim().length === 0) {
+        return null;
+    }
+
+    return scheduleId;
+}
+
+async function handleScheduleActionFromNotification(
+    response: ExpoNotifications.NotificationResponse,
+): Promise<boolean> {
+    const actionId = response.actionIdentifier;
+    if (actionId !== ACTION_MARK_TAKEN && actionId !== ACTION_MARK_SKIPPED) {
+        return false;
+    }
+
+    const data = getNotificationData(response);
+    const scheduleId = getScheduleIdFromNotificationData(data);
+    if (!scheduleId) {
+        return true;
+    }
+
+    try {
+        const { notificationsService } =
+            await import('@/src/services/notifications.services');
+        await notificationsService.logScheduleCompliance(
+            scheduleId,
+            actionId === ACTION_MARK_TAKEN ? 'taken' : 'skipped',
+            { source: 'notification_action' },
+        );
+    } catch (error) {
+        console.error(error);
+    }
+
+    return true;
 }
 
 function isScheduleTapData(
@@ -212,6 +323,12 @@ const handledNotificationIds = new Set<string>();
 async function handleScheduleNotificationResponse(
     response: ExpoNotifications.NotificationResponse,
 ): Promise<void> {
+    const handledByAction =
+        await handleScheduleActionFromNotification(response);
+    if (handledByAction) {
+        return;
+    }
+
     const data = getNotificationData(response);
     if (!isScheduleTapData(data)) {
         return;

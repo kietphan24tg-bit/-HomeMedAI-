@@ -1,15 +1,24 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFamilyQuery } from '@/src/features/family/queries';
+import {
+    useFamilyProfilesQuery,
+    useFamilyQuery,
+} from '@/src/features/family/queries';
+import { appToast } from '@/src/lib/toast';
+import {
+    notificationsService,
+    type NotificationApiItem,
+} from '@/src/services/notifications.services';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { buttonSystem, cardSystem, formSystem } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
 
 type Reminder = {
     id: string;
+    scheduleId: string;
     time: string;
     memberName: string;
     memberInitials: string;
@@ -17,36 +26,6 @@ type Reminder = {
     dosageInfo: string;
     status: 'pending' | 'taken' | 'skipped';
 };
-
-const MOCK_REMINDERS: Reminder[] = [
-    {
-        id: '1',
-        time: '07:00',
-        memberName: 'Nguyễn Bình',
-        memberInitials: 'NB',
-        medicineName: 'Amlodipine 5mg',
-        dosageInfo: 'Buổi sáng • Sau ăn',
-        status: 'pending',
-    },
-    {
-        id: '2',
-        time: '10:00',
-        memberName: 'Phạm Cường',
-        memberInitials: 'PC',
-        medicineName: 'Vitamin C',
-        dosageInfo: '1 viên sủi',
-        status: 'pending',
-    },
-    {
-        id: '3',
-        time: '20:00',
-        memberName: 'Bùi An',
-        memberInitials: 'BA',
-        medicineName: 'Paracetamol 500mg',
-        dosageInfo: 'T3/T5 • Cách 2 tuần',
-        status: 'pending',
-    },
-];
 
 const AVATAR_COLORS = ['#0E8A7D', '#2563EB', '#7C3AED', '#EA580C', '#BE123C'];
 const AVATAR_BG_COLORS = [
@@ -71,22 +50,144 @@ function getReminderColorPair(reminder: Reminder): {
     return { bg: AVATAR_BG_COLORS[idx], text: AVATAR_COLORS[idx] };
 }
 
+function getInitials(name: string): string {
+    const tokens = name
+        .split(' ')
+        .map((it) => it.trim())
+        .filter(Boolean);
+
+    if (tokens.length === 0) return '??';
+    if (tokens.length === 1) return tokens[0].slice(0, 2).toUpperCase();
+    return `${tokens[0][0] ?? ''}${tokens[tokens.length - 1][0] ?? ''}`.toUpperCase();
+}
+
+function mapApiStatusToReminderStatus(
+    value: string | null | undefined,
+): Reminder['status'] {
+    if (value === 'COMPLETED' || value === 'TAKEN') {
+        return 'taken';
+    }
+    if (value === 'PAUSED' || value === 'SKIPPED') {
+        return 'skipped';
+    }
+    return 'pending';
+}
+
+function toReminder(item: NotificationApiItem): Reminder {
+    const memberName = item.profile_name?.trim() || 'Thành viên gia đình';
+    const medicine =
+        item.medicine_name?.trim() || item.body?.trim() || 'Nhắc uống thuốc';
+    const dosage = item.dosage_per_time
+        ? `Liều ${item.dosage_per_time}`
+        : item.title?.trim() || 'Lịch nhắc thuốc';
+
+    return {
+        id: item.id,
+        scheduleId: item.schedule_id || item.id,
+        time: item.remind_time || '--:--',
+        memberName,
+        memberInitials: getInitials(memberName),
+        medicineName: medicine,
+        dosageInfo: dosage,
+        status: mapApiStatusToReminderStatus(
+            item.occurrence_status || item.status,
+        ),
+    };
+}
+
 export default function FamilyRemindersScreen({
     familyId,
 }: {
     familyId: string;
 }): React.JSX.Element {
     const { data: family } = useFamilyQuery(familyId);
-    const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
+    const { data: familyProfiles = [] } = useFamilyProfilesQuery(familyId);
+    const [reminders, setReminders] = useState<Reminder[]>([]);
+
+    const familyProfileIds = useMemo(
+        () =>
+            new Set(
+                familyProfiles
+                    .map((it: Record<string, unknown>) => String(it.id ?? ''))
+                    .filter(Boolean),
+            ),
+        [familyProfiles],
+    );
+
+    useEffect(() => {
+        let active = true;
+
+        const load = async () => {
+            if (!family) {
+                return;
+            }
+
+            try {
+                const res = await notificationsService.getMyNotifications();
+                if (!active) {
+                    return;
+                }
+
+                const list = Array.isArray(res?.items) ? res.items : [];
+                const mapped = list
+                    .filter((item) => {
+                        if (item.category !== 'MEDICINE') {
+                            return false;
+                        }
+                        if (familyProfileIds.size > 0) {
+                            return familyProfileIds.has(
+                                String(item.profile_id),
+                            );
+                        }
+                        return (
+                            (item.family_name || '').trim() ===
+                            (family.name || '').trim()
+                        );
+                    })
+                    .map(toReminder);
+
+                setReminders(mapped);
+            } catch (error) {
+                console.error(error);
+                if (active) {
+                    appToast.showError('Không tải được lịch nhắc gia đình.');
+                }
+            }
+        };
+
+        void load();
+
+        return () => {
+            active = false;
+        };
+    }, [family, familyProfileIds]);
 
     if (!family) {
         return <View style={styles.container} />;
     }
 
     const handleAction = (id: string, action: 'taken' | 'skipped') => {
-        setReminders((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: action } : r)),
+        const target = reminders.find((it) => it.id === id);
+        if (!target) {
+            return;
+        }
+
+        const prev = reminders;
+        setReminders((items) =>
+            items.map((r) => (r.id === id ? { ...r, status: action } : r)),
         );
+
+        void notificationsService
+            .logScheduleCompliance(
+                target.scheduleId,
+                action === 'taken' ? 'taken' : 'skipped',
+                { source: 'in_app' },
+            )
+            .catch((error) => {
+                console.error(error);
+                setReminders(prev);
+                appToast.showError('Không cập nhật được trạng thái lịch nhắc.');
+            });
     };
 
     return (
@@ -122,6 +223,15 @@ export default function FamilyRemindersScreen({
                 <Text style={styles.sectionTitle}>Ngày 07/04/2026</Text>
 
                 {/* ── REMINDER CARDS ── */}
+                {reminders.length === 0 && (
+                    <View style={styles.emptyCard}>
+                        <Text style={styles.emptyTitle}>Chưa có lịch nhắc</Text>
+                        <Text style={styles.emptySubtitle}>
+                            Lịch nhắc thuốc của gia đình sẽ hiển thị tại đây.
+                        </Text>
+                    </View>
+                )}
+
                 {reminders.map((reminder) => {
                     const colorPair = getReminderColorPair(reminder);
                     return (
@@ -499,5 +609,24 @@ const styles = StyleSheet.create({
     /* ── Spacer ── */
     bottomSpacer: {
         height: verticalScale(28),
+    },
+    emptyCard: {
+        ...cardSystem.shell,
+        borderRadius: scale(14),
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(14),
+        alignItems: 'center',
+        gap: verticalScale(4),
+    },
+    emptyTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(14),
+        color: colors.text,
+    },
+    emptySubtitle: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text3,
+        textAlign: 'center',
     },
 });

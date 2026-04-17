@@ -8,8 +8,14 @@
  */
 
 import axios from 'axios';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import {
+    resolveAndroidLoopbackFallbackUrl,
+    resolveApiBaseUrl,
+} from './base-url';
 
-const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
+const BASE_URL = resolveApiBaseUrl();
 
 /**
  * Gọi thẳng axios (không dùng apiClient) để tránh vòng lặp import.
@@ -20,16 +26,40 @@ export async function callRefreshTokenApi(refreshToken: string): Promise<{
     accessToken?: string;
     refresh_token?: string;
 }> {
-    const res = await axios.post(
-        `${BASE_URL}/auth/refresh`,
-        { refresh_token: refreshToken },
-        {
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-            timeout: 10000,
+    const requestConfig = {
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
         },
-    );
-    return res.data;
+        timeout: 10000,
+    };
+
+    try {
+        const res = await axios.post(
+            `${BASE_URL}/auth/refresh`,
+            { refresh_token: refreshToken },
+            requestConfig,
+        );
+        return res.data;
+    } catch (error: any) {
+        if (Platform.OS === 'android' && !Device.isDevice && !error?.response) {
+            const fallbackBaseUrl = resolveAndroidLoopbackFallbackUrl(BASE_URL);
+            if (fallbackBaseUrl) {
+                if (__DEV__) {
+                    console.warn(
+                        '[api] Refresh Network Error. Retrying with Android emulator loopback baseURL:',
+                        fallbackBaseUrl,
+                    );
+                }
+                const retryRes = await axios.post(
+                    `${fallbackBaseUrl}/auth/refresh`,
+                    { refresh_token: refreshToken },
+                    requestConfig,
+                );
+                return retryRes.data;
+            }
+        }
+
+        throw error;
+    }
 }
