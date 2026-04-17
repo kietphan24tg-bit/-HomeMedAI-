@@ -8,6 +8,10 @@
             "developmentClient": true,
             "distribution": "internal"
         },
+        "development-local": {
+            "developmentClient": true,
+            "distribution": "internal"
+        },
         "preview": {
             "distribution": "internal"
         },
