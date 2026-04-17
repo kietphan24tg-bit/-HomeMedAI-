@@ -4,6 +4,8 @@
     "version": "1.0.0",
     "scripts": {
         "start": "expo start --max-workers 1",
+        "dev:vps": "cross-env EXPO_PUBLIC_BE_URL=http://103.82.24.142:7543 expo start --dev-client",
+        "dev:local": "cross-env EXPO_PUBLIC_BE_URL=http://192.168.1.108:8080 expo start --dev-client",
         "reset-project": "node ./scripts/reset-project.js",
         "android": "expo run:android",
         "android:device": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-android-device.ps1",
@@ -32,6 +34,7 @@
         "@expo/vector-icons": "^15.0.3",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-native-community/datetimepicker": "8.4.4",
+        "@react-native-google-signin/google-signin": "^16.1.2",
         "@react-navigation/bottom-tabs": "^7.4.0",
         "@react-navigation/elements": "^2.6.3",
         "@react-navigation/native": "^7.1.8",
@@ -71,6 +74,7 @@
     },
     "devDependencies": {
         "@types/react": "~19.1.0",
+        "cross-env": "^10.1.0",
         "eslint": "^9.25.0",
         "eslint-config-expo": "~10.0.0",
         "eslint-config-prettier": "^10.1.0",

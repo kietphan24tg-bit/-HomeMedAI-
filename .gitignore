@@ -44,5 +44,15 @@ app-example
 /ios
 /android
 
+# Firebase & Secrets
+google-services.json
+GoogleService-Info.plist
+firebase-credentials.json
+*.keystore
+
+# Logs & temp files
+sha1_*.txt
+sha1_*.log
+debug_keystore.txt
 
 draft
