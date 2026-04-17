@@ -7,7 +7,6 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { appToast } from '@/src/lib/toast';
 import { colors } from '@/src/styles/tokens';
 import { authStyles as s, type SignInFormProps } from './authStyles';
 import { GoogleLogo } from '../../components/ui';
@@ -23,6 +22,8 @@ export default function SignInForm({
     handleAction,
     errors,
     onForgotPassword,
+    onGoogleSignIn,
+    googleLoading,
 }: SignInFormProps): React.JSX.Element {
     return (
         <View>
@@ -129,21 +130,23 @@ export default function SignInForm({
             <Pressable
                 style={({ pressed }) => [
                     s.btnGoogle,
-                    pressed && {
-                        opacity: 0.85,
+                    (pressed || googleLoading) && {
+                        opacity: 0.75,
                         transform: [{ translateY: -1 }],
                     },
                 ]}
-                onPress={() =>
-                    appToast.showInfo(
-                        'Info',
-                        'T\u00EDnh n\u0103ng \u0111ang ph\u00E1t tri\u1EC3n',
-                    )
-                }
+                onPress={onGoogleSignIn}
+                disabled={loading || googleLoading}
             >
-                <GoogleLogo />
+                {googleLoading ? (
+                    <ActivityIndicator size='small' color={colors.text2} />
+                ) : (
+                    <GoogleLogo />
+                )}
                 <Text style={s.btnSocialLabel}>
-                    {'Ti\u1EBFp t\u1EE5c v\u1EDBi Google'}
+                    {googleLoading
+                        ? '\u0110ang \u0111\u0103ng nh\u1EADp...'
+                        : 'Ti\u1EBFp t\u1EE5c v\u1EDBi Google'}
                 </Text>
             </Pressable>
 

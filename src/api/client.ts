@@ -1,9 +1,9 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
-import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { mockAdapter } from './mock-adapter';
+import { callRefreshTokenApi } from './token-refresh';
 
 const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
@@ -45,7 +45,7 @@ async function refreshAccessToken() {
                 throw new Error('No refresh token found');
             }
 
-            const res = await authService.refresh(refreshToken);
+            const res = await callRefreshTokenApi(refreshToken);
             const accessToken = res.access_token ?? res.accessToken ?? null;
             const nextRefreshToken = res.refresh_token ?? null;
 

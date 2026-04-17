@@ -190,6 +190,7 @@ export const familiesServices = {
         data: {
             profile_id: string;
             remind_time: string;
+            remind_tz?: string;
             title?: string | null;
             dosage_per_time?: number | string | null;
             rrule?: string | null;

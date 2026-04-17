@@ -44,12 +44,12 @@ export default function PermissionPage({
     const handleAllowNotifications = async () => {
         try {
             await SecureStore.setItemAsync(PUSH_PERMISSION_PROMPTED, 'true');
-            const token = await registerForPushNotificationsAsync({
+            const registration = await registerForPushNotificationsAsync({
                 allowPrompt: true,
             });
             await SecureStore.setItemAsync(
                 PUSH_PERMISSION_GRANTED,
-                token ? 'true' : 'false',
+                registration.status === 'granted' ? 'true' : 'false',
             );
         } catch (error) {
             console.error(error);

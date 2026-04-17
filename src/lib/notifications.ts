@@ -1,16 +1,39 @@
 import { isRunningInExpoGo } from 'expo';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import type * as ExpoNotifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 type NotificationsModule = typeof ExpoNotifications;
+export type PushRegistrationStatus =
+    | 'granted'
+    | 'denied'
+    | 'undetermined'
+    | 'unavailable';
+
+export type PushRegistrationResult = {
+    status: PushRegistrationStatus;
+    token: string | null;
+};
 
 let notificationsModulePromise: Promise<NotificationsModule | null> | null =
     null;
 let isHandlerConfigured = false;
 
+function resolveExpoProjectId(): string | undefined {
+    const extra = Constants.expoConfig?.extra as
+        | { eas?: { projectId?: string } }
+        | undefined;
+    const fromConfig = extra?.eas?.projectId;
+    const fromEas = (Constants as { easConfig?: { projectId?: string } })
+        .easConfig?.projectId;
+    const fromEnv = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+    const v = fromConfig || fromEas || fromEnv;
+    return typeof v === 'string' && v.trim().length > 0 ? v.trim() : undefined;
+}
+
 async function loadNotificationsModule(): Promise<NotificationsModule | null> {
-    if (isRunningInExpoGo()) {
+    if (Platform.OS === 'web') {
         return null;
     }
 
@@ -39,22 +62,44 @@ async function loadNotificationsModule(): Promise<NotificationsModule | null> {
     return notificationsModulePromise;
 }
 
+function unavailablePushRegistration(): PushRegistrationResult {
+    return {
+        status: 'unavailable',
+        token: null,
+    };
+}
+
+function normalizePushStatus(
+    status: string | null | undefined,
+): PushRegistrationStatus {
+    if (status === 'granted') {
+        return 'granted';
+    }
+    if (status === 'denied') {
+        return 'denied';
+    }
+    if (status === 'undetermined') {
+        return 'undetermined';
+    }
+    return 'unavailable';
+}
+
 export async function registerForPushNotificationsAsync(options?: {
     allowPrompt?: boolean;
-}) {
+}): Promise<PushRegistrationResult> {
     const allowPrompt = options?.allowPrompt ?? true;
-    if (Platform.OS === 'web' || isRunningInExpoGo()) {
-        return null;
+    if (Platform.OS === 'web') {
+        return unavailablePushRegistration();
     }
 
     if (!Device.isDevice) {
-        return null;
+        return unavailablePushRegistration();
     }
 
     try {
         const Notifications = await loadNotificationsModule();
         if (!Notifications) {
-            return null;
+            return unavailablePushRegistration();
         }
 
         const current = await Notifications.getPermissionsAsync();
@@ -66,7 +111,10 @@ export async function registerForPushNotificationsAsync(options?: {
         }
 
         if (status !== 'granted') {
-            return null;
+            return {
+                status: normalizePushStatus(status),
+                token: null,
+            };
         }
 
         if (Platform.OS === 'android') {
@@ -74,13 +122,50 @@ export async function registerForPushNotificationsAsync(options?: {
                 name: 'default',
                 importance: Notifications.AndroidImportance.DEFAULT,
             });
+            await Notifications.setNotificationChannelAsync(
+                'medicine_reminders',
+                {
+                    name: 'Nhắc uống thuốc',
+                    importance: Notifications.AndroidImportance.HIGH,
+                },
+            );
+            await Notifications.setNotificationChannelAsync(
+                'appointment_reminders',
+                {
+                    name: 'Lịch hẹn & Tiêm chủng',
+                    importance: Notifications.AndroidImportance.HIGH,
+                },
+            );
+        }
+
+        if (isRunningInExpoGo()) {
+            const projectId = resolveExpoProjectId();
+            if (!projectId) {
+                console.warn(
+                    '[push] Set expo.extra.eas.projectId in app.json or EXPO_PUBLIC_EAS_PROJECT_ID',
+                );
+            }
+            // Backend stores fcm_token and sends via Firebase. In Expo Go, device token is
+            // Expo-specific, so we intentionally skip syncing a token to avoid invalid FCM errors.
+            return {
+                status: 'granted',
+                token: null,
+            };
         }
 
         const token = await Notifications.getDevicePushTokenAsync();
-        return token?.data ?? null;
+        return {
+            status: 'granted',
+            token:
+                typeof token?.data === 'string'
+                    ? token.data
+                    : token?.data !== undefined && token?.data !== null
+                      ? String(token.data)
+                      : null,
+        };
     } catch (error) {
         console.error(error);
-        return null;
+        return unavailablePushRegistration();
     }
 }
 
@@ -94,23 +179,29 @@ function getNotificationData(
     return raw as Record<string, unknown>;
 }
 
-function isMedicineScheduleTapData(
+function isScheduleTapData(
     data: Record<string, unknown> | undefined,
-): data is { schedule_id: string; category: string } {
+): data is { schedule_id?: string; category?: string } {
     if (!data) return false;
-    const scheduleId = data.schedule_id;
     const category = data.category;
     return (
-        typeof scheduleId === 'string' &&
-        scheduleId.length > 0 &&
-        category === 'MEDICINE'
+        typeof category === 'string' &&
+        ['MEDICINE', 'CHECKUP', 'VACCINE'].includes(category)
     );
 }
 
-async function navigateToHealthForScheduleNotification(): Promise<void> {
+async function navigateForNotificationCategory(
+    category: string | undefined,
+): Promise<void> {
     try {
         const { router } = await import('expo-router');
-        router.push('/(protected)/(app)/(tabs)/health');
+        if (category === 'MEDICINE' || !category) {
+            router.push('/(protected)/(app)/(tabs)/health');
+            return;
+        }
+        if (category === 'VACCINE' || category === 'CHECKUP') {
+            router.push('/(protected)/(app)/(tabs)/health');
+        }
     } catch {
         // Router not ready or invalid route
     }
@@ -122,7 +213,7 @@ async function handleScheduleNotificationResponse(
     response: ExpoNotifications.NotificationResponse,
 ): Promise<void> {
     const data = getNotificationData(response);
-    if (!isMedicineScheduleTapData(data)) {
+    if (!isScheduleTapData(data)) {
         return;
     }
     const id = response.notification.request.identifier;
@@ -133,17 +224,18 @@ async function handleScheduleNotificationResponse(
         handledNotificationIds.add(id);
         setTimeout(() => handledNotificationIds.delete(id), 4000);
     }
-    await navigateToHealthForScheduleNotification();
+    const cat = typeof data.category === 'string' ? data.category : undefined;
+    await navigateForNotificationCategory(cat);
 }
 
 /**
  * Subscribe to notification opens (tap / cold start). Returns an unsubscribe
- * function. No-op in Expo Go / web / when expo-notifications is unavailable.
+ * function. No-op on web / when expo-notifications is unavailable.
  */
 export async function setupScheduleNotificationResponseListener(): Promise<
     () => void
 > {
-    if (Platform.OS === 'web' || isRunningInExpoGo()) {
+    if (Platform.OS === 'web') {
         return () => {};
     }
 
