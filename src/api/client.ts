@@ -1,17 +1,11 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
-import { authService } from '@/src/services/auth.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import { mockAdapter } from './mock-adapter';
-import {
-    createRefreshCoordinator,
-    shouldAttemptRefresh,
-    shouldSkipRefresh,
-} from './refresh-core';
+import { callRefreshTokenApi } from './token-refresh';
 
-const USE_MOCK = process.env.EXPO_PUBLIC_MOCK_API === 'true';
-//__DEV__ &&
+const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
 const REFRESH_TOKEN = 'refresh_token';
 
@@ -19,21 +13,57 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
 };
 
-const refreshCoordinator = createRefreshCoordinator({
-    getRefreshToken: () => SecureStore.getItemAsync(REFRESH_TOKEN),
-    refresh: (refreshToken) => authService.refresh(refreshToken),
-    setAccessToken: (accessToken) =>
-        useAuthStore.getState().setAccessToken(accessToken),
-    persistRefreshToken: (refreshToken) =>
-        SecureStore.setItemAsync(REFRESH_TOKEN, refreshToken),
-    clearSession: () => useAuthStore.getState().clearSession(),
-    showSessionExpiredToast: () => {
-        appToast.showError(
-            'Error',
-            'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
-        );
-    },
-});
+let refreshAccessTokenPromise: Promise<string> | null = null;
+
+function shouldSkipRefresh(url?: string) {
+    return !url || EXCLUDED_REFRESH_PATHS.some((path) => url.includes(path));
+}
+
+function shouldAttemptRefresh(status?: number) {
+    return status === 401 || status === 403;
+}
+
+async function refreshAccessToken() {
+    if (!refreshAccessTokenPromise) {
+        refreshAccessTokenPromise = (async () => {
+            const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN);
+
+            if (!refreshToken) {
+                throw new Error('No refresh token found');
+            }
+
+            const res = await callRefreshTokenApi(refreshToken);
+            const accessToken = res.access_token ?? res.accessToken ?? null;
+            const nextRefreshToken = res.refresh_token ?? null;
+
+            if (!accessToken) {
+                throw new Error('No access token returned');
+            }
+
+            if (!nextRefreshToken) {
+                throw new Error('No refresh token returned');
+            }
+
+            useAuthStore.getState().setAccessToken(accessToken);
+            await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
+
+            return accessToken;
+        })()
+            .catch(async (error) => {
+                await useAuthStore.getState().clearSession();
+                appToast.showError(
+                    'Error',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
+                );
+                throw error;
+            })
+            .finally(() => {
+                refreshAccessTokenPromise = null;
+            });
+    }
+
+    return refreshAccessTokenPromise;
+}
 
 const apiClient = axios.create({
     baseURL: BASE_URL,

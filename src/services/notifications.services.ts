@@ -26,10 +26,35 @@ export type ScheduleComplianceResponse = {
     message: string;
 };
 
+export type SendTestPushOptions = {
+    title?: string;
+    body?: string;
+    data?: Record<string, string>;
+};
+
 export const notificationsService = {
     getMyNotifications: async () => {
         const res =
             await apiClient.get<NotificationListResponse>('/notifications/me');
+        return res.data;
+    },
+
+    /** Smoke-test push (requires login + registered device token). */
+    sendTestPush: async (options?: SendTestPushOptions) => {
+        const res = await apiClient.post<{ success: boolean; message: string }>(
+            '/notifications/send',
+            {
+                title: options?.title ?? 'Thử thông báo HomeMedAI',
+                body:
+                    options?.body ??
+                    'Nếu bạn thấy thông báo này, kênh push đang hoạt động.',
+                data: {
+                    category: 'MEDICINE',
+                    action: 'test',
+                    ...(options?.data ?? {}),
+                },
+            },
+        );
         return res.data;
     },
 

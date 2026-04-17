@@ -35,6 +35,8 @@ interface Props {
     onClose: () => void;
     onSave?: (data: any) => void;
     isPending?: boolean;
+    /** Dev / EXPO_PUBLIC_SHOW_PUSH_TEST: smoke-test push from parent */
+    onTestPush?: () => void | Promise<void>;
 }
 
 function summarizeTags(values: string[]): {
@@ -63,6 +65,7 @@ export default function MedicineDetailSheet({
     onClose,
     onSave,
     isPending,
+    onTestPush,
 }: Props) {
     const isCreateMode = !item;
     const headerTitle = isCreateMode ? 'Thêm thuốc mới' : 'Chi tiết thuốc';
@@ -98,6 +101,7 @@ export default function MedicineDetailSheet({
 
     const [cloneSheetOpen, setCloneSheetOpen] = useState(false);
     const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+    const [testPushPending, setTestPushPending] = useState(false);
 
     React.useEffect(() => {
         if (visible && item) {
@@ -728,6 +732,37 @@ export default function MedicineDetailSheet({
                                     </Pressable>
                                 </HField>
 
+                                {onTestPush ? (
+                                    <HField label='Kiểm thử'>
+                                        <Pressable
+                                            style={s.testPushBtn}
+                                            disabled={testPushPending}
+                                            onPress={() => {
+                                                void (async () => {
+                                                    setTestPushPending(true);
+                                                    try {
+                                                        await onTestPush();
+                                                    } finally {
+                                                        setTestPushPending(
+                                                            false,
+                                                        );
+                                                    }
+                                                })();
+                                            }}
+                                        >
+                                            {testPushPending ? (
+                                                <ActivityIndicator
+                                                    color={ACCENT}
+                                                />
+                                            ) : (
+                                                <Text style={s.testPushBtnText}>
+                                                    Gửi thử thông báo
+                                                </Text>
+                                            )}
+                                        </Pressable>
+                                    </HField>
+                                ) : null}
+
                                 <HField label='Preview' alignTop>
                                     <Text style={s.previewRight}>
                                         Tuần 1,3,5... {previewDays}
@@ -1329,6 +1364,21 @@ const s = StyleSheet.create({
         ...buttonSystem.textPrimary,
         fontSize: scaleFont(12),
         color: '#fff',
+    },
+    testPushBtn: {
+        borderWidth: 1,
+        borderColor: ACCENT,
+        borderRadius: moderateScale(10),
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(14),
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: verticalScale(40),
+    },
+    testPushBtnText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(13),
+        color: ACCENT,
     },
 
     // Scroll

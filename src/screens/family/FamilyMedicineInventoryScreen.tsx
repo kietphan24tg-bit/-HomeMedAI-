@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -32,6 +32,7 @@ import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { appQueryClient } from '@/src/lib/query-client';
 import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
+import { notificationsService } from '@/src/services/notifications.services';
 import {
     moderateScale,
     scale,
@@ -41,7 +42,6 @@ import {
 import { buttonSystem, cardSystem, inputSystem } from '@/src/styles/shared';
 import { colors, shadows, typography } from '@/src/styles/tokens';
 import type { FamilyGroup } from '@/src/types/family';
-import { localHHMMToUtcHHMM } from '@/src/utils/reminder-time';
 import MedicineDetailSheet from './MedicineDetailSheet';
 import MedicineDropdownSheet, {
     STOCK_UNIT_CATEGORIES,
@@ -363,6 +363,17 @@ function parseExpiryInput(raw: string): string | null {
     return null;
 }
 
+function getDeviceRemindTz(): string {
+    try {
+        return (
+            Intl.DateTimeFormat().resolvedOptions().timeZone ||
+            'Asia/Ho_Chi_Minh'
+        );
+    } catch {
+        return 'Asia/Ho_Chi_Minh';
+    }
+}
+
 // ── Main Screen ──
 export default function FamilyMedicineInventoryScreen({
     family,
@@ -612,13 +623,14 @@ export default function FamilyMedicineInventoryScreen({
                 }
             }
             if (reminderOn && timesLocal.length > 0) {
+                const remindTz = getDeviceRemindTz();
                 for (const t of timesLocal) {
-                    const utc = localHHMMToUtcHHMM(t);
                     await familiesServices.createMedicineSchedule(
                         scheduleDetailItem.id,
                         {
                             profile_id: profileId,
-                            remind_time: utc,
+                            remind_time: t,
+                            remind_tz: remindTz,
                             dosage_per_time: dosagePerTime,
                         },
                     );
@@ -639,6 +651,16 @@ export default function FamilyMedicineInventoryScreen({
             setScheduleSaving(false);
         }
     };
+
+    const handleTestPushNotification = useCallback(async () => {
+        try {
+            await notificationsService.sendTestPush();
+            appToast.showSuccess('Đã gửi thử thông báo.');
+        } catch (e) {
+            console.error(e);
+            appToast.showError('Không gửi được thông báo thử.');
+        }
+    }, []);
 
     const addPopupTitle =
         addPopupMode === 'edit' ? 'Chỉnh sửa thông tin' : 'Thêm thuốc vào tủ';
@@ -1229,6 +1251,11 @@ export default function FamilyMedicineInventoryScreen({
                 isPending={scheduleSaving}
                 onClose={() => setScheduleDetailItem(null)}
                 onSave={handleMedicineScheduleSave}
+                onTestPush={
+                    __DEV__ || process.env.EXPO_PUBLIC_SHOW_PUSH_TEST === '1'
+                        ? handleTestPushNotification
+                        : undefined
+                }
             />
 
             <CloneSheet

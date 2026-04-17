@@ -817,6 +817,7 @@ const routes: Route[] = [
                 title: body.title ?? null,
                 category: 'MEDICINE',
                 remind_time: body.remind_time,
+                remind_tz: body.remind_tz ?? 'UTC',
                 dosage_per_time:
                     body.dosage_per_time !== undefined &&
                     body.dosage_per_time !== null

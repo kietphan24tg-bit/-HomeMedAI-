@@ -1,3 +1,5 @@
+import { type RemindBeforeUnit } from '../services/remindBefore.types';
+
 export type FamilyRole =
     | 'owner'
     | 'father'
@@ -67,7 +69,9 @@ export interface FollowUpAppointment {
     appointment_date: string;
     purpose: string;
     notes?: string;
-    remind_before_days?: number;
+    reminder_enabled?: boolean;
+    remind_before_value?: number | null;
+    remind_before_unit?: RemindBeforeUnit | null;
 }
 
 export interface MedicalRecord {
@@ -101,7 +105,9 @@ export interface VaccinationDose {
     taken_date?: string | null;
     scheduled_date?: string | null;
     facility_name?: string;
-    remind_before_days?: number;
+    reminder_enabled?: boolean;
+    remind_before_value?: number | null;
+    remind_before_unit?: RemindBeforeUnit | null;
     proof_image_url?: string | null;
     notes?: string;
 }
