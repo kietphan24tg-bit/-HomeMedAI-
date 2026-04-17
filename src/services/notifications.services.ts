@@ -2,8 +2,11 @@ import apiClient from '../api/client';
 
 export type NotificationApiItem = {
     id: string;
+    schedule_id?: string | null;
     category: string;
     status?: string | null;
+    lifecycle_status?: string | null;
+    occurrence_status?: string | null;
     title?: string | null;
     body?: string | null;
     remind_time?: string | null;
@@ -20,6 +23,7 @@ export type NotificationListResponse = {
 };
 
 export type ScheduleComplianceOutcome = 'taken' | 'skipped';
+export type ScheduleComplianceSource = 'in_app' | 'notification_action';
 
 export type ScheduleComplianceResponse = {
     success: boolean;
@@ -61,10 +65,14 @@ export const notificationsService = {
     logScheduleCompliance: async (
         scheduleId: string,
         outcome: ScheduleComplianceOutcome,
+        options?: { source?: ScheduleComplianceSource },
     ) => {
         const res = await apiClient.post<ScheduleComplianceResponse>(
             `/notifications/me/schedules/${scheduleId}/compliance`,
-            { outcome },
+            {
+                outcome,
+                source: options?.source ?? 'in_app',
+            },
         );
         return res.data;
     },

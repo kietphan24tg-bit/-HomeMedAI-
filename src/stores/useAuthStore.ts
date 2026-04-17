@@ -16,6 +16,24 @@ import type { User } from '@/src/types/user';
 const REFRESH_TOKEN = 'refresh_token';
 const HAS_SEEN_ONBOARDING = 'has_seen_onboarding';
 
+function isAxiosNetworkError(error: unknown) {
+    const maybeAxiosError = error as
+        | { message?: string; response?: unknown; code?: string }
+        | undefined;
+
+    return (
+        maybeAxiosError?.message === 'Network Error' ||
+        (!maybeAxiosError?.response && maybeAxiosError?.code === 'ERR_NETWORK')
+    );
+}
+
+function showNetworkSyncWarning() {
+    appToast.showError(
+        'Lỗi kết nối',
+        'Đăng nhập thành công nhưng chưa đồng bộ dữ liệu hồ sơ. Vui lòng kiểm tra mạng và thử lại sau.',
+    );
+}
+
 function getPostLoginCompleted(overview: MeOverview | null | undefined) {
     return overview?.post_login_flow_completed ?? false;
 }
@@ -216,7 +234,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     accessToken,
                     initialized: true,
                     hasSeenOnboarding: get().hasSeenOnboarding,
-                    postLoginCompleted: false,
+                    postLoginCompleted: true,
                 });
 
                 const overview = await get().syncMeOverview({
@@ -232,7 +250,18 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             } catch (error) {
                 console.error(error);
                 if (shouldRollbackSession) {
+                    if (isAxiosNetworkError(error)) {
+                        showNetworkSyncWarning();
+                        return true;
+                    }
                     await get().clearSession();
+                }
+                if (isAxiosNetworkError(error)) {
+                    appToast.showError(
+                        'Lỗi kết nối',
+                        'Không thể kết nối backend. Hãy kiểm tra backend đang chạy, điện thoại cùng Wi-Fi với máy dev, và URL API trong .env.',
+                    );
+                    return false;
                 }
                 appToast.showError(
                     'Error',
@@ -273,7 +302,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                     accessToken,
                     initialized: true,
                     hasSeenOnboarding: get().hasSeenOnboarding,
-                    postLoginCompleted: false,
+                    postLoginCompleted: true,
                 });
 
                 const overview = await get().syncMeOverview({
@@ -289,7 +318,18 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             } catch (error) {
                 console.error(error);
                 if (shouldRollbackSession) {
+                    if (isAxiosNetworkError(error)) {
+                        showNetworkSyncWarning();
+                        return true;
+                    }
                     await get().clearSession();
+                }
+                if (isAxiosNetworkError(error)) {
+                    appToast.showError(
+                        'Lỗi kết nối',
+                        'Không thể kết nối backend. Hãy kiểm tra backend đang chạy, điện thoại cùng Wi-Fi với máy dev, và URL API trong .env.',
+                    );
+                    return false;
                 }
                 appToast.showError(
                     'Error',

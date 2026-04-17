@@ -598,6 +598,7 @@ export default function FamilyMedicineInventoryScreen({
                 appToast.showError('Chưa xác định được hồ sơ trong gia đình.');
                 return;
             }
+
             const reminderOn = Boolean(data.reminder_on);
             const timesLocal = Array.isArray(data.reminder_times_local)
                 ? (data.reminder_times_local as string[])
