@@ -3,6 +3,7 @@ import { appQueryClient } from '@/src/lib/query-client';
 import {
     userService,
     type CreatePersonalProfilePayload,
+    type PatchMyHealthProfilePayload,
     type PatchMyProfilePayload,
 } from '@/src/services/user.services';
 import { meQueryKeys } from './queryKeys';
@@ -38,6 +39,42 @@ function updateOverviewProfileCache(
     };
 }
 
+function updateOverviewHealthProfileCache(
+    previous: MeOverview | undefined,
+    nextHealthProfile: Record<string, unknown>,
+): MeOverview | undefined {
+    if (!previous) {
+        return previous;
+    }
+
+    const mergedHealthProfile = {
+        ...((previous.health_profile as Record<string, unknown> | null) ?? {}),
+        ...nextHealthProfile,
+    };
+
+    return {
+        ...previous,
+        health_profile: mergedHealthProfile,
+        profiles: previous.profiles?.map((entry) => {
+            const profileId =
+                entry.profile && typeof entry.profile === 'object'
+                    ? (entry.profile as Record<string, unknown>).id
+                    : null;
+            const healthProfileId =
+                mergedHealthProfile.profile_id ?? previous.profile?.id;
+
+            if (profileId && profileId === healthProfileId) {
+                return {
+                    ...entry,
+                    health_profile: mergedHealthProfile,
+                };
+            }
+
+            return entry;
+        }),
+    };
+}
+
 export function useCreateMyProfileMutation() {
     return useMutation({
         mutationFn: (payload: CreatePersonalProfilePayload) =>
@@ -54,6 +91,39 @@ export function usePatchMyProfileMutation() {
             profileId: string;
             payload: PatchMyProfilePayload;
         }) => userService.patchMyProfile(profileId, payload),
+    });
+}
+
+export function usePatchMyHealthProfileMutation() {
+    return useMutation({
+        mutationFn: ({
+            profileId,
+            payload,
+        }: {
+            profileId: string;
+            payload: PatchMyHealthProfilePayload;
+        }) => userService.patchMyHealthProfile(profileId, payload),
+        onSuccess: (response, variables) => {
+            const serverHealthProfile =
+                response && typeof response === 'object'
+                    ? (response as Record<string, unknown>)
+                    : null;
+            const fallbackHealthProfile = {
+                ...variables.payload,
+                profile_id: variables.profileId,
+            };
+            const nextHealthProfile =
+                serverHealthProfile ?? fallbackHealthProfile;
+
+            appQueryClient.setQueryData(
+                meQueryKeys.overview(),
+                (old: MeOverview | undefined) =>
+                    updateOverviewHealthProfileCache(old, nextHealthProfile),
+            );
+            appQueryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+        },
     });
 }
 

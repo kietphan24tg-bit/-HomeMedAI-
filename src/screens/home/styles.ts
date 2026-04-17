@@ -245,6 +245,30 @@ export const styles = StyleSheet.create({
     },
 
     /* ── FAMILY ── */
+    emptyCard: {
+        backgroundColor: colors.card,
+        borderRadius: radius.sm,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(18),
+        alignItems: 'center',
+        ...shadows.card,
+    },
+    emptyTitle: {
+        marginTop: verticalScale(8),
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(13),
+        color: colors.text,
+    },
+    emptyText: {
+        marginTop: verticalScale(4),
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(11),
+        lineHeight: verticalScale(16),
+        color: colors.text3,
+        textAlign: 'center',
+    },
     familyScroll: {
         paddingHorizontal: scale(16),
         paddingBottom: verticalScale(24),

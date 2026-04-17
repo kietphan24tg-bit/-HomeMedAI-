@@ -75,15 +75,182 @@ const DEFAULT_MOCK_PROFILE = {
 };
 
 const MOCK_HEALTH_PROFILE = {
+    profile_id: 'profile-001',
     blood_type: 'O+',
+    chronic_diseases: ['Tăng huyết áp'],
     chronic_conditions: ['Tăng huyết áp'],
     allergies: [],
-    medical_records: [],
+    drug_allergies: [],
+    food_allergies: ['Hải sản'],
+    notes: 'Tiền sử mổ ruột thừa 2018',
+    medical_records: [
+        {
+            id: 'record-001',
+            profile_id: 'profile-001',
+            created_by: 'user-001',
+            title: 'Khám tim mạch định kỳ',
+            diagnosis_name: 'Tăng huyết áp độ 1',
+            diagnosis_slug: 'tang-huyet-ap-do-1',
+            doctor_name: 'BS Nguyễn Minh Tuấn',
+            hospital_name: 'BV Chợ Rẫy',
+            visit_date: '2025-03-15',
+            specialty: 'Tim mạch',
+            symptoms: ['Đau đầu', 'Chóng mặt'],
+            test_results: 'Huyết áp: 130/85 mmHg',
+            doctor_advice: 'Giảm muối, tập thể dục 30 phút mỗi ngày.',
+            notes: '',
+            created_at: '2025-03-15T08:00:00Z',
+            updated_at: '2025-03-15T08:00:00Z',
+            deleted_at: null,
+        },
+        {
+            id: 'record-002',
+            profile_id: 'profile-001',
+            created_by: 'user-001',
+            title: 'Xét nghiệm máu tổng quát',
+            diagnosis_name: 'Kiểm tra định kỳ',
+            diagnosis_slug: 'kiem-tra-dinh-ky',
+            doctor_name: null,
+            hospital_name: 'Phòng khám Medlatec',
+            visit_date: '2025-02-02',
+            specialty: 'Xét nghiệm',
+            symptoms: [],
+            test_results: 'HbA1c: 6.1%',
+            doctor_advice: 'Duy trì chế độ ăn lành mạnh.',
+            notes: '',
+            created_at: '2025-02-02T08:00:00Z',
+            updated_at: '2025-02-02T08:00:00Z',
+            deleted_at: null,
+        },
+        {
+            id: 'record-003',
+            profile_id: 'profile-001',
+            created_by: 'user-001',
+            title: 'Khám nội tổng quát',
+            diagnosis_name: 'Viêm dạ dày',
+            diagnosis_slug: 'viem-da-day',
+            doctor_name: null,
+            hospital_name: 'BV Đại học Y Dược TP.HCM',
+            visit_date: '2025-01-18',
+            specialty: 'Nội khoa',
+            symptoms: ['Đau bụng'],
+            test_results: '',
+            doctor_advice: 'Tránh đồ cay, chia nhỏ bữa ăn.',
+            notes: '',
+            created_at: '2025-01-18T08:00:00Z',
+            updated_at: '2025-01-18T08:00:00Z',
+            deleted_at: null,
+        },
+    ],
+    vaccinations: [],
+    medicine_inventory: [
+        {
+            id: 'medicine-001',
+            profile_id: 'profile-001',
+            medicine_name: 'Amlodipine 5mg',
+            medicine_type: 'Huyết áp',
+            expiry_date: '2026-12-31',
+            quantity_stock: '30',
+            unit: 'viên',
+            min_stock_alert: '5',
+            instruction: 'Sau ăn sáng',
+            dosage_value: '5',
+            dosage_unit: 'mg',
+            dosage_per_use_value: '1',
+            dosage_per_use_unit: 'viên',
+            use_tags: ['huyết áp'],
+            storage_location: 'Tủ thuốc',
+            expiry_alert_days_before: 30,
+            low_stock_alert_enabled: true,
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+            alert_low_stock: false,
+            alert_expiring: false,
+            alert_expired: false,
+            medicine_reminder: {
+                id: 'reminder-001',
+                medicine_inventory_id: 'medicine-001',
+                enabled: true,
+                start_date: '2025-01-01',
+                repeat_every_value: 1,
+                repeat_every_unit: 'DAYS',
+                active_days: [1, 2, 3, 4, 5, 6, 7],
+                times: ['07:00'],
+                remind_before_minutes: 10,
+                created_at: '2025-01-01T00:00:00Z',
+                updated_at: '2025-01-01T00:00:00Z',
+            },
+        },
+        {
+            id: 'medicine-002',
+            profile_id: 'profile-001',
+            medicine_name: 'Metformin 500mg',
+            medicine_type: 'Đường huyết',
+            expiry_date: '2026-10-31',
+            quantity_stock: '45',
+            unit: 'viên',
+            min_stock_alert: '10',
+            instruction: 'Sau ăn tối',
+            dosage_value: '500',
+            dosage_unit: 'mg',
+            dosage_per_use_value: '1',
+            dosage_per_use_unit: 'viên',
+            use_tags: ['đường huyết'],
+            storage_location: 'Tủ thuốc',
+            expiry_alert_days_before: 30,
+            low_stock_alert_enabled: true,
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+            alert_low_stock: false,
+            alert_expiring: false,
+            alert_expired: false,
+            medicine_reminder: {
+                id: 'reminder-002',
+                medicine_inventory_id: 'medicine-002',
+                enabled: true,
+                start_date: '2025-01-01',
+                repeat_every_value: 1,
+                repeat_every_unit: 'DAYS',
+                active_days: [1, 2, 3, 4, 5, 6, 7],
+                times: ['19:00'],
+                remind_before_minutes: 10,
+                created_at: '2025-01-01T00:00:00Z',
+                updated_at: '2025-01-01T00:00:00Z',
+            },
+        },
+        {
+            id: 'medicine-003',
+            profile_id: 'profile-001',
+            medicine_name: 'Aspirin 81mg',
+            medicine_type: 'Tim mạch',
+            expiry_date: '2026-08-31',
+            quantity_stock: '20',
+            unit: 'viên',
+            min_stock_alert: '5',
+            instruction: 'Sau ăn sáng',
+            dosage_value: '81',
+            dosage_unit: 'mg',
+            dosage_per_use_value: '1',
+            dosage_per_use_unit: 'viên',
+            use_tags: ['tim mạch'],
+            storage_location: 'Tủ thuốc',
+            expiry_alert_days_before: 30,
+            low_stock_alert_enabled: true,
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+            alert_low_stock: false,
+            alert_expiring: false,
+            alert_expired: false,
+            medicine_reminder: null,
+        },
+    ],
+    appointment_reminders: [],
     user_vaccinations: [],
     prescriptions: [],
 };
 
 let mockProfile: typeof DEFAULT_MOCK_PROFILE | null = null;
+let mockHealthProfile: typeof MOCK_HEALTH_PROFILE | null = null;
 
 const MOCK_NOTIFICATIONS = [
     {
@@ -118,6 +285,10 @@ const MOCK_NOTIFICATIONS = [
 
 function getMockProfile() {
     return mockProfile;
+}
+
+function getMockHealthProfile() {
+    return mockHealthProfile ?? MOCK_HEALTH_PROFILE;
 }
 
 function isPostLoginFlowCompleted() {
@@ -403,7 +574,7 @@ const routes: Route[] = [
             profiles: [
                 {
                     profile: getMockProfile(),
-                    health_profile: MOCK_HEALTH_PROFILE,
+                    health_profile: getMockHealthProfile(),
                 },
             ],
             post_login_flow_completed: isPostLoginFlowCompleted(),
@@ -475,6 +646,23 @@ const routes: Route[] = [
             };
 
             return mockProfile;
+        },
+    },
+    {
+        method: 'patch',
+        pattern: /^\/profiles\/(?<profileId>[^/]+)\/health$/,
+        handler: (_url, config, p) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            const current = getMockHealthProfile();
+
+            mockHealthProfile = {
+                ...current,
+                ...body,
+                profile_id: p.profileId || current.profile_id,
+                updated_at: new Date().toISOString(),
+            };
+
+            return mockHealthProfile;
         },
     },
 

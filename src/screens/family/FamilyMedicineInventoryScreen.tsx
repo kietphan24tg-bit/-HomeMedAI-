@@ -474,7 +474,7 @@ export default function FamilyMedicineInventoryScreen({
     };
 
     const resetAddForm = () => {
-        setAddFormDDOpen(false);
+        setAddUnitDDOpen(false);
         setNewName('');
         setNewQty('');
         setNewUnit('viên');
