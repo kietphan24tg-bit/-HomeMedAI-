@@ -4,8 +4,6 @@
     "version": "1.0.0",
     "scripts": {
         "start": "expo start --max-workers 1",
-        "dev:vps": "cross-env EXPO_PUBLIC_BE_URL=http://103.82.24.142:7543 expo start --dev-client",
-        "dev:local": "cross-env EXPO_PUBLIC_BE_URL=http://192.168.1.108:8080 expo start --dev-client",
         "reset-project": "node ./scripts/reset-project.js",
         "android": "expo run:android",
         "android:device": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-android-device.ps1",
