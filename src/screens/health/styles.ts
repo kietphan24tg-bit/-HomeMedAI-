@@ -2952,7 +2952,7 @@ export const styles = StyleSheet.create({
         color: colors.text,
     },
     fuField: {
-        marginBottom: verticalScale(10),
+        marginBottom: verticalScale(16),
     },
     fuReminderInlineRow: {
         flexDirection: 'row',
@@ -2981,6 +2981,17 @@ export const styles = StyleSheet.create({
         fontSize: scaleFont(11.5),
         color: colors.text,
         textAlignVertical: 'center',
+    },
+    fuTextarea: {
+        ...inputSystem.fieldSoft,
+        paddingHorizontal: scale(12),
+        paddingTop: verticalScale(10),
+        paddingBottom: verticalScale(10),
+        minHeight: verticalScale(72),
+        fontSize: scaleFont(11.5),
+        fontFamily: typography.font.medium,
+        color: colors.text,
+        textAlignVertical: 'top',
     },
     fuBtnRow: {
         flexDirection: 'row',

@@ -8,19 +8,6 @@ import { callRefreshTokenApi } from './token-refresh';
 const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
 const BASE_URL = process.env.EXPO_PUBLIC_BE_URL;
 const REFRESH_TOKEN = 'refresh_token';
-const EXCLUDED_REFRESH_PATHS = [
-    '/signin',
-    '/signup',
-    '/signout',
-    '/rag/chat',
-    '/auth/login',
-    '/auth/register',
-    '/auth/logout',
-    '/auth/refresh',
-    '/auth/google',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-] as const;
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
@@ -122,7 +109,7 @@ apiClient.interceptors.response.use(
         originalRequest._retry = true;
 
         try {
-            const accessToken = await refreshAccessToken();
+            const accessToken = await refreshCoordinator.refreshAccessToken();
 
             originalRequest.headers = originalRequest.headers ?? {};
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;

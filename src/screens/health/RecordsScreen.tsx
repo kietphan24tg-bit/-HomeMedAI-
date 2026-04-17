@@ -653,8 +653,10 @@ const RD_TABS = ['Thông tin', 'Tái khám', 'Tệp đính kèm'] as const;
 interface FollowUpEntry {
     id: string;
     date: string;
+    facility_name: string;
+    doctor_name: string;
     purpose: string;
-    note: string;
+    notes: string;
 }
 
 type RecordEditorMode =
@@ -709,10 +711,9 @@ export function RecordDetail({
     const [fuDate, setFuDate] = useState(new Date());
     const [, setFuTimeObj] = useState<Date | null>(null);
     const [fuHospital, setFuHospital] = useState('');
-    const [, setFuDept] = useState('');
-    const [, setFuDoctor] = useState('');
+    const [fuDoctor, setFuDoctor] = useState('');
     const [fuPurpose, setFuPurpose] = useState('');
-    const [, setFuPrep] = useState('');
+    const [fuNotes, setFuNotes] = useState('');
     const [fuReminder, setFuReminder] = useState(true);
     const [fuReminderTime, setFuReminderTime] = useState('1 ngày');
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
@@ -800,10 +801,9 @@ export function RecordDetail({
         setFuDate(new Date());
         setFuTimeObj(null);
         setFuHospital('');
-        setFuDept('');
         setFuDoctor('');
         setFuPurpose('');
-        setFuPrep('');
+        setFuNotes('');
         setFuReminder(true);
         setFuReminderTime('1 ngày');
     }, []);
@@ -813,6 +813,10 @@ export function RecordDetail({
             const next = !prev;
             if (next) {
                 setFuDate(new Date());
+                setFuHospital('');
+                setFuDoctor('');
+                setFuPurpose('');
+                setFuNotes('');
                 setFuReminder(true);
                 setFuReminderTime('1 ngày');
             }
@@ -827,12 +831,14 @@ export function RecordDetail({
         const entry: FollowUpEntry = {
             id: Date.now().toString(),
             date: `${dd}/${mm}/${yyyy}`,
+            facility_name: fuHospital.trim(),
+            doctor_name: fuDoctor.trim(),
             purpose: fuPurpose.trim() || 'Tái khám định kỳ',
-            note: fuHospital ? `Tại ${fuHospital}` : '',
+            notes: fuNotes.trim(),
         };
         setFollowUps((prev) => [entry, ...prev]);
         setShowAddFu(false);
-    }, [fuDate, fuPurpose, fuHospital]);
+    }, [fuDate, fuHospital, fuDoctor, fuPurpose, fuNotes]);
 
     const cancelFu = useCallback(() => setShowAddFu(false), []);
 
@@ -1541,6 +1547,58 @@ export function RecordDetail({
                                             onChange={setFuDate}
                                         />
                                     </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Bệnh viện / Phòng khám
+                                        </Text>
+                                        <TextInput
+                                            value={fuHospital}
+                                            onChangeText={setFuHospital}
+                                            placeholder='VD: BV Đại học Y Dược'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuInput}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Bác sĩ
+                                        </Text>
+                                        <TextInput
+                                            value={fuDoctor}
+                                            onChangeText={setFuDoctor}
+                                            placeholder='VD: BS. Nguyễn Văn A'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuInput}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Mục đích tái khám
+                                        </Text>
+                                        <TextInput
+                                            value={fuPurpose}
+                                            onChangeText={setFuPurpose}
+                                            placeholder='VD: Theo dõi huyết áp, tái khám định kỳ…'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuTextarea}
+                                            multiline
+                                            numberOfLines={3}
+                                        />
+                                    </View>
+                                    <View style={styles.fuField}>
+                                        <Text style={styles.fuLabel}>
+                                            Ghi chú
+                                        </Text>
+                                        <TextInput
+                                            value={fuNotes}
+                                            onChangeText={setFuNotes}
+                                            placeholder='Ghi chú thêm (nếu có)'
+                                            placeholderTextColor={colors.text3}
+                                            style={styles.fuTextarea}
+                                            multiline
+                                            numberOfLines={4}
+                                        />
+                                    </View>
                                     <View
                                         style={[
                                             styles.fuField,
@@ -1610,8 +1668,22 @@ export function RecordDetail({
                                         </Text>
                                         <Text style={styles.fuItemPurpose}>
                                             {fu.purpose}
-                                            {fu.note ? ` · ${fu.note}` : ''}
                                         </Text>
+                                        {fu.facility_name || fu.doctor_name ? (
+                                            <Text style={styles.fuItemPurpose}>
+                                                {[
+                                                    fu.facility_name,
+                                                    fu.doctor_name,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </Text>
+                                        ) : null}
+                                        {fu.notes ? (
+                                            <Text style={styles.fuItemPurpose}>
+                                                {fu.notes}
+                                            </Text>
+                                        ) : null}
                                     </View>
                                     <Pressable
                                         style={styles.fuItemDelete}
@@ -1849,6 +1921,10 @@ function AddRecordForm({
     const [showAddFu, setShowAddFu] = useState(false);
     const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
+    const [fuHospital, setFuHospital] = useState('');
+    const [fuDoctor, setFuDoctor] = useState('');
+    const [fuPurpose, setFuPurpose] = useState('');
+    const [fuNotes, setFuNotes] = useState('');
     const [fuReminder, setFuReminder] = useState(true);
 
     const selectedType = ALL_TYPES.find((t) => t.key === type);
@@ -1878,6 +1954,10 @@ function AddRecordForm({
             const next = !prev;
             if (next) {
                 setFuDate(new Date());
+                setFuHospital('');
+                setFuDoctor('');
+                setFuPurpose('');
+                setFuNotes('');
                 setFuReminder(true);
             }
             return next;
@@ -1893,15 +1973,21 @@ function AddRecordForm({
             {
                 id: `${Date.now()}`,
                 date: `${dd}/${mm}/${yyyy}`,
-                purpose: 'Tái khám',
-                note: fuReminder ? 'Nhắc trước 1 ngày' : 'Không bật nhắc',
+                facility_name: fuHospital.trim(),
+                doctor_name: fuDoctor.trim(),
+                purpose: fuPurpose.trim() || 'Tái khám định kỳ',
+                notes: fuNotes.trim(),
             },
             ...prev,
         ]);
         setShowAddFu(false);
         setFuDate(new Date());
+        setFuHospital('');
+        setFuDoctor('');
+        setFuPurpose('');
+        setFuNotes('');
         setFuReminder(true);
-    }, [fuDate, fuReminder]);
+    }, [fuDate, fuHospital, fuDoctor, fuPurpose, fuNotes]);
 
     const deleteFollowUp = useCallback((id: string) => {
         setFollowUps((prev) => prev.filter((item) => item.id !== id));
@@ -2215,6 +2301,54 @@ function AddRecordForm({
                             <Text style={styles.fuLabel}>Ngày hẹn</Text>
                             <DateField value={fuDate} onChange={setFuDate} />
                         </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>
+                                Bệnh viện / Phòng khám
+                            </Text>
+                            <TextInput
+                                value={fuHospital}
+                                onChangeText={setFuHospital}
+                                placeholder='VD: BV Đại học Y Dược'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuInput}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Bác sĩ</Text>
+                            <TextInput
+                                value={fuDoctor}
+                                onChangeText={setFuDoctor}
+                                placeholder='VD: BS. Nguyễn Văn A'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuInput}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>
+                                Mục đích tái khám
+                            </Text>
+                            <TextInput
+                                value={fuPurpose}
+                                onChangeText={setFuPurpose}
+                                placeholder='VD: Theo dõi huyết áp…'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuTextarea}
+                                multiline
+                                numberOfLines={3}
+                            />
+                        </View>
+                        <View style={styles.fuField}>
+                            <Text style={styles.fuLabel}>Ghi chú</Text>
+                            <TextInput
+                                value={fuNotes}
+                                onChangeText={setFuNotes}
+                                placeholder='Ghi chú thêm (nếu có)'
+                                placeholderTextColor={colors.text3}
+                                style={styles.fuTextarea}
+                                multiline
+                                numberOfLines={4}
+                            />
+                        </View>
                         <View
                             style={[
                                 styles.fuField,
@@ -2286,8 +2420,19 @@ function AddRecordForm({
                             <Text style={styles.fuItemDate}>{item.date}</Text>
                             <Text style={styles.fuItemPurpose}>
                                 {item.purpose}
-                                {item.note ? ` · ${item.note}` : ''}
                             </Text>
+                            {item.facility_name || item.doctor_name ? (
+                                <Text style={styles.fuItemPurpose}>
+                                    {[item.facility_name, item.doctor_name]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </Text>
+                            ) : null}
+                            {item.notes ? (
+                                <Text style={styles.fuItemPurpose}>
+                                    {item.notes}
+                                </Text>
+                            ) : null}
                         </View>
                         <Pressable
                             style={styles.fuItemDelete}
