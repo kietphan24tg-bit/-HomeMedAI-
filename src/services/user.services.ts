@@ -6,12 +6,11 @@ export type CreatePersonalProfilePayload = {
     full_name: string;
     dob?: string | null;
     gender?: string | null;
-    height_cm?: number | null;
-    weight_kg?: number | null;
+    height_cm?: string | null;
+    weight_kg?: string | null;
     address?: string | null;
     avatar_url?: string | null;
 };
-
 export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
 
 export type PatchMyHealthProfilePayload = {
@@ -44,8 +43,10 @@ export const userService = {
         return res.data;
     },
     createPersonalProfile: async (payload: CreatePersonalProfilePayload) => {
-        const res = await apiClient.post('/users/me/personal-profile', payload);
-        return res.data;
+        console.log('Payload la: ', payload);
+
+        // const res = await apiClient.post('/users/me/personal-profile', payload);
+        // return res.data;
     },
     patchMyProfile: async (
         profileId: string,
