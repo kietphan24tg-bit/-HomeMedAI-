@@ -1,8 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import DateTimePicker, {
+    type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StatusBar,
@@ -25,6 +29,9 @@ import { colors, typography } from '@/src/styles/tokens';
 import MedicineDropdownSheet, {
     STOCK_UNIT_CATEGORIES,
 } from './MedicineDropdownSheet';
+import ScheduleAdvancedModal, {
+    type ScheduleConfig,
+} from './ScheduleAdvancedModal';
 
 const ACCENT = '#0E8A7D';
 const ACCENT_LIGHT = '#E6F7F5';
@@ -59,6 +66,43 @@ function truncateTag(label: string | null, maxLength = 22): string {
     return `${label.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
+function getSchedulePreviewText(config: ScheduleConfig): string {
+    const timesText = config.times.length
+        ? config.times.join(', ')
+        : 'chưa có giờ';
+
+    if (config.frequencyMode === 'weekdays') {
+        const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        const days = config.weekdays
+            .slice()
+            .sort((a, b) => a - b)
+            .map((d) => labels[d])
+            .join(', ');
+        return `Theo thứ ${days} · ${timesText}`;
+    }
+
+    if (config.frequencyMode === 'interval') {
+        return `Cách ${config.intervalDays} ngày · ${timesText}`;
+    }
+
+    return `Hàng ngày · ${timesText}`;
+}
+
+function formatDateForDisplay(date: Date): string {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+}
+
+function parseDisplayDate(value: string): Date | null {
+    const matched = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!matched) return null;
+    const [, dd, mm, yyyy] = matched;
+    const date = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export default function MedicineDetailSheet({
     visible,
     item,
@@ -78,15 +122,26 @@ export default function MedicineDetailSheet({
     const [qty, setQty] = useState('');
     const [stockUnit, setStockUnit] = useState('viên');
     const [exp, setExp] = useState('');
+    const [expDate, setExpDate] = useState<Date | null>(null);
+    const [expPickerOpen, setExpPickerOpen] = useState(false);
     const [location, setLocation] = useState('');
     const [lowAlert, setLowAlert] = useState('5');
     const [alertOn, setAlertOn] = useState(true);
     const [reminderOn, setReminderOn] = useState(false);
-    const [startDate, setStartDate] = useState('');
-    const [repeatEvery, setRepeatEvery] = useState('2 tuần');
-    const [activeDays, setActiveDays] = useState([1, 3]);
     const [times, setTimes] = useState(['07:00', '20:00']);
-    const [remindBefore, setRemindBefore] = useState('10 phút');
+
+    // Schedule Advanced Modal
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig>({
+        enabled: false,
+        times: [],
+        rrule: 'FREQ=DAILY',
+        remindBefore: '10 phút',
+        durationCount: 0,
+        frequencyMode: 'daily',
+        weekdays: [0, 1, 2, 3, 4],
+        intervalDays: 2,
+    });
 
     // Tags
     const [tags, setTags] = useState<string[]>(['Sốt', 'Đau đầu']);
@@ -97,7 +152,6 @@ export default function MedicineDetailSheet({
     // Dropdowns
     const [dosePerUseDDOpen, setDosePerUseDDOpen] = useState(false);
     const [stockDDOpen, setStockDDOpen] = useState(false);
-    const [remBeforeDDOpen, setRemBeforeDDOpen] = useState(false);
 
     const [cloneSheetOpen, setCloneSheetOpen] = useState(false);
     const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -112,6 +166,7 @@ export default function MedicineDetailSheet({
             setQty(String(item.qty ?? ''));
             setStockUnit(item.unit ?? 'viên');
             setExp(item.exp ?? '');
+            setExpDate(item.exp ? parseDisplayDate(item.exp) : null);
             setLocation(item.location ?? '');
             setLowAlert(String(item.lowThreshold ?? '5'));
             setReminderOn(item.reminder?.includes('ON') ?? false);
@@ -123,6 +178,7 @@ export default function MedicineDetailSheet({
             setQty('');
             setStockUnit('viên');
             setExp('');
+            setExpDate(null);
             setLocation('');
             setLowAlert('5');
             setReminderOn(false);
@@ -141,36 +197,25 @@ export default function MedicineDetailSheet({
             expiry_date: exp || null,
             min_stock_alert: parseFloat(lowAlert) || null,
             instruction: note,
-            reminder_on: reminderOn,
-            reminder_times_local: [...times],
+            reminder_on: scheduleConfig.enabled,
+            reminder_times_local: scheduleConfig.enabled
+                ? scheduleConfig.times
+                : [],
             dosage_per_time: parseFloat(dosePerUseVal) || undefined,
+            rrule: scheduleConfig.enabled ? scheduleConfig.rrule : undefined,
         });
     };
 
-    const toggleDay = (idx: number) => {
-        if (activeDays.includes(idx)) {
-            setActiveDays((prev) => prev.filter((d) => d !== idx));
-        } else {
-            setActiveDays((prev) => [...prev, idx].sort((a, b) => a - b));
-        }
+    const handleScheduleSave = (config: ScheduleConfig) => {
+        setScheduleConfig(config);
+        setReminderOn(config.enabled);
+        setTimes(config.times);
+        setScheduleModalOpen(false);
     };
 
-    const updateTime = (idx: number, val: string) => {
-        setTimes((prev) => {
-            const next = [...prev];
-            next[idx] = val;
-            return next;
-        });
-    };
-
-    const formatDateInput = (val: string) => {
-        const digits = val.replace(/\D/g, '').slice(0, 8);
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 4) {
-            return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-        }
-        return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    };
+    const schedulePreviewText = scheduleConfig.enabled
+        ? getSchedulePreviewText(scheduleConfig)
+        : 'Chưa thiết lập';
 
     const changeLowAlert = (delta: number) => {
         setLowAlert((prev) => {
@@ -179,17 +224,19 @@ export default function MedicineDetailSheet({
         });
     };
 
-    const addTime = () => {
-        setTimes((prev) => [...prev, '12:00']);
+    const handleExpDateChange = (
+        _event: DateTimePickerEvent,
+        selectedDate?: Date,
+    ) => {
+        if (Platform.OS === 'android') {
+            setExpPickerOpen(false);
+        }
+        if (!selectedDate) {
+            return;
+        }
+        setExpDate(selectedDate);
+        setExp(formatDateForDisplay(selectedDate));
     };
-
-    const removeTime = (idx: number) => {
-        setTimes((prev) => prev.filter((_, i) => i !== idx));
-    };
-
-    const previewDays = activeDays
-        .map((i) => ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i])
-        .join('/');
 
     return (
         <Modal
@@ -413,7 +460,13 @@ export default function MedicineDetailSheet({
                         <View style={s.row}>
                             <TextInput
                                 value={qty}
-                                onChangeText={setQty}
+                                onChangeText={(text) => {
+                                    const sanitized = text
+                                        .replace(',', '.')
+                                        .replace(/[^0-9.]/g, '')
+                                        .replace(/^(\d*\.?\d*).*$/, '$1');
+                                    setQty(sanitized);
+                                }}
                                 style={[s.input, { flex: 2 }]}
                                 placeholder='12'
                                 placeholderTextColor={colors.text3}
@@ -433,13 +486,54 @@ export default function MedicineDetailSheet({
                         </View>
 
                         <Label text='Hạn sử dụng' required />
-                        <TextInput
-                            value={exp}
-                            onChangeText={setExp}
-                            style={s.input}
-                            placeholder='12/2026'
-                            placeholderTextColor={colors.text3}
-                        />
+                        <Pressable
+                            style={s.dateInput}
+                            onPress={() => setExpPickerOpen(true)}
+                        >
+                            <Text
+                                style={
+                                    exp
+                                        ? s.dateInputText
+                                        : s.dateInputPlaceholder
+                                }
+                            >
+                                {exp || 'Chọn ngày hết hạn'}
+                            </Text>
+                            <Ionicons
+                                name='calendar-outline'
+                                size={16}
+                                color={colors.text3}
+                            />
+                        </Pressable>
+                        {expPickerOpen &&
+                            (Platform.OS === 'ios' ? (
+                                <View style={s.iosDateWrap}>
+                                    <View style={s.iosDateHeader}>
+                                        <Pressable
+                                            onPress={() =>
+                                                setExpPickerOpen(false)
+                                            }
+                                        >
+                                            <Text style={s.iosDateDone}>
+                                                Xong
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                    <DateTimePicker
+                                        value={expDate || new Date()}
+                                        mode='date'
+                                        display='inline'
+                                        onChange={handleExpDateChange}
+                                    />
+                                </View>
+                            ) : (
+                                <DateTimePicker
+                                    value={expDate || new Date()}
+                                    mode='date'
+                                    display='default'
+                                    onChange={handleExpDateChange}
+                                />
+                            ))}
 
                         <Label text='Vị trí lưu trữ' />
                         <TextInput
@@ -553,8 +647,20 @@ export default function MedicineDetailSheet({
                     >
                         <HField label='Bật nhắc uống'>
                             <Switch
-                                value={reminderOn}
-                                onValueChange={setReminderOn}
+                                value={scheduleConfig.enabled}
+                                onValueChange={(val) => {
+                                    setScheduleConfig((prev) => {
+                                        const next = {
+                                            ...prev,
+                                            enabled: val,
+                                        };
+                                        return next;
+                                    });
+                                    setReminderOn(val);
+                                    if (val) {
+                                        setScheduleModalOpen(true);
+                                    }
+                                }}
                                 trackColor={{
                                     false: colors.border,
                                     true: colors.success,
@@ -563,174 +669,41 @@ export default function MedicineDetailSheet({
                             />
                         </HField>
 
-                        {reminderOn && (
+                        {scheduleConfig.enabled && (
                             <>
-                                <HField label='Ngày bắt đầu'>
-                                    <TextInput
-                                        value={startDate}
-                                        onChangeText={(v) =>
-                                            setStartDate(formatDateInput(v))
-                                        }
-                                        style={[
-                                            s.inlineInputBox,
-                                            s.inlineInputBoxDate,
-                                        ]}
-                                        placeholder='31/03/2026'
-                                        placeholderTextColor={colors.text3}
-                                        keyboardType='number-pad'
-                                        maxLength={10}
-                                    />
-                                </HField>
-
-                                <HField label='Lặp mỗi'>
-                                    <View
-                                        style={[
-                                            s.row,
-                                            { alignItems: 'center' },
-                                        ]}
-                                    >
-                                        <TextInput
-                                            value={
-                                                repeatEvery.replace(
-                                                    /[^0-9]/g,
-                                                    '',
-                                                ) || '2'
-                                            }
-                                            onChangeText={(v) =>
-                                                setRepeatEvery(`${v} tuần`)
-                                            }
-                                            style={[
-                                                s.inlineInputBox,
-                                                {
-                                                    minWidth: scale(50),
-                                                    textAlign: 'center',
-                                                },
-                                            ]}
-                                            keyboardType='numeric'
-                                        />
-                                        <Text style={s.repeatUnit}>tuần</Text>
-                                    </View>
-                                </HField>
-
-                                <HField label='Ngày' alignTop>
-                                    <View style={{ width: '100%' }}>
-                                        <View style={s.daysHeaderRow}>
-                                            {[
-                                                'T2',
-                                                'T3',
-                                                'T4',
-                                                'T5',
-                                                'T6',
-                                                'T7',
-                                                'CN',
-                                            ].map((d) => (
-                                                <Text
-                                                    key={d}
-                                                    style={s.dayColText}
-                                                >
-                                                    {d}
-                                                </Text>
-                                            ))}
-                                        </View>
-                                        <View style={s.daysCheckRow}>
-                                            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                                                <Pressable
-                                                    key={i}
-                                                    style={s.dayCheckCol}
-                                                    onPress={() => toggleDay(i)}
-                                                >
-                                                    <View
-                                                        style={[
-                                                            s.dayCheckbox,
-                                                            activeDays.includes(
-                                                                i,
-                                                            ) &&
-                                                                s.dayCheckboxActive,
-                                                        ]}
-                                                    >
-                                                        {activeDays.includes(
-                                                            i,
-                                                        ) && (
-                                                            <Ionicons
-                                                                name='checkmark'
-                                                                size={14}
-                                                                color='#fff'
-                                                            />
-                                                        )}
-                                                    </View>
-                                                </Pressable>
-                                            ))}
-                                        </View>
-                                    </View>
-                                </HField>
-
-                                <HField label='Giờ nhắc' alignTop>
-                                    <View style={s.timesWrap}>
-                                        {times.map((t, i) => (
-                                            <View
-                                                key={i}
-                                                style={s.timeRowSmall}
-                                            >
-                                                <TextInput
-                                                    style={[
-                                                        s.inlineInputBox,
-                                                        {
-                                                            minWidth: scale(80),
-                                                        },
-                                                    ]}
-                                                    value={t}
-                                                    onChangeText={(v) =>
-                                                        updateTime(i, v)
-                                                    }
-                                                    keyboardType='numbers-and-punctuation'
-                                                />
-                                                {i === 0 ? (
-                                                    <Pressable
-                                                        style={s.timeBtn}
-                                                        onPress={addTime}
-                                                    >
-                                                        <Ionicons
-                                                            name='add-circle'
-                                                            size={24}
-                                                            color={ACCENT}
-                                                        />
-                                                    </Pressable>
-                                                ) : (
-                                                    <Pressable
-                                                        style={s.timeBtn}
-                                                        onPress={() =>
-                                                            removeTime(i)
-                                                        }
-                                                    >
-                                                        <Ionicons
-                                                            name='close-circle'
-                                                            size={24}
-                                                            color={
-                                                                colors.danger
-                                                            }
-                                                        />
-                                                    </Pressable>
-                                                )}
-                                            </View>
-                                        ))}
-                                    </View>
-                                </HField>
-
-                                <HField label='Nhắc trước'>
-                                    <Pressable
-                                        style={s.inlineSelectBox}
-                                        onPress={() => setRemBeforeDDOpen(true)}
-                                    >
-                                        <Text style={s.inlineSelectText}>
-                                            {remindBefore}
-                                        </Text>
+                                {/* Preview summary */}
+                                <View style={s.schedulePreviewCard}>
+                                    <View style={s.schedulePreviewRow}>
                                         <Ionicons
-                                            name='caret-down'
-                                            size={12}
-                                            color={colors.text3}
+                                            name='time-outline'
+                                            size={16}
+                                            color={ACCENT}
                                         />
-                                    </Pressable>
-                                </HField>
+                                        <Text style={s.schedulePreviewText}>
+                                            {schedulePreviewText}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Open advanced modal button */}
+                                <Pressable
+                                    style={s.advancedBtn}
+                                    onPress={() => setScheduleModalOpen(true)}
+                                >
+                                    <Ionicons
+                                        name='settings-outline'
+                                        size={16}
+                                        color={ACCENT}
+                                    />
+                                    <Text style={s.advancedBtnText}>
+                                        Cài đặt nâng cao
+                                    </Text>
+                                    <Ionicons
+                                        name='chevron-forward'
+                                        size={16}
+                                        color={colors.text3}
+                                    />
+                                </Pressable>
 
                                 {onTestPush ? (
                                     <HField label='Kiểm thử'>
@@ -762,12 +735,6 @@ export default function MedicineDetailSheet({
                                         </Pressable>
                                     </HField>
                                 ) : null}
-
-                                <HField label='Preview' alignTop>
-                                    <Text style={s.previewRight}>
-                                        Tuần 1,3,5... {previewDays}
-                                    </Text>
-                                </HField>
                             </>
                         )}
                     </SectionCard>
@@ -856,27 +823,12 @@ export default function MedicineDetailSheet({
                 searchable={false}
             />
 
-            <MedicineDropdownSheet
-                visible={remBeforeDDOpen}
-                title='NHẮC TRƯỚC'
-                categories={[
-                    {
-                        title: 'Tùy chọn thời gian',
-                        options: [
-                            'Đúng giờ',
-                            '5 phút',
-                            '10 phút',
-                            '15 phút',
-                            '30 phút',
-                            '1 giờ',
-                            '2 giờ',
-                        ].map((c) => ({ label: c, value: c })),
-                    },
-                ]}
-                selected={remindBefore}
-                onSelect={setRemindBefore}
-                onClose={() => setRemBeforeDDOpen(false)}
-                searchable={false}
+            {/* Schedule Advanced Modal */}
+            <ScheduleAdvancedModal
+                visible={scheduleModalOpen}
+                initialConfig={scheduleConfig}
+                onClose={() => setScheduleModalOpen(false)}
+                onSave={handleScheduleSave}
             />
 
             {/* Tag input dialog */}
@@ -1381,6 +1333,47 @@ const s = StyleSheet.create({
         color: ACCENT,
     },
 
+    // Schedule preview & advanced button
+    schedulePreviewCard: {
+        backgroundColor: '#E6F7F5',
+        borderRadius: moderateScale(10),
+        padding: scale(12),
+        marginTop: verticalScale(6),
+        borderWidth: 1,
+        borderColor: ACCENT + '25',
+    },
+    schedulePreviewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(8),
+    },
+    schedulePreviewText: {
+        flex: 1,
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text,
+        lineHeight: scaleFont(17),
+    },
+    advancedBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(14),
+        borderRadius: moderateScale(10),
+        borderWidth: 1.5,
+        borderColor: ACCENT + '40',
+        backgroundColor: colors.card,
+        marginTop: verticalScale(4),
+    },
+    advancedBtnText: {
+        flex: 1,
+        fontFamily: typography.font.semiBold,
+        fontSize: scaleFont(13),
+        color: ACCENT,
+    },
+
     // Scroll
     scroll: { flex: 1 },
     scrollContent: {
@@ -1444,6 +1437,46 @@ const s = StyleSheet.create({
         fontFamily: typography.font.medium,
         fontSize: scaleFont(12),
         color: colors.text,
+    },
+    dateInput: {
+        ...inputSystem.field,
+        minHeight: INPUT_HEIGHT,
+        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(10),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dateInputText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text,
+    },
+    dateInputPlaceholder: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text3,
+    },
+    iosDateWrap: {
+        marginTop: verticalScale(8),
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: moderateScale(10),
+        backgroundColor: colors.card,
+        overflow: 'hidden',
+    },
+    iosDateHeader: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(8),
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    iosDateDone: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        color: colors.primary,
     },
     row: {
         flexDirection: 'row',

@@ -197,15 +197,18 @@ export default function AuthScreen({
             confirmPassword?: string;
         } = {};
 
-        if (!email.trim()) {
+        const normalizedEmail = email.trim();
+        const normalizedPassword = password.trim();
+
+        if (!normalizedEmail) {
             newErrors.email = 'Vui lòng nhập email.';
-        } else if (!EMAIL_REGEX.test(email.trim())) {
+        } else if (!EMAIL_REGEX.test(normalizedEmail)) {
             newErrors.email = 'Email không đúng định dạng.';
         }
 
-        if (!password) {
+        if (!normalizedPassword) {
             newErrors.password = 'Vui lòng nhập mật khẩu.';
-        } else if (password.length < 6) {
+        } else if (normalizedPassword.length < 6) {
             newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự.';
         }
 
@@ -222,7 +225,7 @@ export default function AuthScreen({
 
             if (!confirmPassword) {
                 newErrors.confirmPassword = 'Vui lòng nhập lại mật khẩu.';
-            } else if (password !== confirmPassword) {
+            } else if (normalizedPassword !== confirmPassword.trim()) {
                 newErrors.confirmPassword = 'Mật khẩu nhập lại không khớp.';
             }
         }
@@ -241,16 +244,16 @@ export default function AuthScreen({
 
             if (mode === 'signin') {
                 success = await signIn({
-                    email,
-                    password,
+                    email: normalizedEmail,
+                    password: normalizedPassword,
                     device_id,
                     device_name,
                     platform,
                 });
             } else {
                 success = await signUp({
-                    email,
-                    password,
+                    email: normalizedEmail,
+                    password: normalizedPassword,
                     phone_number: normalizedPhoneNumber ?? undefined,
                 });
             }

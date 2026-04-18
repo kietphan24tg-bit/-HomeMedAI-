@@ -134,6 +134,7 @@ export interface NotificationAction {
 
 export interface NotificationItem {
     id: string;
+    scheduleId?: string;
     day: NotiDay;
     type: NotiType;
     unread: boolean;
@@ -142,6 +143,7 @@ export interface NotificationItem {
     summary?: string;
     detail?: string;
     time: string;
+    date?: string;
     context?: string;
     statusLabel?: string;
     statusTone?: NotiTone;

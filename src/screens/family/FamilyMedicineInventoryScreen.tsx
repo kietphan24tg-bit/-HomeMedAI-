@@ -1,9 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import DateTimePicker, {
+    type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StatusBar,
@@ -402,6 +406,7 @@ export default function FamilyMedicineInventoryScreen({
     const [newQty, setNewQty] = useState('');
     const [newUnit, setNewUnit] = useState('viên');
     const [newExp, setNewExp] = useState('');
+    const [showExpiryPicker, setShowExpiryPicker] = useState(false);
     const [newLocation, setNewLocation] = useState('');
     const [newNote, setNewNote] = useState('');
     const [scheduleDetailItem, setScheduleDetailItem] =
@@ -561,6 +566,17 @@ export default function FamilyMedicineInventoryScreen({
         }
     };
 
+    const handleExpiryDateChange = (
+        _event: DateTimePickerEvent,
+        selectedDate?: Date,
+    ) => {
+        if (Platform.OS === 'android') {
+            setShowExpiryPicker(false);
+        }
+        if (!selectedDate) return;
+        setNewExp(selectedDate.toISOString().slice(0, 10));
+    };
+
     const changeUsedQty = (delta: number) => {
         setUsedQty((prev) => {
             const current = parseInt(prev || '0', 10) || 0;
@@ -625,6 +641,8 @@ export default function FamilyMedicineInventoryScreen({
             }
             if (reminderOn && timesLocal.length > 0) {
                 const remindTz = getDeviceRemindTz();
+                const rrule =
+                    typeof data.rrule === 'string' ? data.rrule : undefined;
                 for (const t of timesLocal) {
                     await familiesServices.createMedicineSchedule(
                         scheduleDetailItem.id,
@@ -633,6 +651,7 @@ export default function FamilyMedicineInventoryScreen({
                             remind_time: t,
                             remind_tz: remindTz,
                             dosage_per_time: dosagePerTime,
+                            rrule,
                         },
                     );
                 }
@@ -960,7 +979,7 @@ export default function FamilyMedicineInventoryScreen({
                                 color={ACCENT}
                             />
                             <Text style={styles.usageReminderBtnText}>
-                                Nhắc uống thuốc — cài đặt giờ (UTC qua máy chủ)
+                                Cài đặt lịch nhắc uống thuốc
                             </Text>
                             <Ionicons
                                 name='chevron-forward'
@@ -1117,7 +1136,13 @@ export default function FamilyMedicineInventoryScreen({
                             <View style={styles.addRowTwoCol}>
                                 <TextInput
                                     value={newQty}
-                                    onChangeText={setNewQty}
+                                    onChangeText={(text) => {
+                                        const sanitized = text
+                                            .replace(',', '.')
+                                            .replace(/[^0-9.]/g, '')
+                                            .replace(/^(\d*\.?\d*).*$/, '$1');
+                                        setNewQty(sanitized);
+                                    }}
                                     placeholder='VD: 10'
                                     placeholderTextColor={colors.text3}
                                     keyboardType='numeric'
@@ -1172,13 +1197,24 @@ export default function FamilyMedicineInventoryScreen({
                                         styles.addDateWrap,
                                     ]}
                                 >
-                                    <TextInput
-                                        value={newExp}
-                                        onChangeText={setNewExp}
-                                        placeholder='mm/dd/yyyy'
-                                        placeholderTextColor={colors.text3}
-                                        style={styles.addDateInput}
-                                    />
+                                    <Pressable
+                                        style={styles.addDatePress}
+                                        onPress={() =>
+                                            setShowExpiryPicker(true)
+                                        }
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.addDateInput,
+                                                !newExp &&
+                                                    styles.addDatePlaceholder,
+                                            ]}
+                                        >
+                                            {newExp
+                                                ? formatIsoDate(newExp)
+                                                : 'Chọn ngày'}
+                                        </Text>
+                                    </Pressable>
                                     <Ionicons
                                         name='calendar-outline'
                                         size={14}
@@ -1222,6 +1258,43 @@ export default function FamilyMedicineInventoryScreen({
                                     : addPopupButtonText}
                             </Text>
                         </Pressable>
+                        {showExpiryPicker &&
+                            (Platform.OS === 'ios' ? (
+                                <View style={styles.addDatePickerWrap}>
+                                    <View style={styles.addDatePickerHeader}>
+                                        <Pressable
+                                            onPress={() =>
+                                                setShowExpiryPicker(false)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.addDatePickerDone}
+                                            >
+                                                Xong
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                    <DateTimePicker
+                                        value={
+                                            newExp
+                                                ? new Date(newExp)
+                                                : new Date()
+                                        }
+                                        mode='date'
+                                        display='inline'
+                                        onChange={handleExpiryDateChange}
+                                    />
+                                </View>
+                            ) : (
+                                <DateTimePicker
+                                    value={
+                                        newExp ? new Date(newExp) : new Date()
+                                    }
+                                    mode='date'
+                                    display='default'
+                                    onChange={handleExpiryDateChange}
+                                />
+                            ))}
                     </View>
                 </View>
             </Modal>
@@ -1872,12 +1945,39 @@ const styles = StyleSheet.create({
         ...inputSystem.fieldIcon,
         justifyContent: 'space-between',
     },
-    addDateInput: {
+    addDatePress: {
         flex: 1,
+        justifyContent: 'center',
+    },
+    addDateInput: {
         paddingVertical: 0,
         fontFamily: typography.font.medium,
         fontSize: scaleFont(11.5),
         color: colors.text,
+    },
+    addDatePlaceholder: {
+        color: colors.text3,
+    },
+    addDatePickerWrap: {
+        marginTop: verticalScale(8),
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: moderateScale(10),
+        backgroundColor: colors.card,
+        overflow: 'hidden',
+    },
+    addDatePickerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(8),
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    addDatePickerDone: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(12),
+        color: colors.primary,
     },
     addNoteInput: {
         minHeight: verticalScale(66),

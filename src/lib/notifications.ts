@@ -219,7 +219,30 @@ export async function registerForPushNotificationsAsync(options?: {
             }
         }
 
-        // Fallback when Expo token is unavailable: still keep native push token.
+        // Best-effort fallback for native builds where projectId is not configured.
+        // Keeping Expo token path helps preserve notification category actions
+        // (e.g. Đã uống / Bỏ qua) when receiving push outside the app.
+        try {
+            const expoToken = await Notifications.getExpoPushTokenAsync();
+            const normalizedExpoToken =
+                typeof expoToken?.data === 'string'
+                    ? expoToken.data
+                    : expoToken?.data !== undefined && expoToken?.data !== null
+                      ? String(expoToken.data)
+                      : null;
+            if (normalizedExpoToken) {
+                return {
+                    status: 'granted',
+                    token: normalizedExpoToken,
+                };
+            }
+        } catch (error) {
+            console.error(error);
+        }
+
+        // Last fallback when Expo token is unavailable: native token.
+        // Note: native-token delivery path may not support Expo notification
+        // action categories consistently across app states.
         const token = await Notifications.getDevicePushTokenAsync();
         return {
             status: 'granted',
