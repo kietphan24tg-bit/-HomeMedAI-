@@ -11,14 +11,15 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMeHealthProfileQuery } from '@/src/features/me/queries';
 import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
-import { RECORDS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
 import { colors, gradients, typography } from '../../styles/tokens';
 import type { RecordItem, RecordPrescriptionItem } from '../../types/health';
+import { getCategoryColor } from '../../utils/color-palette';
 import MedicineDetailSheet from '../family/MedicineDetailSheet';
 
 const FILTERS = ['Tất cả', 'Tổng quát', 'Nội khoa', 'Khác'] as const;
@@ -188,7 +189,141 @@ const MONTH_NAMES: Record<string, string> = {
     '12': 'Tháng 12',
 };
 
+function nullableString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function toIsoDate(value: unknown): string {
+    const raw = nullableString(value);
+    const date = raw ? new Date(raw) : new Date();
+    if (Number.isNaN(date.getTime())) {
+        return new Date().toISOString().slice(0, 10);
+    }
+    return date.toISOString().slice(0, 10);
+}
+
+function toDisplayDate(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+}
+
+function normalizeRecordCategory(value: unknown): string {
+    const raw = nullableString(value)?.toLowerCase();
+    if (!raw) return 'other';
+    if (ALL_TYPES.some((item) => item.key === raw)) return raw;
+    if (raw.includes('tong') || raw.includes('tổng')) return 'general';
+    if (raw.includes('noi') || raw.includes('nội')) return 'internal';
+    return 'other';
+}
+
+function mapPrescriptions(value: unknown): RecordPrescriptionItem[] {
+    return recordList(value).map((item, index) => ({
+        name:
+            nullableString(item.medicine_name) ??
+            nullableString(item.name) ??
+            `Thuốc ${index + 1}`,
+        dose:
+            nullableString(item.dose) ??
+            nullableString(item.dosage) ??
+            nullableString(item.dosage_value),
+        schedule:
+            nullableString(item.schedule) ??
+            nullableString(item.instruction) ??
+            nullableString(item.frequency),
+    }));
+}
+
+function buildRecordsFromHealthProfile(healthProfile: unknown): RecordItem[] {
+    const health =
+        healthProfile && typeof healthProfile === 'object'
+            ? (healthProfile as Record<string, unknown>)
+            : {};
+
+    return recordList(health.medical_records)
+        .map((record, index): RecordItem => {
+            const isoDate = toIsoDate(record.visit_date ?? record.created_at);
+            const category = getCategoryColor(index);
+            const recordCategory = normalizeRecordCategory(
+                record.specialty ?? record.category,
+            );
+            const title =
+                nullableString(record.title) ??
+                nullableString(record.diagnosis_name) ??
+                'Hồ sơ khám bệnh';
+
+            return {
+                id: nullableString(record.id) ?? `${title}-${isoDate}-${index}`,
+                category: recordCategory,
+                iconName:
+                    recordCategory === 'internal'
+                        ? 'shield-checkmark-outline'
+                        : recordCategory === 'general'
+                          ? 'pulse-outline'
+                          : 'medkit-outline',
+                iconColor: category.color,
+                bg: category.bg,
+                title,
+                hospital:
+                    nullableString(record.hospital_name) ??
+                    nullableString(record.facility_name) ??
+                    'Chưa có cơ sở khám',
+                doctor: nullableString(record.doctor_name),
+                diagnosis: nullableString(record.diagnosis_name),
+                tag:
+                    nullableString(record.specialty) ??
+                    nullableString(record.department) ??
+                    'Khác',
+                tagBg: category.bg,
+                tagColor: category.color,
+                dotColor: category.color,
+                date: toDisplayDate(isoDate),
+                isoDate,
+                location: nullableString(record.location),
+                department:
+                    nullableString(record.department) ??
+                    nullableString(record.specialty),
+                symptoms: Array.isArray(record.symptoms)
+                    ? record.symptoms.filter(
+                          (item): item is string =>
+                              typeof item === 'string' && !!item.trim(),
+                      )
+                    : [],
+                testResults: nullableString(record.test_results),
+                doctorAdvice: nullableString(record.doctor_advice),
+                prescriptions: mapPrescriptions(
+                    record.prescriptions ?? record.medicines,
+                ),
+                attachments: recordList(record.attachments).map(
+                    (item, attachmentIndex) => ({
+                        id:
+                            nullableString(item.id) ??
+                            `${record.id ?? index}-attachment-${attachmentIndex}`,
+                        type:
+                            nullableString(item.type) === 'image'
+                                ? 'image'
+                                : 'pdf',
+                        name:
+                            nullableString(item.name) ??
+                            nullableString(item.file_name) ??
+                            `Tài liệu ${attachmentIndex + 1}`,
+                    }),
+                ),
+            };
+        })
+        .sort((a, b) => b.isoDate.localeCompare(a.isoDate));
+}
+
 export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
+    const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
     const [view, setView] = useState<'list' | 'detail' | 'add'>('list');
     const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(
         null,
@@ -243,7 +378,7 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
     }, []);
 
     const filtered = useMemo(() => {
-        let list = RECORDS;
+        let list = buildRecordsFromHealthProfile(healthProfile);
 
         // Apply category filter
         if (filter !== 'Tất cả') {
@@ -273,7 +408,7 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
         }
 
         return list;
-    }, [search, filter, specFilter]);
+    }, [healthProfile, search, filter, specFilter]);
 
     const groups = useMemo(() => groupByYearMonth(filtered), [filtered]);
 
@@ -402,10 +537,14 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
                             />
                         </View>
                         <Text style={styles.recEmptyTitle}>
-                            Không tìm thấy hồ sơ
+                            {isLoading ? 'Đang tải hồ sơ' : 'Không có hồ sơ'}
                         </Text>
                         <Text style={styles.recEmptySub}>
-                            Thử tìm kiếm với từ khoá khác
+                            {isLoading
+                                ? 'Dữ liệu đang được lấy từ tài khoản của bạn'
+                                : search.trim()
+                                  ? 'Thử tìm kiếm với từ khoá khác'
+                                  : 'Chưa có hồ sơ khám bệnh'}
                         </Text>
                     </View>
                 )}

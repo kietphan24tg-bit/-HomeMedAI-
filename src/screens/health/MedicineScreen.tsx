@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -12,6 +12,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMeHealthProfileQuery } from '@/src/features/me/queries';
 import { MedicineInventoryCard } from '../../components/ui';
 import {
     moderateScale,
@@ -66,50 +67,108 @@ const STATUS_THEME: Record<
     },
 };
 
-const INITIAL_ITEMS: MockItem[] = [
-    {
-        id: '1',
-        name: 'Paracetamol 500mg',
-        form: 'Viên nén',
-        desc: 'Giảm đau, hạ sốt',
-        remaining: 12,
-        unit: 'viên',
-        hsd: '12/26',
-        reminderText: 'T3, T5 · 07:00 & 20:00',
-        reminderOn: true,
-        progress: 60,
-        status: 'ok',
-        iconName: 'pill',
-    },
-    {
-        id: '2',
-        name: 'Oresol',
-        form: 'Gói bột',
-        desc: 'Bù điện giải',
-        remaining: 8,
-        unit: 'gói',
-        hsd: '08/27',
-        reminderText: 'Mỗi ngày · 08:00',
-        reminderOn: true,
-        progress: 30,
-        status: 'low',
-        iconName: 'grid',
-    },
-    {
-        id: '3',
-        name: 'Vitamin C 1000mg',
-        form: 'Viên sủi',
-        desc: 'Bổ sung vitamin',
-        remaining: 20,
-        unit: 'viên',
-        hsd: '02/27',
-        reminderText: 'Mỗi ngày · 08:00',
-        reminderOn: true,
-        progress: 80,
-        status: 'expiring',
-        iconName: 'pill',
-    },
-];
+function nullableString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function formatExpiry(value: unknown): string {
+    const raw = nullableString(value);
+    if (!raw) return '--';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(
+        date.getFullYear(),
+    ).slice(-2)}`;
+}
+
+function medicineStatus(item: Record<string, unknown>): MedicineStatus {
+    if (item.alert_expired || item.alert_expiring) return 'expiring';
+    if (item.alert_low_stock) return 'low';
+
+    const stock = numberValue(item.quantity_stock);
+    const minStock = numberValue(item.min_stock_alert);
+    if (minStock > 0 && stock <= minStock) return 'low';
+
+    return 'ok';
+}
+
+function reminderText(item: Record<string, unknown>): string {
+    const reminder =
+        item.medicine_reminder && typeof item.medicine_reminder === 'object'
+            ? (item.medicine_reminder as Record<string, unknown>)
+            : null;
+    if (!reminder || reminder.enabled === false) return 'Tắt';
+
+    const times = Array.isArray(reminder.times)
+        ? reminder.times.filter(
+              (time): time is string => typeof time === 'string',
+          )
+        : [];
+    return times.length ? times.join(', ') : 'Đang bật';
+}
+
+function buildMedicineItems(healthProfile: unknown): MockItem[] {
+    const health =
+        healthProfile && typeof healthProfile === 'object'
+            ? (healthProfile as Record<string, unknown>)
+            : {};
+
+    return recordList(health.medicine_inventory).map((item, index) => {
+        const status = medicineStatus(item);
+        const stock = numberValue(item.quantity_stock);
+        const minStock = numberValue(item.min_stock_alert);
+        const progress =
+            minStock > 0
+                ? Math.min(100, Math.round((stock / minStock) * 100))
+                : 100;
+        const reminder =
+            item.medicine_reminder && typeof item.medicine_reminder === 'object'
+                ? (item.medicine_reminder as Record<string, unknown>)
+                : null;
+
+        return {
+            id: nullableString(item.id) ?? `medicine-${index}`,
+            name:
+                nullableString(item.medicine_name) ??
+                nullableString(item.name) ??
+                `Thuốc ${index + 1}`,
+            form:
+                nullableString(item.medicine_type) ??
+                nullableString(item.form) ??
+                'Chưa rõ dạng',
+            desc:
+                nullableString(item.instruction) ??
+                nullableString(item.storage_location) ??
+                'Chưa có hướng dẫn',
+            remaining: stock,
+            unit: nullableString(item.unit) ?? 'đơn vị',
+            hsd: formatExpiry(item.expiry_date),
+            reminderText: reminderText(item),
+            reminderOn: reminder?.enabled === true,
+            progress,
+            status,
+            iconName: 'pill',
+        };
+    });
+}
 
 interface Props {
     onClose: () => void;
@@ -120,12 +179,21 @@ export default function MedicineScreen({
     onClose,
     headerTitle = 'Thuốc đang có',
 }: Props): React.JSX.Element {
+    const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
     const [search, setSearch] = useState('');
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
-    const [items, setItems] = useState<MockItem[]>(INITIAL_ITEMS);
+    const apiItems = useMemo(
+        () => buildMedicineItems(healthProfile),
+        [healthProfile],
+    );
+    const [items, setItems] = useState<MockItem[]>([]);
     const [cloneItem, setCloneItem] = useState<MockItem | null>(null);
     const [deleteItem, setDeleteItem] = useState<MockItem | null>(null);
+
+    useEffect(() => {
+        setItems(apiItems);
+    }, [apiItems]);
 
     const filteredItems = useMemo(() => {
         const normalized = search.trim().toLowerCase();
@@ -282,7 +350,29 @@ export default function MedicineScreen({
                     </Text>
                 </View>
 
-                {filteredItems.map(renderInventoryCard)}
+                {filteredItems.length > 0 ? (
+                    filteredItems.map(renderInventoryCard)
+                ) : (
+                    <View style={styles.emptyState}>
+                        <View style={styles.emptyIcon}>
+                            <MaterialCommunityIcons
+                                name='pill-off'
+                                size={30}
+                                color={colors.primary}
+                            />
+                        </View>
+                        <Text style={styles.emptyTitle}>
+                            {isLoading ? 'Đang tải thuốc' : 'Chưa có thuốc'}
+                        </Text>
+                        <Text style={styles.emptySub}>
+                            {isLoading
+                                ? 'Dữ liệu đang được lấy từ tài khoản của bạn'
+                                : search.trim()
+                                  ? 'Thử tìm kiếm với từ khoá khác'
+                                  : 'Chưa có thuốc đang dùng'}
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
 
             <MedicineDetailSheet
@@ -526,6 +616,32 @@ const styles = StyleSheet.create({
     },
     cardWrap: {
         marginBottom: verticalScale(16),
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: verticalScale(44),
+        paddingHorizontal: scale(20),
+    },
+    emptyIcon: {
+        width: scale(64),
+        height: scale(64),
+        borderRadius: moderateScale(32),
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primaryBg,
+        marginBottom: verticalScale(12),
+    },
+    emptyTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(15),
+        color: colors.text,
+        marginBottom: verticalScale(4),
+    },
+    emptySub: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+        color: colors.text3,
+        textAlign: 'center',
     },
     medCard: {
         ...cardSystem.shell,

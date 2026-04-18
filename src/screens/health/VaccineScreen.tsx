@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -17,11 +17,11 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import { useMeHealthProfileQuery } from '@/src/features/me/queries';
 import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
 import { AttachmentUploadBlock, DateField } from '../../components/ui';
-import { VACCINE_DETAILS } from '../../data/health-data';
 import { shared } from '../../styles/shared';
 import { colors } from '../../styles/tokens';
 import type { VaccineDetailItem, VaccineDose } from '../../types/health';
@@ -45,42 +45,115 @@ function doneMuiCount(v: VaccineDetailItem) {
     return v.doses.filter((d: VaccineDose) => d.date).length;
 }
 
-export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
-    const [apiReminderCount, setApiReminderCount] = useState<number | null>(
-        null,
-    );
+function nullableString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
 
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const fams = await familiesServices.getMyFamilies();
-                const list = Array.isArray(fams)
-                    ? fams
-                    : Array.isArray((fams as { data?: unknown })?.data)
-                      ? (fams as { data: unknown[] }).data
-                      : [];
-                const first = list[0] as {
-                    members?: { profile?: { id?: string } }[];
+function numberValue(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function formatDate(value: unknown): string | undefined {
+    const raw = nullableString(value);
+    if (!raw) return undefined;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return `${String(date.getDate()).padStart(2, '0')}/${String(
+        date.getMonth() + 1,
+    ).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+function vaccineAbbr(name: string): string {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+}
+
+function buildVaccineItems(healthProfile: unknown): VaccineDetailItem[] {
+    const health =
+        healthProfile && typeof healthProfile === 'object'
+            ? (healthProfile as Record<string, unknown>)
+            : {};
+
+    return recordList(health.vaccinations ?? health.vaccines).map(
+        (vaccination, index): VaccineDetailItem => {
+            const rawDoses = recordList(vaccination.doses);
+            const administeredCount =
+                numberValue(vaccination.doses_administered_count) ?? 0;
+            const total =
+                numberValue(vaccination.recommendation_total_doses) ??
+                numberValue(vaccination.total_doses) ??
+                Math.max(rawDoses.length, administeredCount, 1);
+            const name =
+                nullableString(vaccination.recommendation_name) ??
+                nullableString(vaccination.vaccine_name) ??
+                nullableString(vaccination.name) ??
+                `Vaccine ${index + 1}`;
+            const mappedDoses = rawDoses.map((dose, doseIndex) => {
+                const date = formatDate(
+                    dose.administered_at ?? dose.date ?? dose.injected_at,
+                );
+                const scheduled = formatDate(
+                    dose.scheduled_at ?? dose.scheduled,
+                );
+                return {
+                    num: numberValue(dose.dose_index) ?? doseIndex + 1,
+                    date,
+                    scheduled: date ? undefined : scheduled,
+                    place:
+                        nullableString(dose.location) ??
+                        nullableString(dose.place),
                 };
-                const pid = first?.members?.[0]?.profile?.id;
-                if (!pid) return;
-                const rows =
-                    await appointmentRemindersService.listForProfile(pid);
-                if (!cancelled) setApiReminderCount(rows.length);
-            } catch {
-                if (!cancelled) setApiReminderCount(null);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+            });
 
+            for (let i = mappedDoses.length; i < total; i += 1) {
+                mappedDoses.push({
+                    num: i + 1,
+                    date: undefined,
+                    scheduled: undefined,
+                    place: undefined,
+                });
+            }
+
+            return {
+                id: nullableString(vaccination.id) ?? `${name}-${index}`,
+                name,
+                abbr: vaccineAbbr(name) || 'VC',
+                total,
+                doses: mappedDoses,
+            };
+        },
+    );
+}
+
+export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
+    const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
     const [view, setView] = useState<VaxView>('list');
     const [detailVax, setDetailVax] = useState<VaccineDetailItem | null>(null);
     const [showAddVax, setShowAddVax] = useState(false);
     const [showVaxInfo, setShowVaxInfo] = useState(false);
+    const vaccineItems = useMemo(
+        () => buildVaccineItems(healthProfile),
+        [healthProfile],
+    );
 
     const openDetail = useCallback((v: VaccineDetailItem) => {
         setDetailVax(v);
@@ -95,12 +168,12 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
         return <VaxDetailScreen item={detailVax} onBack={closeDetail} />;
     }
 
-    const totalDone = VACCINE_DETAILS.reduce(
+    const totalDone = vaccineItems.reduce(
         (s, v) => s + Math.min(doneMuiCount(v), v.total),
         0,
     );
-    const totalMui = VACCINE_DETAILS.reduce((s, v) => s + v.total, 0);
-    const pct = Math.round((totalDone / totalMui) * 100);
+    const totalMui = vaccineItems.reduce((s, v) => s + v.total, 0);
+    const pct = totalMui > 0 ? Math.round((totalDone / totalMui) * 100) : 0;
     const pending = totalMui - totalDone;
     const donutSize = 62;
     const donutStroke = 6;
@@ -110,14 +183,14 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
         donutCircumference -
         (Math.max(0, Math.min(100, pct)) / 100) * donutCircumference;
 
-    const complete = VACCINE_DETAILS.filter((v) => doneMuiCount(v) >= v.total);
-    const soon = VACCINE_DETAILS.filter(
+    const complete = vaccineItems.filter((v) => doneMuiCount(v) >= v.total);
+    const soon = vaccineItems.filter(
         (v) =>
             doneMuiCount(v) < v.total &&
             v.doses.some((d: VaccineDose) => d.scheduled && !d.date),
     );
     const soonIds = new Set(soon.map((v) => v.id));
-    const incomplete = VACCINE_DETAILS.filter(
+    const incomplete = vaccineItems.filter(
         (v) => doneMuiCount(v) < v.total && !soonIds.has(v.id),
     );
 
@@ -189,17 +262,6 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
-                {apiReminderCount !== null ? (
-                    <Text
-                        style={{
-                            fontSize: 12,
-                            color: colors.text3,
-                            marginBottom: 8,
-                        }}
-                    >
-                        Lịch hẹn nhắc (API): {apiReminderCount}
-                    </Text>
-                ) : null}
                 {/* PROGRESS HERO */}
                 <View style={styles.vaxHero}>
                     <View style={styles.vaxHeroContent}>
@@ -350,6 +412,28 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                         </View>
                     </>
                 )}
+
+                {vaccineItems.length === 0 ? (
+                    <View style={styles.recEmpty}>
+                        <View style={styles.recEmptyIcon}>
+                            <Ionicons
+                                name='shield-checkmark-outline'
+                                size={32}
+                                color={colors.primary}
+                            />
+                        </View>
+                        <Text style={styles.recEmptyTitle}>
+                            {isLoading
+                                ? 'Đang tải lịch tiêm'
+                                : 'Chưa có lịch tiêm'}
+                        </Text>
+                        <Text style={styles.recEmptySub}>
+                            {isLoading
+                                ? 'Dữ liệu đang được lấy từ tài khoản của bạn'
+                                : 'Chưa có dữ liệu tiêm chủng'}
+                        </Text>
+                    </View>
+                ) : null}
             </ScrollView>
 
             {/* ADD VACCINE SHEET */}

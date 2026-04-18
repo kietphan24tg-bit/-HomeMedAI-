@@ -332,13 +332,15 @@ export default function HealthScreen(): React.JSX.Element {
     // Debug logging for API response
     React.useEffect(() => {
         if (__DEV__) {
-            if (isLoading)
-                {console.log('[HealthScreen] Loading data from /users/me...');}
-            if (error)
-                {console.error(
+            if (isLoading) {
+                console.log('[HealthScreen] Loading data from /users/me...');
+            }
+            if (error) {
+                console.error(
                     '[HealthScreen] Error fetching /users/me:',
                     error,
-                );}
+                );
+            }
             if (meOverview?.profile) {
                 console.log('[HealthScreen] ✅ API data received:', {
                     profile: meOverview.profile,
@@ -1161,7 +1163,7 @@ export default function HealthScreen(): React.JSX.Element {
                     action='Tất cả'
                     onAction={() => setScreen('records')}
                 />
-                <CardBlock>
+                <CardBlock onPress={() => setScreen('records')}>
                     <CountStrip
                         icon={
                             <Ionicons
@@ -1227,7 +1229,7 @@ export default function HealthScreen(): React.JSX.Element {
                     action='Xem chi tiết'
                     onAction={() => setScreen('vaccines')}
                 />
-                <CardBlock>
+                <CardBlock onPress={() => setScreen('vaccines')}>
                     <View style={styles.vpctRow}>
                         <View style={styles.donutWrap}>
                             <Svg
@@ -1299,7 +1301,7 @@ export default function HealthScreen(): React.JSX.Element {
                     action='Tất cả'
                     onAction={() => setScreen('medicines')}
                 />
-                <CardBlock>
+                <CardBlock onPress={() => setScreen('medicines')}>
                     <CountStrip
                         icon={
                             <MaterialCommunityIcons
