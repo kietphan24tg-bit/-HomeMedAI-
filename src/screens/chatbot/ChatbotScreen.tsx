@@ -231,7 +231,7 @@ export default function ChatbotScreen(): React.JSX.Element {
 
             try {
                 const repliedMessage = await apiClient.post('/rag/chat', {
-                    session_id: resolvedSessionId,
+                    // session_id: resolvedSessionId,
                     question: trimmed,
                 });
                 answer = String(
@@ -299,7 +299,7 @@ export default function ChatbotScreen(): React.JSX.Element {
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
                 <View style={chatbotStyles.header}>

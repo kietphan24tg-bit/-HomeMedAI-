@@ -184,6 +184,258 @@ export type MeOverview = {
     post_login_flow_completed: boolean;
 };
 
+// ============================================================================
+// UTILITY FUNCTIONS FOR DATA SANITIZATION
+// ============================================================================
+
+const ERROR_PLACEHOLDER = '-- (Không rõ)';
+
+/**
+ * Safely parse numeric values from strings or numbers
+ * Handles excessively long strings and invalid values
+ * Returns null if invalid, number if valid
+ */
+function safeParseNumeric(value: unknown): number | null {
+    // If already a valid number, return it
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    // If it's a string, try to parse it
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+
+        // Skip if string is too long (likely corrupted data)
+        if (trimmed.length > 50) {
+            console.warn(
+                '[Data Sanitization] Skipping excessively long numeric string:',
+                trimmed.substring(0, 50),
+            );
+            return null;
+        }
+
+        const parsed = parseFloat(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+/**
+ * Format a numeric value for display
+ * Returns error placeholder if invalid
+ */
+function formatNumericDisplay(value: unknown, precision = 1): string {
+    const parsed = safeParseNumeric(value);
+    if (parsed === null) {
+        return ERROR_PLACEHOLDER;
+    }
+    return parsed.toFixed(precision);
+}
+
+/**
+ * Sanitize a profile object and fix bad numeric data
+ */
+function sanitizeProfile(profile: unknown): MeProfile | null {
+    if (!profile || typeof profile !== 'object') {
+        return null;
+    }
+
+    const p = profile as Record<string, unknown>;
+    return {
+        id: typeof p.id === 'string' ? p.id : undefined,
+        owner_user_id:
+            typeof p.owner_user_id === 'string' ? p.owner_user_id : undefined,
+        linked_user_id:
+            typeof p.linked_user_id === 'string' ? p.linked_user_id : undefined,
+        full_name: typeof p.full_name === 'string' ? p.full_name : undefined,
+        dob: typeof p.dob === 'string' ? p.dob : undefined,
+        gender: typeof p.gender === 'string' ? p.gender : undefined,
+        // Fix height_cm - convert bad numeric strings
+        height_cm: safeParseNumeric(p.height_cm),
+        // Fix weight_kg - convert bad numeric strings
+        weight_kg: safeParseNumeric(p.weight_kg),
+        address: typeof p.address === 'string' ? p.address : undefined,
+        avatar_url: typeof p.avatar_url === 'string' ? p.avatar_url : undefined,
+        status: typeof p.status === 'string' ? p.status : undefined,
+        created_at: typeof p.created_at === 'string' ? p.created_at : undefined,
+        updated_at: typeof p.updated_at === 'string' ? p.updated_at : undefined,
+        deleted_at: typeof p.deleted_at === 'string' ? p.deleted_at : undefined,
+    };
+}
+
+/**
+ * Sanitize medicine inventory items and fix bad numeric data
+ */
+function sanitizeMedicineInventory(
+    items: unknown[],
+): MeMedicineInventoryItem[] {
+    if (!Array.isArray(items)) return [];
+
+    return items
+        .filter(
+            (item): item is Record<string, unknown> =>
+                !!item && typeof item === 'object',
+        )
+        .map((item) => ({
+            id: typeof item.id === 'string' ? item.id : undefined,
+            profile_id:
+                typeof item.profile_id === 'string'
+                    ? item.profile_id
+                    : undefined,
+            medicine_name:
+                typeof item.medicine_name === 'string'
+                    ? item.medicine_name
+                    : undefined,
+            medicine_type:
+                typeof item.medicine_type === 'string'
+                    ? item.medicine_type
+                    : undefined,
+            expiry_date:
+                typeof item.expiry_date === 'string'
+                    ? item.expiry_date
+                    : undefined,
+            // Fix quantity_stock - convert bad numeric strings
+            quantity_stock: safeParseNumeric(item.quantity_stock),
+            unit: typeof item.unit === 'string' ? item.unit : undefined,
+            // Fix min_stock_alert - convert bad numeric strings
+            min_stock_alert: safeParseNumeric(item.min_stock_alert),
+            instruction:
+                typeof item.instruction === 'string'
+                    ? item.instruction
+                    : undefined,
+            // Fix dosage_value - convert bad numeric strings
+            dosage_value: safeParseNumeric(item.dosage_value),
+            dosage_unit:
+                typeof item.dosage_unit === 'string'
+                    ? item.dosage_unit
+                    : undefined,
+            // Fix dosage_per_use_value - convert bad numeric strings
+            dosage_per_use_value: safeParseNumeric(item.dosage_per_use_value),
+            dosage_per_use_unit:
+                typeof item.dosage_per_use_unit === 'string'
+                    ? item.dosage_per_use_unit
+                    : undefined,
+            use_tags: Array.isArray(item.use_tags)
+                ? item.use_tags.filter(
+                      (tag): tag is string => typeof tag === 'string',
+                  )
+                : undefined,
+            storage_location:
+                typeof item.storage_location === 'string'
+                    ? item.storage_location
+                    : undefined,
+            expiry_alert_days_before:
+                typeof item.expiry_alert_days_before === 'number'
+                    ? item.expiry_alert_days_before
+                    : undefined,
+            low_stock_alert_enabled:
+                typeof item.low_stock_alert_enabled === 'boolean'
+                    ? item.low_stock_alert_enabled
+                    : undefined,
+            created_at:
+                typeof item.created_at === 'string'
+                    ? item.created_at
+                    : undefined,
+            updated_at:
+                typeof item.updated_at === 'string'
+                    ? item.updated_at
+                    : undefined,
+            alert_low_stock:
+                typeof item.alert_low_stock === 'boolean'
+                    ? item.alert_low_stock
+                    : undefined,
+            alert_expiring:
+                typeof item.alert_expiring === 'boolean'
+                    ? item.alert_expiring
+                    : undefined,
+            alert_expired:
+                typeof item.alert_expired === 'boolean'
+                    ? item.alert_expired
+                    : undefined,
+            medicine_reminder:
+                item.medicine_reminder &&
+                typeof item.medicine_reminder === 'object'
+                    ? (item.medicine_reminder as MeMedicineReminder)
+                    : undefined,
+        }));
+}
+
+/**
+ * Sanitize health profile and fix bad numeric data
+ */
+function sanitizeHealthProfile(healthProfile: unknown): HealthProfileLike {
+    if (!healthProfile || typeof healthProfile !== 'object') {
+        return null;
+    }
+
+    const hp = healthProfile as Record<string, unknown>;
+    return {
+        profile_id:
+            typeof hp.profile_id === 'string' ? hp.profile_id : undefined,
+        blood_type:
+            typeof hp.blood_type === 'string'
+                ? hp.blood_type || null
+                : undefined,
+        chronic_diseases: Array.isArray(hp.chronic_diseases)
+            ? hp.chronic_diseases.filter(
+                  (item): item is string =>
+                      typeof item === 'string' && item.trim().length > 0,
+              )
+            : undefined,
+        allergies: Array.isArray(hp.allergies)
+            ? hp.allergies.filter(
+                  (item): item is string =>
+                      typeof item === 'string' && item.trim().length > 0,
+              )
+            : undefined,
+        drug_allergies: Array.isArray(hp.drug_allergies)
+            ? hp.drug_allergies.filter(
+                  (item): item is string =>
+                      typeof item === 'string' && item.trim().length > 0,
+              )
+            : undefined,
+        food_allergies: Array.isArray(hp.food_allergies)
+            ? hp.food_allergies.filter(
+                  (item): item is string =>
+                      typeof item === 'string' && item.trim().length > 0,
+              )
+            : undefined,
+        emergency_contacts: Array.isArray(hp.emergency_contacts)
+            ? hp.emergency_contacts.filter(
+                  (item): item is MeEmergencyContact =>
+                      !!item && typeof item === 'object',
+              )
+            : undefined,
+        notes: typeof hp.notes === 'string' ? hp.notes || null : undefined,
+        updated_at:
+            typeof hp.updated_at === 'string' ? hp.updated_at : undefined,
+        vaccines: Array.isArray(hp.vaccines) ? hp.vaccines : undefined,
+        vaccinations: Array.isArray(hp.vaccinations)
+            ? hp.vaccinations.filter(
+                  (item): item is MeVaccination =>
+                      !!item && typeof item === 'object',
+              )
+            : undefined,
+        medical_records: Array.isArray(hp.medical_records)
+            ? hp.medical_records.filter(
+                  (item): item is MeMedicalRecord =>
+                      !!item && typeof item === 'object',
+              )
+            : undefined,
+        medicine_inventory: sanitizeMedicineInventory(
+            hp.medicine_inventory as unknown[],
+        ),
+        appointment_reminders: Array.isArray(hp.appointment_reminders)
+            ? hp.appointment_reminders.filter(
+                  (item): item is MeAppointmentReminder =>
+                      !!item && typeof item === 'object',
+              )
+            : undefined,
+    };
+}
+
 function hasObjectData(value: unknown): boolean {
     return (
         !!value && typeof value === 'object' && Object.keys(value).length > 0
@@ -265,14 +517,21 @@ export function normalizeMeOverview(payload: unknown): MeOverview {
             ? overview.profiles.filter(isProfileBundle)
             : [];
         const primaryBundle = getPrimaryProfileBundle(rawProfiles, user);
-        const profile =
+
+        // Sanitize and normalize profile data
+        let profile =
             primaryBundle?.profile ??
             (overview.profile as ProfileLike | undefined) ??
             null;
-        const healthProfile =
+        profile = sanitizeProfile(profile);
+
+        // Sanitize and normalize health profile data
+        let healthProfile =
             primaryBundle?.health_profile ??
             (overview.health_profile as HealthProfileLike | undefined) ??
             null;
+        healthProfile = sanitizeHealthProfile(healthProfile);
+
         const inferredCompleted = inferPostLoginCompleted({
             ...overview,
             profile,
@@ -299,3 +558,9 @@ export function normalizeMeOverview(payload: unknown): MeOverview {
         post_login_flow_completed: false,
     };
 }
+
+// ============================================================================
+// EXPORT UTILITIES FOR USE IN COMPONENTS
+// ============================================================================
+
+export { ERROR_PLACEHOLDER, formatNumericDisplay, safeParseNumeric };

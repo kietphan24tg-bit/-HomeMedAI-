@@ -25,6 +25,7 @@ import {
 } from 'react-native-svg';
 import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
+import { formatNumericDisplay } from '@/src/features/me/types';
 import { getCategoryColor } from '@/src/utils/color-palette';
 import MedicineScreen from './MedicineScreen';
 import NotificationScreen from './NotificationScreen';
@@ -324,9 +325,28 @@ function truncateHealthTag(label: string | null, maxLength = 22): string {
 
 export default function HealthScreen(): React.JSX.Element {
     const router = useRouter();
-    const { data: meOverview } = useMeOverviewQuery();
+    const { data: meOverview, isLoading, error } = useMeOverviewQuery();
     const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [screen, setScreen] = useState<SubScreen>('main');
+
+    // Debug logging for API response
+    React.useEffect(() => {
+        if (__DEV__) {
+            if (isLoading)
+                {console.log('[HealthScreen] Loading data from /users/me...');}
+            if (error)
+                {console.error(
+                    '[HealthScreen] Error fetching /users/me:',
+                    error,
+                );}
+            if (meOverview?.profile) {
+                console.log('[HealthScreen] ✅ API data received:', {
+                    profile: meOverview.profile,
+                    health_profile: meOverview.health_profile,
+                });
+            }
+        }
+    }, [meOverview, isLoading, error]);
     const [sheet, setSheet] = useState<SheetKey>(null);
     const [blood, setBlood] = useState('');
     const [draftBlood, setDraftBlood] = useState('');
@@ -599,6 +619,39 @@ export default function HealthScreen(): React.JSX.Element {
                 barStyle='dark-content'
                 backgroundColor={colors.bgHealth}
             />
+
+            {/* Loading indicator while fetching from API */}
+            {isLoading && (
+                <View
+                    style={{
+                        padding: 16,
+                        backgroundColor: colors.infoBg,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.divider,
+                    }}
+                >
+                    <Text style={{ color: colors.info, fontSize: 12 }}>
+                        📡 Đang tải dữ liệu từ máy chủ...
+                    </Text>
+                </View>
+            )}
+
+            {/* Error indicator */}
+            {error && (
+                <View
+                    style={{
+                        padding: 16,
+                        backgroundColor: colors.dangerBg,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.divider,
+                    }}
+                >
+                    <Text style={{ color: colors.danger, fontSize: 12 }}>
+                        ⚠️ Lỗi: {error?.message || 'Không thể tải dữ liệu'}
+                    </Text>
+                </View>
+            )}
+
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingBottom: 32 }}
@@ -679,7 +732,7 @@ export default function HealthScreen(): React.JSX.Element {
                             </View>
                             <Text style={styles.bmiSub}>
                                 {height && weight
-                                    ? `${height} cm · ${weight} kg`
+                                    ? `${formatNumericDisplay(height, 0)} cm · ${formatNumericDisplay(weight, 1)} kg`
                                     : 'Cần cập nhật chiều cao/cân nặng'}
                             </Text>
                         </View>
@@ -1329,8 +1382,9 @@ export default function HealthScreen(): React.JSX.Element {
             >
                 <Pressable style={shared.overlay} onPress={closeSheet}>
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                        style={{ justifyContent: 'flex-end' }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
+                        style={{ flex: 1, justifyContent: 'flex-end' }}
                     >
                         <Pressable
                             style={shared.sheetContainer}
@@ -1349,7 +1403,14 @@ export default function HealthScreen(): React.JSX.Element {
                             </View>
 
                             {/* Body */}
-                            <View style={shared.sheetBody}>
+                            <ScrollView
+                                style={[
+                                    shared.sheetBody,
+                                    { maxHeight: 300, flexGrow: 1 },
+                                ]}
+                                scrollEnabled={true}
+                                showsVerticalScrollIndicator={true}
+                            >
                                 {sheet === 'blood' && (
                                     <View style={styles.btGrid}>
                                         {BLOOD_TYPES.map((bt) => (
@@ -1440,7 +1501,7 @@ export default function HealthScreen(): React.JSX.Element {
                                         textAlignVertical='top'
                                     />
                                 )}
-                            </View>
+                            </ScrollView>
 
                             {/* Save Button */}
                             <View style={shared.sheetBtnRow}>
@@ -1484,8 +1545,9 @@ export default function HealthScreen(): React.JSX.Element {
                     onPress={() => setTagPreview(null)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                        style={{ justifyContent: 'flex-end' }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
+                        style={{ flex: 1, justifyContent: 'flex-end' }}
                     >
                         <Pressable
                             style={shared.sheetContainer}

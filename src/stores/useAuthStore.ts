@@ -224,7 +224,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 set({ loading: true });
                 await authService.signUp({ email, password, phone_number });
                 return true;
-            } catch (error) {
+            } catch (error: any) {
                 console.error(error);
                 const detail = extractApiErrorDetail(error);
                 appToast.showError(

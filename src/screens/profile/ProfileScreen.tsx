@@ -3,8 +3,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     Keyboard,
@@ -22,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
+import { userService } from '../../services/user.services';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
 import { colors, gradients } from '../../styles/tokens';
@@ -50,24 +52,95 @@ function calcBMI(h: string, w: string): string {
 
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
+    const [userName, setUserName] = useState('');
+    const [userAge, setUserAge] = useState('20');
     const [contacts, setContacts] = useState({
-        email: 'nguyenvanam[at]email.com',
-        phone: '0901 234 567',
+        email: '',
+        phone: '',
     });
     const [contactDraft, setContactDraft] = useState(contacts);
 
     const [fields, setFields] = useState({
-        dob: '12/03/1987',
-        gender: 'Nam',
-        height: '170',
-        weight: '68',
-        address: 'Quận Bình Thạnh, TP. HCM',
-        blood: 'O+',
+        dob: '',
+        gender: '',
+        height: '',
+        weight: '',
+        address: '',
+        blood: '',
     });
 
     const [sheet, setSheet] = useState<SheetState | null>(null);
     const [draft, setDraft] = useState('');
+
+    // Fetch user data on mount
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                setLoading(true);
+                const data = await userService.getMe();
+
+                if (data.profile && data.user) {
+                    // Set profile name and contact info
+                    setUserName(data.profile.full_name || '');
+                    setContacts({
+                        email: data.user.email || '',
+                        phone: data.user.phone_number || '',
+                    });
+                    setContactDraft({
+                        email: data.user.email || '',
+                        phone: data.user.phone_number || '',
+                    });
+
+                    // Set profile fields
+                    const dob = data.profile.dob
+                        ? new Date(data.profile.dob).toLocaleDateString(
+                              'vi-VN',
+                              {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                              },
+                          )
+                        : '';
+
+                    const age = data.profile.dob
+                        ? Math.floor(
+                              (new Date().getTime() -
+                                  new Date(data.profile.dob).getTime()) /
+                                  (365.25 * 24 * 60 * 60 * 1000),
+                          )
+                        : '';
+
+                    setUserAge(String(age));
+
+                    setFields({
+                        dob: dob,
+                        gender: data.profile.gender || '',
+                        height: data.profile.height_cm || '',
+                        weight: data.profile.weight_kg || '',
+                        address: data.profile.address || '',
+                        blood: data.health_profile?.blood_type || '',
+                    });
+
+                    // Set avatar if available
+                    if (data.profile.avatar_url) {
+                        setAvatarUri(data.profile.avatar_url);
+                    }
+                }
+                setError(null);
+            } catch (err) {
+                console.error('Failed to fetch user data:', err);
+                setError('Failed to load profile data');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserData();
+    }, []);
     const openDate = () => {
         Keyboard.dismiss();
         setDraft(fields.dob);
@@ -156,14 +229,24 @@ export default function ProfileScreen(): React.JSX.Element {
         });
     };
 
-    const saveSheet = () => {
+    const saveSheet = async () => {
         if (!sheet) return;
         if (sheet.type === 'contacts') {
             setContacts(contactDraft);
             setSheet(null);
+
+            // TODO: Add API call to save contacts (email, phone)
             return;
         }
-        setFields((prev) => ({ ...prev, [sheet.key]: draft }));
+
+        // Update local state
+        const newFields = { ...fields, [sheet.key]: draft };
+        setFields(newFields);
+
+        // TODO: Add API call to save the updated field
+        // const profileId = ... (get from store or passed prop)
+        // await userService.patchMyProfile(profileId, { [sheet.key]: draft });
+
         setSheet(null);
     };
 
@@ -172,6 +255,51 @@ export default function ProfileScreen(): React.JSX.Element {
     };
 
     const bmi = calcBMI(fields.height, fields.weight);
+
+    if (loading) {
+        return (
+            <SafeAreaView
+                style={{ flex: 1, backgroundColor: colors.bgProfile }}
+            >
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                    }}
+                >
+                    <ActivityIndicator size='large' color={colors.primary} />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (error) {
+        return (
+            <SafeAreaView
+                style={{ flex: 1, backgroundColor: colors.bgProfile }}
+            >
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        paddingHorizontal: 16,
+                    }}
+                >
+                    <Text style={{ color: colors.danger, textAlign: 'center' }}>
+                        {error}
+                    </Text>
+                    <Pressable
+                        style={{ marginTop: 16 }}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={{ color: colors.primary }}>Go Back</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgProfile }}>
@@ -242,7 +370,14 @@ export default function ProfileScreen(): React.JSX.Element {
                                         style={styles.avCircle}
                                     >
                                         <Text style={styles.avInitials}>
-                                            AN
+                                            {userName
+                                                .split(' ')
+                                                .slice(-2)
+                                                .map((n) =>
+                                                    n.charAt(0).toUpperCase(),
+                                                )
+                                                .join('')
+                                                .slice(0, 2) || 'U'}
                                         </Text>
                                     </LinearGradient>
                                 )}
@@ -255,9 +390,10 @@ export default function ProfileScreen(): React.JSX.Element {
                                 </View>
                             </Pressable>
                             <View style={styles.heroMeta}>
-                                <Text style={styles.hmName}>Nguyễn Văn An</Text>
+                                <Text style={styles.hmName}>{userName}</Text>
                                 <Text style={styles.hmSub}>
-                                    38 tuổi · {fields.gender} · TP. Hồ Chí Minh
+                                    {userAge} tuổi · {fields.gender} · TP. Hồ
+                                    Chí Minh
                                 </Text>
                             </View>
                         </View>
@@ -341,6 +477,16 @@ export default function ProfileScreen(): React.JSX.Element {
                                     'numeric',
                                     true,
                                 )
+                            }
+                        />
+                        <FieldRow
+                            label='Nhóm máu'
+                            value={fields.blood}
+                            iconName='water'
+                            iconColor={colors.danger}
+                            iconBg={colors.dangerBg}
+                            onPress={() =>
+                                openSimple('blood', 'Nhóm máu', 'water')
                             }
                         />
                         <FieldRow

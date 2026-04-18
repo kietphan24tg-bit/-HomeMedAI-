@@ -12,14 +12,19 @@ export const authService = {
         password,
         phone_number,
     }: Pick<User, 'email' | 'password' | 'phone_number'>) => {
-        const normalizedPhoneNumber = toVietnamE164(phone_number);
-
-        const res = await apiClient.post('/auth/register', {
-            email,
-            phone_number: normalizedPhoneNumber ?? phone_number,
-            password,
-        });
-        return res.data;
+        try {
+            const normalizedPhoneNumber = toVietnamE164(phone_number);
+            // console.log(email , password , phone_number)
+            const res = await apiClient.post('/auth/register', {
+                email,
+                phone_number: normalizedPhoneNumber ?? phone_number,
+                password,
+                google_id: '',
+            });
+            return res.data;
+        } catch (err: any) {
+            console.log('Register err', err);
+        }
     },
     signIn: async ({
         email,
