@@ -137,6 +137,9 @@ export default function RootLayout() {
                 }
 
                 const token = registration.token;
+                const tokenType = token.startsWith('ExponentPushToken[')
+                    ? 'expo'
+                    : 'native';
 
                 if (lastSyncedToken.current === token) {
                     return;
@@ -151,6 +154,9 @@ export default function RootLayout() {
                     device_name,
                     platform,
                 });
+                console.info(
+                    `[push] synced ${tokenType} token (${token.slice(0, 20)}...)`,
+                );
 
                 lastSyncedToken.current = token;
             } catch (error) {

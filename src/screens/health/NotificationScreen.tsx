@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { appToast } from '@/src/lib/toast';
 import { notificationsService } from '@/src/services/notifications.services';
 import type { NotificationApiItem } from '@/src/services/notifications.services';
 import { moderateScale, scale, verticalScale } from '@/src/styles/responsive';
@@ -105,6 +106,7 @@ function mapApiNotification(item: NotificationApiItem): NotificationItem {
 
     return {
         id: item.id,
+        scheduleId: item.schedule_id ?? item.id,
         day: getDayGroup(item.scheduled_at),
         type: 'med',
         unread: !isCompleted,
@@ -152,6 +154,9 @@ export default function NotificationScreen({
     }, [data]);
 
     const [items, setItems] = useState<NotificationItem[]>(mappedItems);
+    const [pendingScheduleId, setPendingScheduleId] = useState<string | null>(
+        null,
+    );
 
     useEffect(() => {
         setItems(mappedItems);
@@ -165,10 +170,44 @@ export default function NotificationScreen({
             scheduleId: string;
             outcome: 'taken' | 'skipped';
         }) => notificationsService.logScheduleCompliance(scheduleId, outcome),
-        onSuccess: () => {
+        onMutate: ({ scheduleId, outcome }) => {
+            setPendingScheduleId(scheduleId);
+            const previousItems = items;
+            setItems((prev) =>
+                prev.map((item) =>
+                    item.scheduleId === scheduleId
+                        ? {
+                              ...item,
+                              unread: false,
+                              statusLabel:
+                                  outcome === 'taken' ? 'Đã dùng' : 'Đã bỏ qua',
+                              statusTone:
+                                  outcome === 'taken' ? 'success' : 'danger',
+                              showComplianceActions: false,
+                          }
+                        : item,
+                ),
+            );
+            return { previousItems };
+        },
+        onSuccess: (_, variables) => {
+            appToast.showSuccess(
+                variables.outcome === 'taken'
+                    ? 'Đã đánh dấu đã uống'
+                    : 'Đã đánh dấu bỏ qua',
+            );
             void queryClient.invalidateQueries({
                 queryKey: ['notifications', 'me'],
             });
+        },
+        onError: (_error, _variables, context) => {
+            if (context?.previousItems) {
+                setItems(context.previousItems);
+            }
+            appToast.showError('Không cập nhật được trạng thái lịch nhắc.');
+        },
+        onSettled: () => {
+            setPendingScheduleId(null);
         },
     });
 
@@ -290,13 +329,20 @@ export default function NotificationScreen({
                                                     markRead(item.id)
                                                 }
                                                 onCompliance={(outcome) =>
-                                                    complianceMutation.mutate({
-                                                        scheduleId: item.id,
-                                                        outcome,
-                                                    })
+                                                    item.scheduleId
+                                                        ? complianceMutation.mutate(
+                                                              {
+                                                                  scheduleId:
+                                                                      item.scheduleId,
+                                                                  outcome,
+                                                              },
+                                                          )
+                                                        : undefined
                                                 }
                                                 compliancePending={
-                                                    complianceMutation.isPending
+                                                    complianceMutation.isPending &&
+                                                    pendingScheduleId ===
+                                                        item.scheduleId
                                                 }
                                             />
                                         ))}
@@ -318,13 +364,16 @@ export default function NotificationScreen({
                                     isLiveApi={isLiveApi}
                                     onPress={() => markRead(item.id)}
                                     onCompliance={(outcome) =>
-                                        complianceMutation.mutate({
-                                            scheduleId: item.id,
-                                            outcome,
-                                        })
+                                        item.scheduleId
+                                            ? complianceMutation.mutate({
+                                                  scheduleId: item.scheduleId,
+                                                  outcome,
+                                              })
+                                            : undefined
                                     }
                                     compliancePending={
-                                        complianceMutation.isPending
+                                        complianceMutation.isPending &&
+                                        pendingScheduleId === item.scheduleId
                                     }
                                 />
                             ))}

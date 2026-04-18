@@ -50,6 +50,14 @@ function calcBMI(h: string, w: string): string {
     return `BMI ${bmi.toFixed(1)}`;
 }
 
+function parseDateSafe(value: unknown): Date | null {
+    if (typeof value !== 'string' || !value.trim()) {
+        return null;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -95,21 +103,18 @@ export default function ProfileScreen(): React.JSX.Element {
                     });
 
                     // Set profile fields
-                    const dob = data.profile.dob
-                        ? new Date(data.profile.dob).toLocaleDateString(
-                              'vi-VN',
-                              {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                              },
-                          )
+                    const dobDate = parseDateSafe(data.profile.dob);
+                    const dob = dobDate
+                        ? dobDate.toLocaleDateString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                          })
                         : '';
 
-                    const age = data.profile.dob
+                    const age = dobDate
                         ? Math.floor(
-                              (new Date().getTime() -
-                                  new Date(data.profile.dob).getTime()) /
+                              (new Date().getTime() - dobDate.getTime()) /
                                   (365.25 * 24 * 60 * 60 * 1000),
                           )
                         : '';
