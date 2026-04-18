@@ -269,8 +269,8 @@ export default function PersonalInfoScreen({
                     full_name: trimmedFullName,
                     dob: dob ? toApiDate(dob) : null,
                     gender: gender || null,
-                    height_cm: parsedHeight,
-                    weight_kg: parsedWeight,
+                    height_cm: parsedHeight + '',
+                    weight_kg: parsedWeight + '',
                     address: trimmedAddress || null,
                 },
             });
@@ -283,7 +283,7 @@ export default function PersonalInfoScreen({
             );
 
             const overview = await syncMeOverview();
-
+            console.log(overview);
             if (!overview?.post_login_flow_completed) {
                 appToast.showWarning(
                     'Chưa hoàn tất',
