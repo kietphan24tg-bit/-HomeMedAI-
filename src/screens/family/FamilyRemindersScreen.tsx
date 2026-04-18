@@ -25,6 +25,7 @@ type Reminder = {
     medicineName: string;
     dosageInfo: string;
     status: 'pending' | 'taken' | 'skipped';
+    date?: string;
 };
 
 const AVATAR_COLORS = ['#0E8A7D', '#2563EB', '#7C3AED', '#EA580C', '#BE123C'];
@@ -81,10 +82,19 @@ function toReminder(item: NotificationApiItem): Reminder {
         ? `Liều ${item.dosage_per_time}`
         : item.title?.trim() || 'Lịch nhắc thuốc';
 
+    let dateStr;
+    if (item.scheduled_at) {
+        const d = new Date(item.scheduled_at);
+        if (!isNaN(d.getTime())) {
+            dateStr = d.toLocaleDateString('vi-VN');
+        }
+    }
+
     return {
         id: item.id,
         scheduleId: item.schedule_id || item.id,
         time: item.remind_time || '--:--',
+        date: dateStr,
         memberName,
         memberInitials: getInitials(memberName),
         medicineName: medicine,
@@ -219,8 +229,9 @@ export default function FamilyRemindersScreen({
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* ── SECTION TITLE ── */}
-                <Text style={styles.sectionTitle}>Ngày 07/04/2026</Text>
+                {reminders.length > 0 && (
+                    <Text style={styles.sectionTitle}>Tất cả lịch nhắc</Text>
+                )}
 
                 {/* ── REMINDER CARDS ── */}
                 {reminders.length === 0 && (
@@ -245,7 +256,9 @@ export default function FamilyRemindersScreen({
                                         color={colors.warning}
                                     />
                                     <Text style={styles.timePillText}>
-                                        {reminder.time}
+                                        {reminder.date
+                                            ? `${reminder.date} • ${reminder.time}`
+                                            : reminder.time}
                                     </Text>
                                 </View>
                                 {reminder.status !== 'pending' && (

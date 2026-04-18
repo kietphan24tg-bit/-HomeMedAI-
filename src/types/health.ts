@@ -142,6 +142,7 @@ export interface NotificationItem {
     summary?: string;
     detail?: string;
     time: string;
+    date?: string;
     context?: string;
     statusLabel?: string;
     statusTone?: NotiTone;

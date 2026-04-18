@@ -1,3 +1,4 @@
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { create } from 'zustand';
 import { getMeOverviewQueryOptions } from '@/src/features/me/queries';
 import type { MeOverview } from '@/src/features/me/types';
@@ -25,6 +26,38 @@ function isAxiosNetworkError(error: unknown) {
         maybeAxiosError?.message === 'Network Error' ||
         (!maybeAxiosError?.response && maybeAxiosError?.code === 'ERR_NETWORK')
     );
+}
+
+function extractApiErrorDetail(error: unknown): string | null {
+    const maybeAxiosError = error as
+        | {
+              response?: {
+                  data?: {
+                      detail?: string | { msg?: string }[];
+                      message?: string;
+                  };
+              };
+          }
+        | undefined;
+
+    const detail = maybeAxiosError?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail.trim();
+    }
+
+    if (Array.isArray(detail) && detail.length > 0) {
+        const firstMessage = detail[0]?.msg;
+        if (typeof firstMessage === 'string' && firstMessage.trim()) {
+            return firstMessage.trim();
+        }
+    }
+
+    const message = maybeAxiosError?.response?.data?.message;
+    if (typeof message === 'string' && message.trim()) {
+        return message.trim();
+    }
+
+    return null;
 }
 
 function showNetworkSyncWarning() {
@@ -193,9 +226,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 return true;
             } catch (error) {
                 console.error(error);
+                const detail = extractApiErrorDetail(error);
                 appToast.showError(
                     'Error',
-                    'Đăng ký thất bại. Vui lòng thử lại.',
+                    detail ?? 'Đăng ký thất bại. Vui lòng thử lại.',
                 );
                 return false;
             } finally {
@@ -362,6 +396,11 @@ export const useAuthStore = create<AuthStore>((set, get) => {
                 }
             } finally {
                 await get().clearSession();
+                try {
+                    await GoogleSignin.signOut();
+                } catch (googleError) {
+                    // Ignore google error if not signed in via google
+                }
                 appToast.showSuccess('Thành công', 'Đăng xuất thành công!');
             }
         },

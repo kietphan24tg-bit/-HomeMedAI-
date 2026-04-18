@@ -9,6 +9,7 @@ import {
     resolveApiBaseUrl,
 } from './base-url';
 import { mockAdapter } from './mock-adapter';
+import { shouldAttemptRefresh, shouldSkipRefresh } from './refresh-core';
 import { callRefreshTokenApi } from './token-refresh';
 
 const USE_MOCK = __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true';
@@ -21,14 +22,6 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
-
-function shouldSkipRefresh(url?: string) {
-    return !url || EXCLUDED_REFRESH_PATHS.some((path) => url.includes(path));
-}
-
-function shouldAttemptRefresh(status?: number) {
-    return status === 401 || status === 403;
-}
 
 function isNetworkError(error: unknown) {
     const candidate = error as
@@ -177,7 +170,7 @@ apiClient.interceptors.response.use(
         originalRequest._retry = true;
 
         try {
-            const accessToken = await refreshCoordinator.refreshAccessToken();
+            const accessToken = await refreshAccessToken();
 
             originalRequest.headers = originalRequest.headers ?? {};
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;

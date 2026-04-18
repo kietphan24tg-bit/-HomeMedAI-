@@ -16,7 +16,6 @@ import type { NotificationApiItem } from '@/src/services/notifications.services'
 import { moderateScale, scale, verticalScale } from '@/src/styles/responsive';
 import type { NotiDay, NotificationItem, NotiType } from '@/src/types/health';
 import { styles } from './styles';
-import { RICH_NOTIFICATIONS } from '../../data/health-data';
 import { colors } from '../../styles/tokens';
 
 const NOTI_TYPE_META: Record<
@@ -96,6 +95,14 @@ function mapApiNotification(item: NotificationApiItem): NotificationItem {
     const showCompliance =
         item.category === 'MEDICINE' && st !== 'COMPLETED' && st !== 'PAUSED';
 
+    let dateStr;
+    if (item.scheduled_at) {
+        const d = new Date(item.scheduled_at);
+        if (!isNaN(d.getTime())) {
+            dateStr = d.toLocaleDateString('vi-VN');
+        }
+    }
+
     return {
         id: item.id,
         day: getDayGroup(item.scheduled_at),
@@ -105,6 +112,7 @@ function mapApiNotification(item: NotificationApiItem): NotificationItem {
         summary,
         detail,
         time: formatTime(item),
+        date: dateStr,
         context: item.family_name ?? item.profile_name ?? undefined,
         statusLabel: isCompleted ? 'Đã dùng' : 'Đến giờ',
         statusTone: isCompleted ? 'success' : 'warning',
@@ -134,11 +142,11 @@ export default function NotificationScreen({
         staleTime: 1000 * 60,
     });
 
-    const isLiveApi = Boolean(data?.items?.length);
+    const isLiveApi = Boolean(data);
 
     const mappedItems = useMemo(() => {
-        if (!data?.items?.length) {
-            return RICH_NOTIFICATIONS.map((item) => ({ ...item }));
+        if (!data?.items) {
+            return [];
         }
         return data.items.map(mapApiNotification);
     }, [data]);
@@ -392,7 +400,11 @@ function NotiCard({
                     </View>
 
                     <View style={styles.notiTimeWrap}>
-                        <Text style={styles.notiTime}>{item.time}</Text>
+                        <Text style={styles.notiTime}>
+                            {item.date
+                                ? `${item.date}\n${item.time}`
+                                : item.time}
+                        </Text>
                     </View>
                 </View>
             </Pressable>
