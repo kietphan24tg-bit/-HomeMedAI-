@@ -75,6 +75,23 @@ function updateOverviewHealthProfileCache(
     };
 }
 
+function extractHealthProfileResponse(response: unknown) {
+    if (!response || typeof response !== 'object') {
+        return null;
+    }
+
+    const record = response as Record<string, unknown>;
+    if (record.health_profile && typeof record.health_profile === 'object') {
+        return record.health_profile as Record<string, unknown>;
+    }
+
+    if (record.profile_id || record.blood_type || record.updated_at) {
+        return record;
+    }
+
+    return null;
+}
+
 export function useCreateMyProfileMutation() {
     return useMutation({
         mutationFn: (payload: CreatePersonalProfilePayload) =>
@@ -103,17 +120,32 @@ export function usePatchMyHealthProfileMutation() {
             profileId: string;
             payload: PatchMyHealthProfilePayload;
         }) => userService.patchMyHealthProfile(profileId, payload),
+        onMutate: (variables) => {
+            const optimisticHealthProfile = {
+                ...variables.payload,
+                profile_id: variables.profileId,
+            };
+            appQueryClient.setQueryData(
+                meQueryKeys.overview(),
+                (old: MeOverview | undefined) =>
+                    updateOverviewHealthProfileCache(
+                        old,
+                        optimisticHealthProfile,
+                    ),
+            );
+        },
         onSuccess: (response, variables) => {
-            const serverHealthProfile =
-                response && typeof response === 'object'
-                    ? (response as Record<string, unknown>)
-                    : null;
+            const serverHealthProfile = extractHealthProfileResponse(response);
             const fallbackHealthProfile = {
                 ...variables.payload,
                 profile_id: variables.profileId,
             };
-            const nextHealthProfile =
-                serverHealthProfile ?? fallbackHealthProfile;
+            const nextHealthProfile = serverHealthProfile
+                ? {
+                      ...serverHealthProfile,
+                      ...fallbackHealthProfile,
+                  }
+                : fallbackHealthProfile;
 
             appQueryClient.setQueryData(
                 meQueryKeys.overview(),

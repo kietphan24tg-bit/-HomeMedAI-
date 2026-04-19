@@ -20,10 +20,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-    usePatchMyHealthProfileMutation,
-    usePatchMyProfileMutation,
-} from '@/src/features/me/mutations';
+import { usePatchMyProfileMutation } from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
@@ -97,6 +94,44 @@ function stringValue(value: unknown): string {
     return '';
 }
 
+function displayGender(value: unknown): string {
+    const normalized = stringValue(value).trim().toLowerCase();
+    if (normalized === 'male' || normalized === 'nam') return 'Nam';
+    if (normalized === 'female' || normalized === 'nữ' || normalized === 'nu') {
+        return 'Nữ';
+    }
+    if (
+        normalized === 'other' ||
+        normalized === 'khác' ||
+        normalized === 'khac'
+    ) {
+        return 'Khác';
+    }
+    return stringValue(value);
+}
+
+function apiGender(value: string): string | null {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'nam' || normalized === 'male') return 'male';
+    if (normalized === 'nữ' || normalized === 'nu' || normalized === 'female') {
+        return 'female';
+    }
+    if (
+        normalized === 'khác' ||
+        normalized === 'khac' ||
+        normalized === 'other'
+    ) {
+        return 'other';
+    }
+    return normalized;
+}
+
+/** Tuổi hiển thị: năm hiện tại − năm sinh (theo ngày sinh trong hồ sơ). */
+function ageYearsFromDob(dobDate: Date): number {
+    return new Date().getFullYear() - dobDate.getFullYear();
+}
+
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
@@ -106,7 +141,6 @@ export default function ProfileScreen(): React.JSX.Element {
         error: queryError,
     } = useMeOverviewQuery();
     const patchProfileMutation = usePatchMyProfileMutation();
-    const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
     const [userName, setUserName] = useState('');
     const [userAge, setUserAge] = useState('20');
@@ -122,7 +156,6 @@ export default function ProfileScreen(): React.JSX.Element {
         height: '',
         weight: '',
         address: '',
-        blood: '',
     });
 
     const [sheet, setSheet] = useState<SheetState | null>(null);
@@ -138,21 +171,10 @@ export default function ProfileScreen(): React.JSX.Element {
             meOverview?.user && typeof meOverview.user === 'object'
                 ? meOverview.user
                 : null;
-        const healthProfile =
-            meOverview?.health_profile &&
-            typeof meOverview.health_profile === 'object'
-                ? meOverview.health_profile
-                : null;
-
         if (!profile || !user) return;
 
         const dobDate = parseDateSafe(profile.dob);
-        const age = dobDate
-            ? Math.floor(
-                  (new Date().getTime() - dobDate.getTime()) /
-                      (365.25 * 24 * 60 * 60 * 1000),
-              )
-            : '';
+        const age = dobDate ? ageYearsFromDob(dobDate) : '';
 
         setUserName(stringValue(profile.full_name));
         setUserAge(String(age));
@@ -166,11 +188,10 @@ export default function ProfileScreen(): React.JSX.Element {
         });
         setFields({
             dob: formatDisplayDate(profile.dob),
-            gender: stringValue(profile.gender),
+            gender: displayGender(profile.gender),
             height: stringValue(profile.height_cm),
             weight: stringValue(profile.weight_kg),
             address: stringValue(profile.address),
-            blood: stringValue(healthProfile?.blood_type),
         });
         setAvatarUri(stringValue(profile.avatar_url) || null);
         setError(null);
@@ -269,13 +290,7 @@ export default function ProfileScreen(): React.JSX.Element {
             meOverview?.profile && typeof meOverview.profile === 'object'
                 ? meOverview.profile
                 : null;
-        const healthProfile =
-            meOverview?.health_profile &&
-            typeof meOverview.health_profile === 'object'
-                ? meOverview.health_profile
-                : null;
-        const profileId =
-            stringValue(profile?.id) || stringValue(healthProfile?.profile_id);
+        const profileId = stringValue(profile?.id);
 
         if (sheet.type === 'contacts') {
             setContacts(contactDraft);
@@ -293,40 +308,45 @@ export default function ProfileScreen(): React.JSX.Element {
             return;
         }
 
-        try {
-            if (sheet.key === 'blood') {
-                await patchHealthMutation.mutateAsync({
-                    profileId,
-                    payload: {
-                        blood_type: draft.trim() || null,
-                    },
-                });
-            } else {
-                const payload =
-                    sheet.key === 'dob'
-                        ? { dob: formatApiDate(draft) }
-                        : sheet.key === 'height'
-                          ? { height_cm: draft.trim() || null }
-                          : sheet.key === 'weight'
-                            ? { weight_kg: draft.trim() || null }
-                            : sheet.key === 'gender'
-                              ? { gender: draft.trim() || null }
-                              : sheet.key === 'address'
-                                ? { address: draft.trim() || null }
-                                : {};
+        setFields((current) => ({ ...current, [sheet.key]: draft }));
+        setSheet(null);
 
-                await patchProfileMutation.mutateAsync({
-                    profileId,
-                    payload,
-                });
-            }
-
-            setFields((current) => ({ ...current, [sheet.key]: draft }));
-            setSheet(null);
-        } catch (err) {
-            console.error('Failed to save profile field:', err);
+        const onError = (err: unknown) => {
+            const apiError = err as {
+                config?: { url?: string; data?: unknown };
+                response?: { status?: number; data?: unknown };
+            };
+            console.error('Failed to save profile field:', {
+                key: sheet.key,
+                status: apiError.response?.status,
+                url: apiError.config?.url,
+                requestData: apiError.config?.data,
+                responseData: apiError.response?.data,
+                error: err,
+            });
             Alert.alert('Không thể lưu', 'Vui lòng thử lại sau.');
-        }
+        };
+
+        const payload =
+            sheet.key === 'dob'
+                ? { dob: formatApiDate(draft) }
+                : sheet.key === 'height'
+                  ? { height_cm: draft.trim() || null }
+                  : sheet.key === 'weight'
+                    ? { weight_kg: draft.trim() || null }
+                    : sheet.key === 'gender'
+                      ? { gender: apiGender(draft) }
+                      : sheet.key === 'address'
+                        ? { address: draft.trim() || null }
+                        : {};
+
+        patchProfileMutation.mutate(
+            {
+                profileId,
+                payload,
+            },
+            { onError },
+        );
     };
 
     const handleLogout = async (): Promise<void> => {
@@ -473,8 +493,8 @@ export default function ProfileScreen(): React.JSX.Element {
                             <View style={styles.heroMeta}>
                                 <Text style={styles.hmName}>{userName}</Text>
                                 <Text style={styles.hmSub}>
-                                    {userAge} tuổi · {fields.gender} · TP. Hồ
-                                    Chí Minh
+                                    {userAge} tuổi · 
+                                    {fields.address.trim() || '—'}
                                 </Text>
                             </View>
                         </View>
@@ -558,16 +578,6 @@ export default function ProfileScreen(): React.JSX.Element {
                                     'numeric',
                                     true,
                                 )
-                            }
-                        />
-                        <FieldRow
-                            label='Nhóm máu'
-                            value={fields.blood}
-                            iconName='water'
-                            iconColor={colors.danger}
-                            iconBg={colors.dangerBg}
-                            onPress={() =>
-                                openSimple('blood', 'Nhóm máu', 'water')
                             }
                         />
                         <FieldRow

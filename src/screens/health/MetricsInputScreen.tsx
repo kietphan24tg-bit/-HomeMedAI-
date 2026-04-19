@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -13,8 +14,6 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
-import { useMeOverviewQuery } from '@/src/features/me/queries';
 import {
     moderateScale,
     scale,
@@ -79,99 +78,6 @@ function normalizeMetricType(value: unknown, fallback: MetricType): MetricType {
         : fallback;
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object'
-        ? (value as Record<string, unknown>)
-        : {};
-}
-
-function recordList(value: unknown): Record<string, unknown>[] {
-    return Array.isArray(value)
-        ? value.filter(
-              (item): item is Record<string, unknown> =>
-                  !!item && typeof item === 'object',
-          )
-        : [];
-}
-
-function numericValue(value: string): number | null {
-    const parsed = Number(value.replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
-function buildMeasuredAt(dateText: string, timeText: string): string {
-    const [day, month, year] = dateText.split('/').map(Number);
-    const [hour, minute] = timeText.split(':').map(Number);
-
-    if (!day || !month || !year) {
-        return new Date().toISOString();
-    }
-
-    const date = new Date(
-        year,
-        month - 1,
-        day,
-        Number.isFinite(hour) ? hour : 0,
-        Number.isFinite(minute) ? minute : 0,
-    );
-
-    return Number.isNaN(date.getTime())
-        ? new Date().toISOString()
-        : date.toISOString();
-}
-
-function metricStatus(metric: MetricType, input: MetricInput): string {
-    if (metric === 'bp') {
-        const systolic = numericValue(input.systolic ?? '') ?? 0;
-        const diastolic = numericValue(input.diastolic ?? '') ?? 0;
-        return systolic >= 130 || diastolic >= 85 ? 'Cao' : 'Bình thường';
-    }
-
-    if (metric === 'glucose') {
-        const glucose = numericValue(input.glucose ?? '') ?? 0;
-        return glucose >= 6 ? 'Cao' : 'Bình thường';
-    }
-
-    return 'Bình thường';
-}
-
-function buildHealthMetric(
-    metric: MetricType,
-    profileId: string,
-    input: MetricInput,
-) {
-    const base = {
-        id: `metric-${Date.now()}`,
-        profile_id: profileId,
-        metric_type: metric,
-        measured_at: buildMeasuredAt(input.date, input.time),
-        status: metricStatus(metric, input),
-        notes: input.notes.trim() || null,
-        created_at: new Date().toISOString(),
-    };
-
-    if (metric === 'bp') {
-        return {
-            ...base,
-            systolic: numericValue(input.systolic ?? ''),
-            diastolic: numericValue(input.diastolic ?? ''),
-            heart_rate: numericValue(input.heartRate ?? ''),
-        };
-    }
-
-    if (metric === 'weight') {
-        return {
-            ...base,
-            weight_kg: numericValue(input.weight ?? ''),
-        };
-    }
-
-    return {
-        ...base,
-        glucose_mmol_l: numericValue(input.glucose ?? ''),
-    };
-}
-
 /**
  * Standalone Metrics Input Screen (C3c-input)
  * For adding/editing health metric measurements
@@ -184,18 +90,9 @@ export default function MetricsInputScreen({
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
-    const { data: meOverview } = useMeOverviewQuery();
-    const patchHealthMutation = usePatchMyHealthProfileMutation();
 
     const metric = normalizeMetricType(params.metric, metricType);
     const config = METRIC_CONFIG[metric];
-    const profile = asRecord(meOverview?.profile);
-    const healthProfile = asRecord(meOverview?.health_profile);
-    const profileId =
-        (typeof healthProfile.profile_id === 'string' &&
-            healthProfile.profile_id) ||
-        (typeof profile.id === 'string' && profile.id) ||
-        '';
 
     // Get current date and time
     const now = new Date();
@@ -219,21 +116,10 @@ export default function MetricsInputScreen({
             return;
         }
 
-        if (!profileId) {
-            router.back();
-            return;
-        }
-
-        const nextMetric = buildHealthMetric(metric, profileId, input);
-        const currentMetrics = recordList(healthProfile.health_metrics);
-
-        await patchHealthMutation.mutateAsync({
-            profileId,
-            payload: {
-                health_metrics: [nextMetric, ...currentMetrics],
-            },
-        });
-        router.back();
+        Alert.alert(
+            'Chưa có API lưu chỉ số',
+            'OpenAPI hiện tại chỉ trả health_metrics trong GET /users/me, chưa có endpoint tạo lần đo mới.',
+        );
     };
 
     const handleCancel = () => {
@@ -434,19 +320,12 @@ export default function MetricsInputScreen({
                     <View style={styles.saveInline}>
                         <Pressable
                             onPress={handleSave}
-                            disabled={patchHealthMutation.isPending}
                             style={({ pressed }) => [
                                 styles.saveBtn,
                                 pressed && shared.pressed,
-                                patchHealthMutation.isPending &&
-                                    styles.saveBtnDisabled,
                             ]}
                         >
-                            <Text style={styles.saveBtnText}>
-                                {patchHealthMutation.isPending
-                                    ? 'Đang lưu...'
-                                    : 'Lưu lần đo'}
-                            </Text>
+                            <Text style={styles.saveBtnText}>Lưu lần đo</Text>
                         </Pressable>
                     </View>
                 </ScrollView>

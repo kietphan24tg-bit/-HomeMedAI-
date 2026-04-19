@@ -24,9 +24,113 @@ export type PatchMyHealthProfilePayload = {
     drug_allergies?: string[] | null;
     food_allergies?: string[] | null;
     emergency_contact?: string | null;
+    emergency_contacts?:
+        | {
+              name?: string | null;
+              phone?: string | null;
+              relationship?: string | null;
+          }[]
+        | null;
     notes?: string | null;
-    health_metrics?: Record<string, unknown>[] | null;
 };
+
+const EXTENDED_HEALTH_PROFILE_KEYS = [
+    'drug_allergies',
+    'food_allergies',
+    'emergency_contacts',
+] as const;
+
+function compactPayload<T extends Record<string, unknown>>(payload: T) {
+    return Object.fromEntries(
+        Object.entries(payload).filter(([, value]) => value !== undefined),
+    ) as Partial<T>;
+}
+
+function uniqueStrings(values: unknown[]) {
+    return Array.from(
+        new Set(
+            values.filter(
+                (value): value is string =>
+                    typeof value === 'string' && value.trim().length > 0,
+            ),
+        ),
+    );
+}
+
+function hasExtendedHealthProfileFields(payload: PatchMyHealthProfilePayload) {
+    return EXTENDED_HEALTH_PROFILE_KEYS.some((key) => key in payload);
+}
+
+function toLegacyHealthProfilePayload(payload: PatchMyHealthProfilePayload) {
+    const hasAllergiesField = Object.prototype.hasOwnProperty.call(
+        payload,
+        'allergies',
+    );
+    const hasExtendedFields = hasExtendedHealthProfileFields(payload);
+    const mergedAllergies = uniqueStrings([
+        ...(payload.allergies ?? []),
+        ...(payload.drug_allergies ?? []),
+        ...(payload.food_allergies ?? []),
+    ]);
+    const emergencyContact =
+        payload.emergency_contact ??
+        payload.emergency_contacts
+            ?.map((contact) =>
+                [contact.name, contact.phone, contact.relationship]
+                    .filter(Boolean)
+                    .join(' - '),
+            )
+            .filter(Boolean)
+            .join('\n') ??
+        undefined;
+
+    return compactPayload({
+        blood_type: payload.blood_type,
+        chronic_diseases: payload.chronic_diseases,
+        allergies:
+            mergedAllergies.length > 0
+                ? mergedAllergies
+                : payload.allergies === null
+                  ? null
+                  : hasAllergiesField || hasExtendedFields
+                    ? []
+                    : undefined,
+        emergency_contact: emergencyContact,
+        notes: payload.notes,
+    });
+}
+
+function toCompleteLegacyHealthProfilePayload(
+    payload: PatchMyHealthProfilePayload,
+) {
+    const legacyPayload = toLegacyHealthProfilePayload(payload);
+
+    return {
+        blood_type: Object.prototype.hasOwnProperty.call(
+            legacyPayload,
+            'blood_type',
+        )
+            ? legacyPayload.blood_type
+            : null,
+        chronic_diseases: legacyPayload.chronic_diseases ?? [],
+        allergies: legacyPayload.allergies ?? [],
+        emergency_contact: Object.prototype.hasOwnProperty.call(
+            legacyPayload,
+            'emergency_contact',
+        )
+            ? legacyPayload.emergency_contact
+            : null,
+        notes: Object.prototype.hasOwnProperty.call(legacyPayload, 'notes')
+            ? legacyPayload.notes
+            : null,
+    };
+}
+
+function isServerError(error: unknown) {
+    const status = (error as { response?: { status?: number } })?.response
+        ?.status;
+    return typeof status === 'number' && status >= 500;
+}
 
 export type UserMeResponse = {
     user: {
@@ -118,10 +222,22 @@ export const userService = {
         profileId: string,
         payload: PatchMyHealthProfilePayload,
     ) => {
-        const res = await apiClient.patch(
-            `/profiles/${profileId}/health`,
-            payload,
-        );
-        return res.data;
+        try {
+            const res = await apiClient.patch(
+                `/profiles/${profileId}/health`,
+                toLegacyHealthProfilePayload(payload),
+            );
+            return res.data;
+        } catch (error) {
+            if (!isServerError(error)) {
+                throw error;
+            }
+
+            const res = await apiClient.patch(
+                `/profiles/${profileId}/health`,
+                toCompleteLegacyHealthProfilePayload(payload),
+            );
+            return res.data;
+        }
     },
 };

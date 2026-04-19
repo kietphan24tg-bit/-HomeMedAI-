@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    Alert,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -26,6 +27,7 @@ import {
 import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { formatNumericDisplay } from '@/src/features/me/types';
+import type { PatchMyHealthProfilePayload } from '@/src/services/user.services';
 import { getCategoryColor } from '@/src/utils/color-palette';
 import MedicineScreen from './MedicineScreen';
 import NotificationScreen from './NotificationScreen';
@@ -84,6 +86,10 @@ function stringList(value: unknown): string[] {
                   typeof item === 'string' && item.trim().length > 0,
           )
         : [];
+}
+
+function uniqueStrings(values: string[]) {
+    return Array.from(new Set(values));
 }
 
 function recordList(value: unknown): Record<string, unknown>[] {
@@ -329,26 +335,11 @@ export default function HealthScreen(): React.JSX.Element {
     const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [screen, setScreen] = useState<SubScreen>('main');
 
-    // Debug logging for API response
     React.useEffect(() => {
-        if (__DEV__) {
-            if (isLoading) {
-                console.log('[HealthScreen] Loading data from /users/me...');
-            }
-            if (error) {
-                console.error(
-                    '[HealthScreen] Error fetching /users/me:',
-                    error,
-                );
-            }
-            if (meOverview?.profile) {
-                console.log('[HealthScreen] ✅ API data received:', {
-                    profile: meOverview.profile,
-                    health_profile: meOverview.health_profile,
-                });
-            }
+        if (__DEV__ && error) {
+            console.error('[HealthScreen] Error fetching /users/me:', error);
         }
-    }, [meOverview, isLoading, error]);
+    }, [error]);
     const [sheet, setSheet] = useState<SheetKey>(null);
     const [blood, setBlood] = useState('');
     const [draftBlood, setDraftBlood] = useState('');
@@ -370,7 +361,8 @@ export default function HealthScreen(): React.JSX.Element {
         () => asRecord(meOverview?.health_profile),
         [meOverview?.health_profile],
     );
-    const profileId = nullableString(profile.id);
+    const profileId =
+        nullableString(healthProfile.profile_id) ?? nullableString(profile.id);
     const displayName =
         nullableString(profile.full_name) ??
         nullableString(meOverview?.user?.email) ??
@@ -449,26 +441,61 @@ export default function HealthScreen(): React.JSX.Element {
                 : [...foodAllergies];
         const nextNote = sheet === 'note' ? draftHealthNote.trim() : healthNote;
 
+        if (!profileId) {
+            Alert.alert('Không thể lưu', 'Không tìm thấy hồ sơ hiện tại.');
+            return;
+        }
+
+        const payload: PatchMyHealthProfilePayload = {};
+
+        if (sheet === 'blood') {
+            payload.blood_type = nextBlood || null;
+        } else if (sheet === 'disease') {
+            payload.chronic_diseases = nextDiseases;
+        } else if (sheet === 'allergy') {
+            payload.allergies = nextAllergies;
+            payload.drug_allergies = nextAllergies;
+        } else if (sheet === 'foodAllergy') {
+            payload.food_allergies = nextFoodAllergies;
+            payload.allergies = uniqueStrings([
+                ...nextAllergies,
+                ...nextFoodAllergies,
+            ]);
+        } else if (sheet === 'note') {
+            payload.notes = nextNote || null;
+        }
+
         setBlood(nextBlood);
         setDiseases(nextDiseases);
         setAllergies(nextAllergies);
         setFoodAllergies(nextFoodAllergies);
         setHealthNote(nextNote);
-
-        if (profileId) {
-            patchHealthMutation.mutate({
-                profileId,
-                payload: {
-                    blood_type: nextBlood || null,
-                    chronic_diseases: nextDiseases,
-                    allergies: nextAllergies,
-                    drug_allergies: nextAllergies,
-                    food_allergies: nextFoodAllergies,
-                    notes: nextNote || null,
-                },
-            });
-        }
         setSheet(null);
+
+        patchHealthMutation.mutate(
+            {
+                profileId,
+                payload,
+            },
+            {
+                onError: (err) => {
+                    const apiError = err as {
+                        config?: { url?: string; data?: unknown };
+                        response?: { status?: number; data?: unknown };
+                    };
+                    console.warn(
+                        'Failed to save health profile in background:',
+                        {
+                            status: apiError.response?.status,
+                            url: apiError.config?.url,
+                            requestData: apiError.config?.data,
+                            responseData: apiError.response?.data,
+                            error: err,
+                        },
+                    );
+                },
+            },
+        );
     }, [
         sheet,
         blood,

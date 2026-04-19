@@ -394,7 +394,9 @@ function sanitizeHealthProfile(healthProfile: unknown): HealthProfileLike {
         blood_type:
             typeof hp.blood_type === 'string'
                 ? hp.blood_type || null
-                : undefined,
+                : hp.blood_type === null
+                  ? null
+                  : undefined,
         chronic_diseases: Array.isArray(hp.chronic_diseases)
             ? hp.chronic_diseases.filter(
                   (item): item is string =>
@@ -425,7 +427,12 @@ function sanitizeHealthProfile(healthProfile: unknown): HealthProfileLike {
                       !!item && typeof item === 'object',
               )
             : undefined,
-        notes: typeof hp.notes === 'string' ? hp.notes || null : undefined,
+        notes:
+            typeof hp.notes === 'string'
+                ? hp.notes || null
+                : hp.notes === null
+                  ? null
+                  : undefined,
         updated_at:
             typeof hp.updated_at === 'string' ? hp.updated_at : undefined,
         vaccines: Array.isArray(hp.vaccines) ? hp.vaccines : undefined,
@@ -521,12 +528,45 @@ function getPrimaryProfileBundle(
             return false;
         }
 
-        const linkedUserId = (entry.profile as Record<string, unknown>)
-            .linked_user_id;
+        const profile = entry.profile as Record<string, unknown>;
+        const linkedUserId = profile.linked_user_id;
         return typeof linkedUserId === 'string' && linkedUserId === userId;
     });
 
-    return linkedEntry ?? profiles[0];
+    const ownedEntry = profiles.find((entry) => {
+        if (!entry.profile || typeof entry.profile !== 'object') {
+            return false;
+        }
+
+        const profile = entry.profile as Record<string, unknown>;
+        const ownerUserId = profile.owner_user_id;
+        return typeof ownerUserId === 'string' && ownerUserId === userId;
+    });
+
+    return linkedEntry ?? ownedEntry ?? profiles[0];
+}
+
+function getProfileId(profile: unknown): string | null {
+    if (!profile || typeof profile !== 'object') {
+        return null;
+    }
+
+    const id = (profile as Record<string, unknown>).id;
+    return typeof id === 'string' ? id : null;
+}
+
+function findProfileBundleByProfileId(
+    profiles: MeProfileBundle[],
+    profileId: string | null,
+): MeProfileBundle | null {
+    if (!profileId) {
+        return null;
+    }
+
+    return (
+        profiles.find((entry) => getProfileId(entry.profile) === profileId) ??
+        null
+    );
 }
 
 export function normalizeMeOverview(payload: unknown): MeOverview {
@@ -539,17 +579,22 @@ export function normalizeMeOverview(payload: unknown): MeOverview {
         const rawProfiles = Array.isArray(overview.profiles)
             ? overview.profiles.filter(isProfileBundle)
             : [];
-        const primaryBundle = getPrimaryProfileBundle(rawProfiles, user);
+        const explicitProfile =
+            (overview.profile as ProfileLike | undefined) ?? null;
+        const explicitProfileBundle = findProfileBundleByProfileId(
+            rawProfiles,
+            getProfileId(explicitProfile),
+        );
+        const primaryBundle =
+            explicitProfileBundle ?? getPrimaryProfileBundle(rawProfiles, user);
 
         // Sanitize and normalize profile data
-        let profile =
-            primaryBundle?.profile ??
-            (overview.profile as ProfileLike | undefined) ??
-            null;
+        let profile = explicitProfile ?? primaryBundle?.profile ?? null;
         profile = sanitizeProfile(profile);
 
         // Sanitize and normalize health profile data
         let healthProfile =
+            explicitProfileBundle?.health_profile ??
             primaryBundle?.health_profile ??
             (overview.health_profile as HealthProfileLike | undefined) ??
             null;
