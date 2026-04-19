@@ -21,6 +21,7 @@ export type PatchMyHealthProfilePayload = {
     food_allergies?: string[] | null;
     emergency_contact?: string | null;
     notes?: string | null;
+    health_metrics?: Record<string, unknown>[] | null;
 };
 
 export type UserMeResponse = {

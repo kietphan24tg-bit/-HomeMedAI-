@@ -20,10 +20,14 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    usePatchMyHealthProfileMutation,
+    usePatchMyProfileMutation,
+} from '@/src/features/me/mutations';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
-import { userService } from '../../services/user.services';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
 import { colors, gradients } from '../../styles/tokens';
@@ -58,10 +62,51 @@ function parseDateSafe(value: unknown): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatDisplayDate(value: unknown): string {
+    const date = parseDateSafe(value);
+    return date
+        ? date.toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+          })
+        : '';
+}
+
+function formatApiDate(value: string): string | null {
+    const parts = value.split('/');
+    if (parts.length !== 3) return null;
+
+    const day = Number(parts[0]);
+    const month = Number(parts[1]);
+    const year = Number(parts[2]);
+
+    if (!day || !month || !year) return null;
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(
+        2,
+        '0',
+    )}`;
+}
+
+function stringValue(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(value);
+    }
+    return '';
+}
+
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const {
+        data: meOverview,
+        isLoading,
+        error: queryError,
+    } = useMeOverviewQuery();
+    const patchProfileMutation = usePatchMyProfileMutation();
+    const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
     const [userName, setUserName] = useState('');
     const [userAge, setUserAge] = useState('20');
@@ -83,69 +128,53 @@ export default function ProfileScreen(): React.JSX.Element {
     const [sheet, setSheet] = useState<SheetState | null>(null);
     const [draft, setDraft] = useState('');
 
-    // Fetch user data on mount
+    // Sync profile screen state from the shared feature/me query cache.
     useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                setLoading(true);
-                const data = await userService.getMe();
+        const profile =
+            meOverview?.profile && typeof meOverview.profile === 'object'
+                ? meOverview.profile
+                : null;
+        const user =
+            meOverview?.user && typeof meOverview.user === 'object'
+                ? meOverview.user
+                : null;
+        const healthProfile =
+            meOverview?.health_profile &&
+            typeof meOverview.health_profile === 'object'
+                ? meOverview.health_profile
+                : null;
 
-                if (data.profile && data.user) {
-                    // Set profile name and contact info
-                    setUserName(data.profile.full_name || '');
-                    setContacts({
-                        email: data.user.email || '',
-                        phone: data.user.phone_number || '',
-                    });
-                    setContactDraft({
-                        email: data.user.email || '',
-                        phone: data.user.phone_number || '',
-                    });
+        if (!profile || !user) return;
 
-                    // Set profile fields
-                    const dobDate = parseDateSafe(data.profile.dob);
-                    const dob = dobDate
-                        ? dobDate.toLocaleDateString('vi-VN', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                          })
-                        : '';
+        const dobDate = parseDateSafe(profile.dob);
+        const age = dobDate
+            ? Math.floor(
+                  (new Date().getTime() - dobDate.getTime()) /
+                      (365.25 * 24 * 60 * 60 * 1000),
+              )
+            : '';
 
-                    const age = dobDate
-                        ? Math.floor(
-                              (new Date().getTime() - dobDate.getTime()) /
-                                  (365.25 * 24 * 60 * 60 * 1000),
-                          )
-                        : '';
-
-                    setUserAge(String(age));
-
-                    setFields({
-                        dob: dob,
-                        gender: data.profile.gender || '',
-                        height: data.profile.height_cm || '',
-                        weight: data.profile.weight_kg || '',
-                        address: data.profile.address || '',
-                        blood: data.health_profile?.blood_type || '',
-                    });
-
-                    // Set avatar if available
-                    if (data.profile.avatar_url) {
-                        setAvatarUri(data.profile.avatar_url);
-                    }
-                }
-                setError(null);
-            } catch (err) {
-                console.error('Failed to fetch user data:', err);
-                setError('Failed to load profile data');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUserData();
-    }, []);
+        setUserName(stringValue(profile.full_name));
+        setUserAge(String(age));
+        setContacts({
+            email: stringValue(user.email),
+            phone: stringValue(user.phone_number),
+        });
+        setContactDraft({
+            email: stringValue(user.email),
+            phone: stringValue(user.phone_number),
+        });
+        setFields({
+            dob: formatDisplayDate(profile.dob),
+            gender: stringValue(profile.gender),
+            height: stringValue(profile.height_cm),
+            weight: stringValue(profile.weight_kg),
+            address: stringValue(profile.address),
+            blood: stringValue(healthProfile?.blood_type),
+        });
+        setAvatarUri(stringValue(profile.avatar_url) || null);
+        setError(null);
+    }, [meOverview]);
     const openDate = () => {
         Keyboard.dismiss();
         setDraft(fields.dob);
@@ -236,23 +265,68 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const saveSheet = async () => {
         if (!sheet) return;
+        const profile =
+            meOverview?.profile && typeof meOverview.profile === 'object'
+                ? meOverview.profile
+                : null;
+        const healthProfile =
+            meOverview?.health_profile &&
+            typeof meOverview.health_profile === 'object'
+                ? meOverview.health_profile
+                : null;
+        const profileId =
+            stringValue(profile?.id) || stringValue(healthProfile?.profile_id);
+
         if (sheet.type === 'contacts') {
             setContacts(contactDraft);
             setSheet(null);
 
-            // TODO: Add API call to save contacts (email, phone)
+            Alert.alert(
+                'Chưa hỗ trợ lưu liên hệ',
+                'API hiện tại chưa có mutation cập nhật email/số điện thoại của tài khoản.',
+            );
             return;
         }
 
-        // Update local state
-        const newFields = { ...fields, [sheet.key]: draft };
-        setFields(newFields);
+        if (!profileId) {
+            Alert.alert('Không thể lưu', 'Không tìm thấy hồ sơ hiện tại.');
+            return;
+        }
 
-        // TODO: Add API call to save the updated field
-        // const profileId = ... (get from store or passed prop)
-        // await userService.patchMyProfile(profileId, { [sheet.key]: draft });
+        try {
+            if (sheet.key === 'blood') {
+                await patchHealthMutation.mutateAsync({
+                    profileId,
+                    payload: {
+                        blood_type: draft.trim() || null,
+                    },
+                });
+            } else {
+                const payload =
+                    sheet.key === 'dob'
+                        ? { dob: formatApiDate(draft) }
+                        : sheet.key === 'height'
+                          ? { height_cm: draft.trim() || null }
+                          : sheet.key === 'weight'
+                            ? { weight_kg: draft.trim() || null }
+                            : sheet.key === 'gender'
+                              ? { gender: draft.trim() || null }
+                              : sheet.key === 'address'
+                                ? { address: draft.trim() || null }
+                                : {};
 
-        setSheet(null);
+                await patchProfileMutation.mutateAsync({
+                    profileId,
+                    payload,
+                });
+            }
+
+            setFields((current) => ({ ...current, [sheet.key]: draft }));
+            setSheet(null);
+        } catch (err) {
+            console.error('Failed to save profile field:', err);
+            Alert.alert('Không thể lưu', 'Vui lòng thử lại sau.');
+        }
     };
 
     const handleLogout = async (): Promise<void> => {
@@ -261,7 +335,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const bmi = calcBMI(fields.height, fields.weight);
 
-    if (loading) {
+    if (isLoading) {
         return (
             <SafeAreaView
                 style={{ flex: 1, backgroundColor: colors.bgProfile }}
@@ -279,7 +353,9 @@ export default function ProfileScreen(): React.JSX.Element {
         );
     }
 
-    if (error) {
+    const displayError = error ?? queryError?.message ?? null;
+
+    if (displayError) {
         return (
             <SafeAreaView
                 style={{ flex: 1, backgroundColor: colors.bgProfile }}
@@ -293,7 +369,7 @@ export default function ProfileScreen(): React.JSX.Element {
                     }}
                 >
                     <Text style={{ color: colors.danger, textAlign: 'center' }}>
-                        {error}
+                        {displayError}
                     </Text>
                     <Pressable
                         style={{ marginTop: 16 }}

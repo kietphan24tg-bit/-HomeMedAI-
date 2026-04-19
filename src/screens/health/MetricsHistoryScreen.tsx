@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Line, Path, Svg, Circle as SvgCircle } from 'react-native-svg';
-import { type BP_DATA, getMetricData } from '@/src/data/metrics-data';
+import type { MetricData, MetricReading } from '@/src/data/metrics-data';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
 import {
     moderateScale,
     scale,
@@ -28,27 +29,294 @@ const METRIC_TABS = [
     { label: 'Đường huyết', id: 'glucose' },
 ];
 
+type MetricType = 'bp' | 'weight' | 'glucose';
+
+const METRIC_META: Record<
+    MetricType,
+    Pick<MetricData, 'id' | 'label' | 'unit' | 'icon' | 'iconColor'>
+> = {
+    bp: {
+        id: 'bp',
+        label: 'Huyết áp',
+        unit: 'mmHg',
+        icon: 'water-outline',
+        iconColor: colors.danger,
+    },
+    weight: {
+        id: 'weight',
+        label: 'Cân nặng',
+        unit: 'kg',
+        icon: 'barbell-outline',
+        iconColor: colors.primary,
+    },
+    glucose: {
+        id: 'glucose',
+        label: 'Đường huyết',
+        unit: 'mmol/L',
+        icon: 'document-text-outline',
+        iconColor: '#D97706',
+    },
+};
+
+function emptyMetricData(metric: MetricType): MetricData {
+    const meta = METRIC_META[metric];
+
+    return {
+        ...meta,
+        latestValue: '--',
+        latestDate: 'Chưa có dữ liệu',
+        latestStatus: 'Chưa có dữ liệu',
+        statusColor: colors.text3,
+        badgeBg: colors.card,
+        badgeBorder: colors.border,
+        readings: [],
+        chartData: {
+            dates: [],
+        },
+    };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object'
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function numberValue(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+}
+
+function formatMeasuredDate(value: unknown): {
+    dateFull: string;
+    latestDate: string;
+    date: string;
+    time: string;
+} {
+    const raw = typeof value === 'string' ? value : undefined;
+    const date = raw ? new Date(raw) : new Date();
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const day = String(safeDate.getDate()).padStart(2, '0');
+    const month = String(safeDate.getMonth() + 1).padStart(2, '0');
+    const year = safeDate.getFullYear();
+    const time = `${String(safeDate.getHours()).padStart(2, '0')}:${String(
+        safeDate.getMinutes(),
+    ).padStart(2, '0')}`;
+
+    return {
+        dateFull: `${day}/${month}/${year} · ${time}`,
+        latestDate: `${day}/${month}/${year} ${time}`,
+        date: `${day}/${month}`,
+        time,
+    };
+}
+
+function getMetricStatus(metric: MetricType, row: Record<string, unknown>) {
+    if (metric === 'bp') {
+        const systolic = numberValue(row.systolic) ?? 0;
+        const diastolic = numberValue(row.diastolic) ?? 0;
+        if (systolic >= 130 || diastolic >= 85) {
+            return {
+                label: 'Cao',
+                latestLabel: 'Hơi cao',
+                color: colors.danger,
+                bg: '#FEF2F2',
+                border: '#FECACA',
+                icon: 'warning',
+                iconColor: colors.warning,
+            };
+        }
+    }
+
+    if (metric === 'glucose') {
+        const glucose = numberValue(row.glucose_mmol_l) ?? 0;
+        if (glucose >= 6) {
+            return {
+                label: 'Cao',
+                latestLabel: 'Cao',
+                color: colors.danger,
+                bg: '#FEF2F2',
+                border: '#FECACA',
+                icon: 'warning',
+                iconColor: colors.warning,
+            };
+        }
+    }
+
+    return {
+        label: 'Bình thường',
+        latestLabel: 'Bình thường',
+        color: colors.success,
+        bg: '#F0FDF4',
+        border: '#BBF7D0',
+        icon: 'checkmark',
+        iconColor: colors.success,
+    };
+}
+
+function metricValue(metric: MetricType, row: Record<string, unknown>): string {
+    if (metric === 'bp') {
+        return `${numberValue(row.systolic) ?? '--'}/${
+            numberValue(row.diastolic) ?? '--'
+        }`;
+    }
+
+    if (metric === 'weight') {
+        return String(numberValue(row.weight_kg) ?? '--');
+    }
+
+    return String(numberValue(row.glucose_mmol_l) ?? '--');
+}
+
+function buildMetricDataFromHealthProfile(
+    metric: MetricType,
+    healthProfile: unknown,
+): MetricData | null {
+    const rows = recordList(asRecord(healthProfile).health_metrics)
+        .filter((row) => row.metric_type === metric)
+        .sort((a, b) => {
+            const aTime = new Date(String(a.measured_at ?? '')).getTime();
+            const bTime = new Date(String(b.measured_at ?? '')).getTime();
+            return (
+                (Number.isFinite(bTime) ? bTime : 0) -
+                (Number.isFinite(aTime) ? aTime : 0)
+            );
+        });
+
+    if (!rows.length) return null;
+
+    const meta = METRIC_META[metric];
+    const readings: MetricReading[] = rows.map((row) => {
+        const status = getMetricStatus(metric, row);
+        const measured = formatMeasuredDate(row.measured_at);
+
+        return {
+            dateFull: measured.dateFull,
+            date: measured.date,
+            time: measured.time,
+            value: metricValue(metric, row),
+            status: typeof row.status === 'string' ? row.status : status.label,
+            statusColor: status.color,
+            badgeBg: status.bg,
+            badgeBorder: status.border,
+            icon: status.icon,
+            iconColor: status.iconColor,
+        };
+    });
+    const latest = rows[0];
+    const latestStatus = getMetricStatus(metric, latest);
+    const latestMeasured = formatMeasuredDate(latest.measured_at);
+    const chartRows = [...rows].reverse().slice(-6);
+
+    return {
+        ...meta,
+        latestValue: metricValue(metric, latest),
+        latestDate: latestMeasured.latestDate,
+        latestStatus:
+            typeof latest.status === 'string'
+                ? latest.status
+                : latestStatus.latestLabel,
+        statusColor: latestStatus.color,
+        badgeBg: latestStatus.bg,
+        badgeBorder: latestStatus.border,
+        readings,
+        chartData:
+            metric === 'bp'
+                ? {
+                      systolic: chartRows
+                          .map((row) => numberValue(row.systolic))
+                          .filter(
+                              (value): value is number => value !== undefined,
+                          ),
+                      diastolic: chartRows
+                          .map((row) => numberValue(row.diastolic))
+                          .filter(
+                              (value): value is number => value !== undefined,
+                          ),
+                      dates: chartRows.map(
+                          (row) => formatMeasuredDate(row.measured_at).date,
+                      ),
+                  }
+                : {
+                      values: chartRows
+                          .map((row) =>
+                              metric === 'weight'
+                                  ? numberValue(row.weight_kg)
+                                  : numberValue(row.glucose_mmol_l),
+                          )
+                          .filter(
+                              (value): value is number => value !== undefined,
+                          ),
+                      dates: chartRows.map(
+                          (row) => formatMeasuredDate(row.measured_at).date,
+                      ),
+                  },
+    };
+}
+
 /**
  * Chart data generator for different metric types
  */
-function renderChart(tab: string, metricData: typeof BP_DATA) {
+function renderChart(tab: string, metricData: MetricData) {
     if (tab === 'bp') {
-        const systolic = metricData.chartData.systolic || [
-            135, 128, 125, 130, 140,
-        ];
-        const diastolic = metricData.chartData.diastolic || [
-            85, 80, 82, 88, 85,
-        ];
+        const systolic = metricData.chartData.systolic ?? [];
+        const diastolic = metricData.chartData.diastolic ?? [];
+
+        if (!systolic.length || !diastolic.length) {
+            return (
+                <Svg width='100%' height='108' viewBox='0 0 340 120'>
+                    <Line
+                        x1='10'
+                        y1='20'
+                        x2='330'
+                        y2='20'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                    <Line
+                        x1='10'
+                        y1='50'
+                        x2='330'
+                        y2='50'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                    <Line
+                        x1='10'
+                        y1='80'
+                        x2='330'
+                        y2='80'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                </Svg>
+            );
+        }
 
         const maxSys = Math.max(...systolic);
         const minSys = Math.min(...systolic);
         const maxDias = Math.max(...diastolic);
         const minDias = Math.min(...diastolic);
+        const sysRange = Math.max(maxSys - minSys, 1);
+        const diasRange = Math.max(maxDias - minDias, 1);
 
         const sysScale = (val: number) =>
-            100 - ((val - minSys) / (maxSys - minSys)) * 60;
+            100 - ((val - minSys) / sysRange) * 60;
         const diasScale = (val: number) =>
-            100 - ((val - minDias) / (maxDias - minDias)) * 30 + 40;
+            100 - ((val - minDias) / diasRange) * 30 + 40;
 
         const sysPaths = systolic
             .map((val, i) => `${40 + i * 65} ${sysScale(val)}`)
@@ -120,11 +388,43 @@ function renderChart(tab: string, metricData: typeof BP_DATA) {
             </Svg>
         );
     } else {
-        const values = metricData.chartData.values || [57, 56, 55, 54, 55];
+        const values = metricData.chartData.values ?? [];
+
+        if (!values.length) {
+            return (
+                <Svg width='100%' height='108' viewBox='0 0 340 120'>
+                    <Line
+                        x1='10'
+                        y1='20'
+                        x2='330'
+                        y2='20'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                    <Line
+                        x1='10'
+                        y1='50'
+                        x2='330'
+                        y2='50'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                    <Line
+                        x1='10'
+                        y1='80'
+                        x2='330'
+                        y2='80'
+                        stroke='#E2E8F0'
+                        strokeWidth='1'
+                    />
+                </Svg>
+            );
+        }
         const maxVal = Math.max(...values);
         const minVal = Math.min(...values);
+        const valRange = Math.max(maxVal - minVal, 1);
         const valScale = (val: number) =>
-            100 - ((val - minVal) / (maxVal - minVal)) * 60;
+            100 - ((val - minVal) / valRange) * 60;
 
         const paths = values
             .map((val, i) => `${40 + i * 65} ${valScale(val)}`)
@@ -197,14 +497,27 @@ export default function MetricsHistoryScreen({
     const router = useRouter();
     const params = useLocalSearchParams();
     const insets = useSafeAreaInsets();
+    const { data: meOverview } = useMeOverviewQuery();
 
     const initialTab = (params.metric as string) || 'bp';
     const [tab, setTab] = useState(initialTab);
+    const activeMetric =
+        tab === 'weight' || tab === 'glucose' || tab === 'bp' ? tab : 'bp';
+    const profile = asRecord(meOverview?.profile);
+    const displayMemberName =
+        typeof profile.full_name === 'string' && profile.full_name.trim()
+            ? profile.full_name.trim()
+            : memberName;
 
     const metricData = useMemo(
-        () => getMetricData(tab as 'bp' | 'weight' | 'glucose'),
-        [tab],
+        () =>
+            buildMetricDataFromHealthProfile(
+                activeMetric,
+                meOverview?.health_profile,
+            ) ?? emptyMetricData(activeMetric),
+        [activeMetric, meOverview?.health_profile],
     );
+    const hasMetricData = metricData.readings.length > 0;
 
     const handleAddNew = () => {
         if (onAddNew) {
@@ -243,7 +556,9 @@ export default function MetricsHistoryScreen({
                 </Pressable>
                 <View style={styles.topbarCenter}>
                     <Text style={styles.topbarTitle}>Chỉ số sức khỏe</Text>
-                    <Text style={styles.topbarSubtitle}>{memberName}</Text>
+                    <Text style={styles.topbarSubtitle}>
+                        {displayMemberName}
+                    </Text>
                 </View>
                 <Pressable style={styles.exportBtn} onPress={handleExport}>
                     <MaterialCommunityIcons
@@ -323,7 +638,9 @@ export default function MetricsHistoryScreen({
                                 { color: metricData.statusColor },
                             ]}
                         >
-                            Đo lúc {metricData.latestDate}
+                            {hasMetricData
+                                ? `Đo lúc ${metricData.latestDate}`
+                                : metricData.latestDate}
                         </Text>
                     </View>
                     <View
@@ -417,52 +734,63 @@ export default function MetricsHistoryScreen({
                     LỊCH SỬ ĐO
                 </Text>
                 <View style={styles.historyListWrap}>
-                    {metricData.readings.map((item, i) => (
-                        <View
-                            key={i}
-                            style={[
-                                styles.historyItem,
-                                i === metricData.readings.length - 1 && {
-                                    borderBottomWidth: 0,
-                                },
-                            ]}
-                        >
-                            <View>
-                                <Text style={styles.historyItemValue}>
-                                    {item.value}{' '}
-                                    <Text style={styles.historyItemUnit}>
-                                        {metricData.unit}
-                                    </Text>
-                                </Text>
-                                <Text style={styles.historyItemDate}>
-                                    {item.dateFull}
-                                </Text>
-                            </View>
+                    {hasMetricData ? (
+                        metricData.readings.map((item, i) => (
                             <View
+                                key={i}
                                 style={[
-                                    styles.historyBadge,
-                                    {
-                                        backgroundColor: item.badgeBg,
-                                        borderColor: item.badgeBorder,
+                                    styles.historyItem,
+                                    i === metricData.readings.length - 1 && {
+                                        borderBottomWidth: 0,
                                     },
                                 ]}
                             >
-                                <Ionicons
-                                    name={item.icon as any}
-                                    size={12}
-                                    color={item.iconColor}
-                                />
-                                <Text
+                                <View>
+                                    <Text style={styles.historyItemValue}>
+                                        {item.value}{' '}
+                                        <Text style={styles.historyItemUnit}>
+                                            {metricData.unit}
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.historyItemDate}>
+                                        {item.dateFull}
+                                    </Text>
+                                </View>
+                                <View
                                     style={[
-                                        styles.historyBadgeText,
-                                        { color: item.statusColor },
+                                        styles.historyBadge,
+                                        {
+                                            backgroundColor: item.badgeBg,
+                                            borderColor: item.badgeBorder,
+                                        },
                                     ]}
                                 >
-                                    {item.status}
-                                </Text>
+                                    <Ionicons
+                                        name={item.icon as any}
+                                        size={12}
+                                        color={item.iconColor}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.historyBadgeText,
+                                            { color: item.statusColor },
+                                        ]}
+                                    >
+                                        {item.status}
+                                    </Text>
+                                </View>
                             </View>
+                        ))
+                    ) : (
+                        <View style={styles.historyEmpty}>
+                            <Text style={styles.historyEmptyTitle}>
+                                Chưa có lần đo
+                            </Text>
+                            <Text style={styles.historyEmptyText}>
+                                Thêm lần đo mới để xem biểu đồ và lịch sử.
+                            </Text>
                         </View>
-                    ))}
+                    )}
                 </View>
 
                 {!hideAddButton && (
@@ -682,6 +1010,23 @@ const styles = StyleSheet.create({
         fontFamily: typography.font.medium,
         fontSize: scaleFont(11.5),
         color: colors.text3,
+    },
+    historyEmpty: {
+        alignItems: 'center',
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(28),
+    },
+    historyEmptyTitle: {
+        fontFamily: typography.font.bold,
+        fontSize: scaleFont(13),
+        color: colors.text2,
+        marginBottom: verticalScale(4),
+    },
+    historyEmptyText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(11.5),
+        color: colors.text3,
+        textAlign: 'center',
     },
     historyBadge: {
         flexDirection: 'row',
