@@ -13,6 +13,10 @@ export type CreatePersonalProfilePayload = {
 };
 export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
 
+export type PatchMyUserPayload = {
+    phone_number?: string | null;
+};
+
 export type PatchMyHealthProfilePayload = {
     blood_type?: string | null;
     chronic_diseases?: string[] | null;
@@ -70,7 +74,9 @@ export type UserMeResponse = {
 
 export const userService = {
     getMe: async () => {
-        const res = await apiClient.get<UserMeResponse>('/users/me');
+        const res = await apiClient.get<UserMeResponse>('/users/me', {
+            timeout: 60000,
+        });
         return res.data;
     },
     getMyProfiles: async (profile_scope: ProfileScope = 'all') => {
@@ -102,6 +108,10 @@ export const userService = {
         payload: PatchMyProfilePayload,
     ) => {
         const res = await apiClient.patch(`/profiles/${profileId}`, payload);
+        return res.data;
+    },
+    patchMyUser: async (payload: PatchMyUserPayload) => {
+        const res = await apiClient.patch('/users/me', payload);
         return res.data;
     },
     patchMyHealthProfile: async (

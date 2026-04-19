@@ -74,7 +74,8 @@ function getPostLoginCompleted(overview: MeOverview | null | undefined) {
 function getAccessTokenFromResponse(
     payload: Partial<{ access_token: string; accessToken: string }>,
 ) {
-    return payload.access_token ?? payload.accessToken ?? null;
+    const raw = payload.access_token ?? payload.accessToken ?? null;
+    return typeof raw === 'string' ? raw.trim() : null;
 }
 
 function requireRefreshToken(
