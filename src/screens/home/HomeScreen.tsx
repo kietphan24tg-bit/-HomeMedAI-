@@ -1,7 +1,14 @@
 import { router } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, ScrollView, StatusBar } from 'react-native';
+import {
+    Animated,
+    Dimensions,
+    ScrollView,
+    StatusBar,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatePanel from '@/src/components/state/StatePanel';
 import { useFamilyMembersQuery } from '@/src/features/family/queries';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import type { HealthProfileLike, ProfileLike } from '@/src/features/me/types';
@@ -422,7 +429,12 @@ export default function HomeScreen(): React.JSX.Element {
     const slideAnim = useRef(new Animated.Value(SCREEN_H)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
     const { familyOptions, isLoading, error, refetch } = useHomeFamilies(mode);
-    const { data: meOverview } = useMeOverviewQuery();
+    const {
+        data: meOverview,
+        isError: isMeOverviewError,
+        error: meOverviewError,
+        refetch: refetchMeOverview,
+    } = useMeOverviewQuery();
     const { data: selectedFamilyMembers = [] } = useFamilyMembersQuery(
         selectedFamily ?? '',
     );
@@ -528,6 +540,64 @@ export default function HomeScreen(): React.JSX.Element {
     if (showNotifications) {
         return (
             <NotificationScreen onClose={() => setShowNotifications(false)} />
+        );
+    }
+
+    if (!meOverview) {
+        if (isMeOverviewError) {
+            const overviewErrMsg =
+                meOverviewError instanceof Error
+                    ? meOverviewError.message
+                    : typeof meOverviewError === 'string'
+                      ? meOverviewError
+                      : 'Đã có lỗi xảy ra. Vui lòng kiểm tra kết nối và thử lại.';
+            return (
+                <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+                    <StatusBar
+                        barStyle='dark-content'
+                        backgroundColor={colors.bg}
+                    />
+                    <View
+                        style={{
+                            flex: 1,
+                            justifyContent: 'center',
+                            paddingVertical: 24,
+                        }}
+                    >
+                        <StatePanel
+                            variant='error'
+                            title='Không tải được thông tin tài khoản'
+                            message={overviewErrMsg}
+                            actionLabel='Thử lại'
+                            onAction={() => {
+                                void refetchMeOverview();
+                            }}
+                        />
+                    </View>
+                </SafeAreaView>
+            );
+        }
+
+        return (
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+                <StatusBar
+                    barStyle='dark-content'
+                    backgroundColor={colors.bg}
+                />
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        paddingVertical: 24,
+                    }}
+                >
+                    <StatePanel
+                        variant='loading'
+                        title='Đang tải thông tin...'
+                        message='Đang đồng bộ dữ liệu cá nhân của bạn.'
+                    />
+                </View>
+            </SafeAreaView>
         );
     }
 

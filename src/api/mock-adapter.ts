@@ -581,6 +581,18 @@ const routes: Route[] = [
         }),
     },
     {
+        method: 'patch',
+        pattern: /^\/users\/me$/,
+        handler: (_url, config) => {
+            const body = config.data ? JSON.parse(String(config.data)) : {};
+            if (Object.prototype.hasOwnProperty.call(body, 'phone_number')) {
+                (MOCK_USER as { phone_number?: string | null }).phone_number =
+                    body.phone_number ?? null;
+            }
+            return { ...MOCK_USER };
+        },
+    },
+    {
         method: 'get',
         pattern: /^\/notifications\/me$/,
         handler: () => ({

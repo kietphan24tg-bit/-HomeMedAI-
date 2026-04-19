@@ -57,8 +57,12 @@ async function refreshAccessToken() {
             }
 
             const res = await callRefreshTokenApi(refreshToken);
-            const accessToken = res.access_token ?? res.accessToken ?? null;
-            const nextRefreshToken = res.refresh_token ?? null;
+            const rawAccess = res.access_token ?? res.accessToken ?? null;
+            const accessToken =
+                typeof rawAccess === 'string' ? rawAccess.trim() : null;
+            const rawRefresh = res.refresh_token ?? null;
+            const nextRefreshToken =
+                typeof rawRefresh === 'string' ? rawRefresh.trim() : null;
 
             if (!accessToken) {
                 throw new Error('No access token returned');
@@ -104,7 +108,8 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config) => {
-        const token = useAuthStore.getState().accessToken;
+        const raw = useAuthStore.getState().accessToken;
+        const token = typeof raw === 'string' ? raw.trim() : null;
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
