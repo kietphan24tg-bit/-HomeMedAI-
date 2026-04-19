@@ -169,8 +169,14 @@ function buildErrorDescription(error: unknown): string {
 
 export default function ProfileScreen(): React.JSX.Element {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const {
+        data: meOverview,
+        isLoading,
+        error: queryError,
+    } = useMeOverviewQuery();
+    const patchProfileMutation = usePatchMyProfileMutation();
+    const patchHealthMutation = usePatchMyHealthProfileMutation();
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
     const [userName, setUserName] = useState('');
     const [userAge, setUserAge] = useState('20');
@@ -195,7 +201,7 @@ export default function ProfileScreen(): React.JSX.Element {
     const [serverUserEmail, setServerUserEmail] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Fetch user data on mount
+    // Sync profile screen state from the shared feature/me query cache.
     useEffect(() => {
         const fetchUserData = async () => {
             try {
@@ -488,7 +494,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const bmi = calcBMI(fields.height, fields.weight);
 
-    if (loading) {
+    if (isLoading) {
         return (
             <SafeAreaView
                 style={{ flex: 1, backgroundColor: colors.bgProfile }}
@@ -506,7 +512,9 @@ export default function ProfileScreen(): React.JSX.Element {
         );
     }
 
-    if (error) {
+    const displayError = error ?? queryError?.message ?? null;
+
+    if (displayError) {
         return (
             <SafeAreaView
                 style={{ flex: 1, backgroundColor: colors.bgProfile }}
@@ -520,7 +528,7 @@ export default function ProfileScreen(): React.JSX.Element {
                     }}
                 >
                     <Text style={{ color: colors.danger, textAlign: 'center' }}>
-                        {error}
+                        {displayError}
                     </Text>
                     <Pressable
                         style={{ marginTop: 16 }}

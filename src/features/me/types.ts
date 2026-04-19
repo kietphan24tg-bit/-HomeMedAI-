@@ -150,6 +150,22 @@ export type MeAppointmentReminder = {
     [key: string]: unknown;
 };
 
+export type MeHealthMetric = {
+    id?: string;
+    profile_id?: string;
+    metric_type?: 'bp' | 'weight' | 'glucose' | string;
+    measured_at?: string | null;
+    systolic?: number | string | null;
+    diastolic?: number | string | null;
+    heart_rate?: number | string | null;
+    weight_kg?: number | string | null;
+    glucose_mmol_l?: number | string | null;
+    status?: string | null;
+    notes?: string | null;
+    created_at?: string | null;
+    [key: string]: unknown;
+};
+
 export type ProfileLike = MeProfile | Record<string, unknown> | null;
 
 export type HealthProfileLike =
@@ -168,6 +184,7 @@ export type HealthProfileLike =
           medical_records?: MeMedicalRecord[];
           medicine_inventory?: MeMedicineInventoryItem[];
           appointment_reminders?: MeAppointmentReminder[];
+          health_metrics?: MeHealthMetric[];
       } & Record<string, unknown>)
     | null;
 
@@ -430,6 +447,12 @@ function sanitizeHealthProfile(healthProfile: unknown): HealthProfileLike {
         appointment_reminders: Array.isArray(hp.appointment_reminders)
             ? hp.appointment_reminders.filter(
                   (item): item is MeAppointmentReminder =>
+                      !!item && typeof item === 'object',
+              )
+            : undefined,
+        health_metrics: Array.isArray(hp.health_metrics)
+            ? hp.health_metrics.filter(
+                  (item): item is MeHealthMetric =>
                       !!item && typeof item === 'object',
               )
             : undefined,
