@@ -20,16 +20,14 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { meQueryKeys } from '@/src/features/me/queryKeys';
-import { appQueryClient } from '@/src/lib/query-client';
+import {
+    usePatchMyHealthProfileMutation,
+    usePatchMyProfileMutation,
+} from '@/src/features/me/mutations';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
 import { DateField } from '../../components/ui';
-import { appToast } from '../../lib/toast';
-import {
-    userService,
-    type PatchMyProfilePayload,
-} from '../../services/user.services';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { shared } from '../../styles/shared';
 import { colors, gradients } from '../../styles/tokens';
@@ -48,67 +46,6 @@ interface SheetState {
 }
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
-
-const GENDER_LABEL_TO_API: Record<string, string> = {
-    Nam: 'male',
-    Nữ: 'female',
-    Khác: 'other',
-};
-
-function genderApiToLabel(g: string | null | undefined): string {
-    if (!g) return '';
-    const v = String(g).toLowerCase();
-    if (v === 'male') return 'Nam';
-    if (v === 'female') return 'Nữ';
-    if (v === 'other') return 'Khác';
-    return g;
-}
-
-function genderLabelToApi(label: string): string | null {
-    const t = label.trim();
-    if (!t) return null;
-    if (GENDER_LABEL_TO_API[t]) return GENDER_LABEL_TO_API[t];
-    const lower = t.toLowerCase();
-    if (lower === 'male' || lower === 'female' || lower === 'other') {
-        return lower;
-    }
-    return t;
-}
-
-const BLOOD_API_TO_DISPLAY: Record<string, string> = {
-    A_POS: 'A+',
-    A_NEG: 'A-',
-    B_POS: 'B+',
-    B_NEG: 'B-',
-    O_POS: 'O+',
-    O_NEG: 'O-',
-    AB_POS: 'AB+',
-    AB_NEG: 'AB-',
-};
-
-function bloodApiToDisplay(api: string | null | undefined): string {
-    if (!api) return '';
-    return BLOOD_API_TO_DISPLAY[api] ?? api;
-}
-
-function bloodDisplayToApi(display: string): string | null {
-    const t = display.trim();
-    if (!t) return null;
-    const norm = t.toUpperCase().replace(/\s/g, '');
-    const toApi: Record<string, string> = {
-        'A+': 'A_POS',
-        'A-': 'A_NEG',
-        'B+': 'B_POS',
-        'B-': 'B_NEG',
-        'O+': 'O_POS',
-        'O-': 'O_NEG',
-        'AB+': 'AB_POS',
-        'AB-': 'AB_NEG',
-    };
-    if (toApi[norm]) return toApi[norm];
-    if (/^(A|B|O|AB)_(POS|NEG)$/.test(norm)) return norm;
-    return null;
-}
 function calcBMI(h: string, w: string): string {
     const hNum = parseFloat(h);
     const wNum = parseFloat(w);
@@ -125,46 +62,39 @@ function parseDateSafe(value: unknown): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** `dd/mm/yyyy` (sheet draft) → `yyyy-mm-dd` for API */
-function draftDobToApiDate(draft: string): string | null {
-    const parts = draft.split('/').map((p) => p.trim());
+function formatDisplayDate(value: unknown): string {
+    const date = parseDateSafe(value);
+    return date
+        ? date.toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+          })
+        : '';
+}
+
+function formatApiDate(value: string): string | null {
+    const parts = value.split('/');
     if (parts.length !== 3) return null;
-    const d = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    const y = parseInt(parts[2], 10);
-    if (!d || !m || !y) return null;
-    const date = new Date(y, m - 1, d);
-    if (Number.isNaN(date.getTime())) return null;
-    const mm = String(m).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    return `${y}-${mm}-${dd}`;
+
+    const day = Number(parts[0]);
+    const month = Number(parts[1]);
+    const year = Number(parts[2]);
+
+    if (!day || !month || !year) return null;
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(
+        2,
+        '0',
+    )}`;
 }
 
-function normalizeMetricString(raw: string): string | null {
-    const cleaned = raw.replace(',', '.').replace(/[^\d.]/g, '');
-    if (!cleaned) return null;
-    const n = parseFloat(cleaned);
-    if (Number.isNaN(n)) return null;
-    return String(n);
-}
-
-function buildErrorDescription(error: unknown): string {
-    const err = error as {
-        response?: { data?: { detail?: unknown; message?: string } };
-    };
-    const detail = err?.response?.data?.detail;
-
-    if (Array.isArray(detail)) {
-        return detail
-            .map((item: { msg?: string }) => item?.msg)
-            .filter(Boolean)
-            .join(', ');
+function stringValue(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(value);
     }
-
-    return (
-        err?.response?.data?.message ||
-        'Không thể lưu ngay lúc này. Vui lòng thử lại.'
-    );
+    return '';
 }
 
 export default function ProfileScreen(): React.JSX.Element {
@@ -197,77 +127,54 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const [sheet, setSheet] = useState<SheetState | null>(null);
     const [draft, setDraft] = useState('');
-    const [profileId, setProfileId] = useState<string | null>(null);
-    const [serverUserEmail, setServerUserEmail] = useState('');
-    const [saving, setSaving] = useState(false);
 
     // Sync profile screen state from the shared feature/me query cache.
     useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                setLoading(true);
-                const data = await userService.getMe();
+        const profile =
+            meOverview?.profile && typeof meOverview.profile === 'object'
+                ? meOverview.profile
+                : null;
+        const user =
+            meOverview?.user && typeof meOverview.user === 'object'
+                ? meOverview.user
+                : null;
+        const healthProfile =
+            meOverview?.health_profile &&
+            typeof meOverview.health_profile === 'object'
+                ? meOverview.health_profile
+                : null;
 
-                if (data.profile && data.user) {
-                    setProfileId(data.profile.id ?? null);
-                    setServerUserEmail(data.user.email || '');
-                    // Set profile name and contact info
-                    setUserName(data.profile.full_name || '');
-                    setContacts({
-                        email: data.user.email || '',
-                        phone: data.user.phone_number || '',
-                    });
-                    setContactDraft({
-                        email: data.user.email || '',
-                        phone: data.user.phone_number || '',
-                    });
+        if (!profile || !user) return;
 
-                    // Set profile fields
-                    const dobDate = parseDateSafe(data.profile.dob);
-                    const dob = dobDate
-                        ? dobDate.toLocaleDateString('vi-VN', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                          })
-                        : '';
+        const dobDate = parseDateSafe(profile.dob);
+        const age = dobDate
+            ? Math.floor(
+                  (new Date().getTime() - dobDate.getTime()) /
+                      (365.25 * 24 * 60 * 60 * 1000),
+              )
+            : '';
 
-                    const age = dobDate
-                        ? Math.floor(
-                              (new Date().getTime() - dobDate.getTime()) /
-                                  (365.25 * 24 * 60 * 60 * 1000),
-                          )
-                        : '';
-
-                    setUserAge(String(age));
-
-                    setFields({
-                        dob: dob,
-                        gender: genderApiToLabel(data.profile.gender),
-                        height: data.profile.height_cm || '',
-                        weight: data.profile.weight_kg || '',
-                        address: data.profile.address || '',
-                        blood: bloodApiToDisplay(
-                            data.health_profile?.blood_type,
-                        ),
-                    });
-
-                    // Set avatar if available
-                    if (data.profile.avatar_url) {
-                        setAvatarUri(data.profile.avatar_url);
-                    }
-                }
-                setError(null);
-            } catch (err) {
-                console.error('Failed to fetch user data:', err);
-                setError('Failed to load profile data');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUserData();
-    }, []);
+        setUserName(stringValue(profile.full_name));
+        setUserAge(String(age));
+        setContacts({
+            email: stringValue(user.email),
+            phone: stringValue(user.phone_number),
+        });
+        setContactDraft({
+            email: stringValue(user.email),
+            phone: stringValue(user.phone_number),
+        });
+        setFields({
+            dob: formatDisplayDate(profile.dob),
+            gender: stringValue(profile.gender),
+            height: stringValue(profile.height_cm),
+            weight: stringValue(profile.weight_kg),
+            address: stringValue(profile.address),
+            blood: stringValue(healthProfile?.blood_type),
+        });
+        setAvatarUri(stringValue(profile.avatar_url) || null);
+        setError(null);
+    }, [meOverview]);
     const openDate = () => {
         Keyboard.dismiss();
         setDraft(fields.dob);
@@ -357,134 +264,68 @@ export default function ProfileScreen(): React.JSX.Element {
     };
 
     const saveSheet = async () => {
-        if (!sheet || saving) return;
+        if (!sheet) return;
+        const profile =
+            meOverview?.profile && typeof meOverview.profile === 'object'
+                ? meOverview.profile
+                : null;
+        const healthProfile =
+            meOverview?.health_profile &&
+            typeof meOverview.health_profile === 'object'
+                ? meOverview.health_profile
+                : null;
+        const profileId =
+            stringValue(profile?.id) || stringValue(healthProfile?.profile_id);
 
         if (sheet.type === 'contacts') {
-            try {
-                setSaving(true);
-                await userService.patchMyUser({
-                    phone_number: contactDraft.phone.trim() || null,
-                });
-                setContacts({ ...contactDraft });
-                setSheet(null);
-                appToast.showSuccess(
-                    'Đã lưu',
-                    'Số điện thoại đã được cập nhật.',
-                );
-                if (contactDraft.email.trim() !== serverUserEmail.trim()) {
-                    appToast.showWarning(
-                        'Email',
-                        'Ứng dụng hiện chỉ lưu số điện thoại lên máy chủ. Đổi email cần cập nhật tài khoản qua kênh hỗ trợ.',
-                    );
-                }
-                await appQueryClient.invalidateQueries({
-                    queryKey: meQueryKeys.overview(),
-                });
-            } catch (error) {
-                appToast.showError(
-                    'Lưu thất bại',
-                    buildErrorDescription(error),
-                );
-            } finally {
-                setSaving(false);
-            }
-            return;
-        }
+            setContacts(contactDraft);
+            setSheet(null);
 
-        if (!profileId) {
-            appToast.showError(
-                'Không lưu được',
-                'Không tìm thấy hồ sơ cá nhân. Vui lòng đăng xuất và đăng nhập lại.',
+            Alert.alert(
+                'Chưa hỗ trợ lưu liên hệ',
+                'API hiện tại chưa có mutation cập nhật email/số điện thoại của tài khoản.',
             );
             return;
         }
 
-        const key = sheet.key;
+        if (!profileId) {
+            Alert.alert('Không thể lưu', 'Không tìm thấy hồ sơ hiện tại.');
+            return;
+        }
 
         try {
-            setSaving(true);
-
-            if (key === 'blood') {
-                const apiBlood = bloodDisplayToApi(draft);
-                if (!apiBlood) {
-                    appToast.showError(
-                        'Nhóm máu không hợp lệ',
-                        'Chọn dạng như A+, B-, O+, AB+.',
-                    );
-                    return;
-                }
-                await userService.patchMyHealthProfile(profileId, {
-                    blood_type: apiBlood,
+            if (sheet.key === 'blood') {
+                await patchHealthMutation.mutateAsync({
+                    profileId,
+                    payload: {
+                        blood_type: draft.trim() || null,
+                    },
                 });
             } else {
-                const payload: PatchMyProfilePayload = {};
+                const payload =
+                    sheet.key === 'dob'
+                        ? { dob: formatApiDate(draft) }
+                        : sheet.key === 'height'
+                          ? { height_cm: draft.trim() || null }
+                          : sheet.key === 'weight'
+                            ? { weight_kg: draft.trim() || null }
+                            : sheet.key === 'gender'
+                              ? { gender: draft.trim() || null }
+                              : sheet.key === 'address'
+                                ? { address: draft.trim() || null }
+                                : {};
 
-                if (key === 'dob') {
-                    const apiDob = draftDobToApiDate(draft);
-                    if (!apiDob) {
-                        appToast.showError(
-                            'Ngày sinh không hợp lệ',
-                            'Vui lòng nhập đúng định dạng dd/mm/yyyy.',
-                        );
-                        return;
-                    }
-                    payload.dob = apiDob;
-                } else if (key === 'gender') {
-                    payload.gender = genderLabelToApi(draft);
-                } else if (key === 'height') {
-                    const h = normalizeMetricString(draft);
-                    if (!h) {
-                        appToast.showError(
-                            'Chiều cao không hợp lệ',
-                            'Vui lòng nhập số hợp lệ.',
-                        );
-                        return;
-                    }
-                    payload.height_cm = h;
-                } else if (key === 'weight') {
-                    const w = normalizeMetricString(draft);
-                    if (!w) {
-                        appToast.showError(
-                            'Cân nặng không hợp lệ',
-                            'Vui lòng nhập số hợp lệ.',
-                        );
-                        return;
-                    }
-                    payload.weight_kg = w;
-                } else if (key === 'address') {
-                    payload.address = draft.trim() || null;
-                } else {
-                    setSheet(null);
-                    return;
-                }
-
-                await userService.patchMyProfile(profileId, payload);
+                await patchProfileMutation.mutateAsync({
+                    profileId,
+                    payload,
+                });
             }
 
-            const newFields = { ...fields, [key]: draft };
-            setFields(newFields);
-
-            if (key === 'dob') {
-                const apiDob = draftDobToApiDate(draft);
-                const dobDate = apiDob ? parseDateSafe(apiDob) : null;
-                const age = dobDate
-                    ? Math.floor(
-                          (new Date().getTime() - dobDate.getTime()) /
-                              (365.25 * 24 * 60 * 60 * 1000),
-                      )
-                    : '';
-                setUserAge(String(age));
-            }
-
+            setFields((current) => ({ ...current, [sheet.key]: draft }));
             setSheet(null);
-            appToast.showSuccess('Đã lưu', 'Thông tin hồ sơ đã được cập nhật.');
-            await appQueryClient.invalidateQueries({
-                queryKey: meQueryKeys.overview(),
-            });
-        } catch (error) {
-            appToast.showError('Lưu thất bại', buildErrorDescription(error));
-        } finally {
-            setSaving(false);
+        } catch (err) {
+            console.error('Failed to save profile field:', err);
+            Alert.alert('Không thể lưu', 'Vui lòng thử lại sau.');
         }
     };
 
@@ -1058,12 +899,8 @@ export default function ProfileScreen(): React.JSX.Element {
                                 <Pressable
                                     style={[
                                         shared.sheetBtnPrimaryWrap,
-                                        {
-                                            backgroundColor: colors.primary,
-                                            opacity: saving ? 0.55 : 1,
-                                        },
+                                        { backgroundColor: colors.primary },
                                     ]}
-                                    disabled={saving}
                                     onPress={saveSheet}
                                 >
                                     <View style={shared.sheetBtnPrimary}>
