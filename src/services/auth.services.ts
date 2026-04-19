@@ -19,7 +19,6 @@ export const authService = {
                 email,
                 phone_number: normalizedPhoneNumber ?? phone_number,
                 password,
-                google_id: '',
             });
             return res.data;
         } catch (err: any) {
