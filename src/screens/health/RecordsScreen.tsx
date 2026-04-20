@@ -21,9 +21,17 @@ import { meQueryKeys } from '@/src/features/me/queryKeys';
 import { getApiErrorMessage } from '@/src/lib/api-error';
 import { appToast } from '@/src/lib/toast';
 import {
+    appointmentRemindersService,
+    type AppointmentReminderType,
+} from '@/src/services/appointmentReminders.services';
+import {
     medicalRecordsQueryKeys,
     medicalRecordsService,
 } from '@/src/services/medicalRecords.services';
+import {
+    reminderLabelToPayload,
+    reminderPayloadToLabel,
+} from '@/src/utils/reminder-label';
 import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
@@ -838,6 +846,7 @@ const RD_TABS = ['Thông tin', 'Tái khám', 'Tệp đính kèm'] as const;
 
 interface FollowUpEntry {
     id: string;
+    appointment_at: string;
     date: string;
     time: string;
     facility_name: string;
@@ -888,6 +897,57 @@ function formatFollowUpTime(date: Date): string {
     return `${hh}:${mm}`;
 }
 
+function combineDateAndTime(date: Date, time: Date): Date {
+    const next = new Date(date);
+    next.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    return next;
+}
+
+function formatFollowUpDateFromIso(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+}
+
+function mapReminderLabelFromApi(item: AppointmentReminderType): string {
+    if (item.reminder_enabled === false) {
+        return 'Không nhắc';
+    }
+    if (!item.remind_before_value || !item.remind_before_unit) {
+        return '1 ngày trước';
+    }
+    return `${reminderPayloadToLabel(item.remind_before_value, item.remind_before_unit)} trước`;
+}
+
+function mapAppointmentReminderToFollowUpEntry(
+    item: AppointmentReminderType,
+): FollowUpEntry {
+    const appointmentDate = new Date(item.appointment_at);
+    return {
+        id: item.id,
+        appointment_at: item.appointment_at,
+        date: formatFollowUpDateFromIso(item.appointment_at),
+        time: Number.isNaN(appointmentDate.getTime())
+            ? '08:00'
+            : formatFollowUpTime(appointmentDate),
+        facility_name: item.hospital_name?.trim() ?? '',
+        doctor_name: '',
+        purpose: item.title?.trim() || 'Tái khám định kỳ',
+        notes: item.note?.trim() ?? '',
+        reminder_label: mapReminderLabelFromApi(item),
+    };
+}
+
+function toFollowUpNote(doctor: string, notes: string): string | null {
+    const parts = [doctor.trim(), notes.trim()].filter(Boolean);
+    return parts.length > 0 ? parts.join(' • ') : null;
+}
+
 export function RecordDetail({
     record,
     onClose,
@@ -895,13 +955,15 @@ export function RecordDetail({
     record: RecordItem;
     onClose: () => void;
 }): React.JSX.Element {
+    const queryClient = useQueryClient();
+    const { data: healthProfile } = useMeHealthProfileQuery();
+    const { data: meOverview } = useMeOverviewQuery();
     const [activeTab, setActiveTab] = useState(0);
     const recordCategory = record.category;
     const isRecordSpecialty = SPECIALTIES.some(
         (item) => item.key === recordCategory,
     );
     const [showAddFu, setShowAddFu] = useState(true);
-    const [followUps, setFollowUps] = useState<FollowUpEntry[]>([]);
     const [fuDate, setFuDate] = useState(new Date());
     const [fuTime, setFuTime] = useState(new Date());
     const [fuHospital, setFuHospital] = useState('');
@@ -912,6 +974,76 @@ export function RecordDetail({
     const [showFuReminderOptions, setShowFuReminderOptions] = useState(false);
     const [showFuCustomReminder, setShowFuCustomReminder] = useState(false);
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
+    const profileId =
+        nullableString(
+            (healthProfile as Record<string, unknown> | null)?.profile_id,
+        ) ??
+        nullableString(
+            (meOverview?.profile as Record<string, unknown> | null)?.id,
+        );
+    const remindersQuery = useQuery({
+        queryKey: ['appointment-reminders', profileId],
+        queryFn: () => appointmentRemindersService.listForProfile(profileId!),
+        enabled: !!profileId && activeTab === 1,
+    });
+    const followUps = useMemo(
+        () =>
+            (remindersQuery.data ?? [])
+                .filter((item) => item.type === 'checkup')
+                .sort(
+                    (a, b) =>
+                        new Date(b.appointment_at).getTime() -
+                        new Date(a.appointment_at).getTime(),
+                )
+                .map(mapAppointmentReminderToFollowUpEntry),
+        [remindersQuery.data],
+    );
+    const createFollowUpMutation = useMutation({
+        mutationFn: async () => {
+            if (!profileId) {
+                throw new Error('missing-profile-id');
+            }
+            const appointmentAt = combineDateAndTime(fuDate, fuTime);
+            return appointmentRemindersService.create(profileId, {
+                type: 'checkup',
+                title: fuPurpose.trim() || 'Tái khám định kỳ',
+                appointment_at: appointmentAt.toISOString(),
+                hospital_name: fuHospital.trim() || null,
+                note: toFollowUpNote(fuDoctor, fuNotes),
+                ...reminderLabelToPayload(fuReminderTime),
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            setShowAddFu(false);
+            setShowFuReminderOptions(false);
+            appToast.showSuccess('Đã lưu lịch tái khám');
+        },
+        onError: () => {
+            appToast.showError('Không thể lưu lịch tái khám');
+        },
+    });
+    const deleteFollowUpMutation = useMutation({
+        mutationFn: (reminderId: string) =>
+            appointmentRemindersService.delete(reminderId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            appToast.showSuccess('Đã hủy lịch tái khám');
+        },
+        onError: () => {
+            appToast.showError('Không thể hủy lịch tái khám');
+        },
+    });
 
     const specEntry = SPECIALTIES.find((s) => s.key === recordCategory);
     const specLabel =
@@ -1024,37 +1156,30 @@ export function RecordDetail({
     }, []);
 
     const saveFu = useCallback(() => {
-        const dd = String(fuDate.getDate()).padStart(2, '0');
-        const mm = String(fuDate.getMonth() + 1).padStart(2, '0');
-        const yyyy = fuDate.getFullYear();
-        const entry: FollowUpEntry = {
-            id: Date.now().toString(),
-            date: `${dd}/${mm}/${yyyy}`,
-            time: formatFollowUpTime(fuTime),
-            facility_name: fuHospital.trim(),
-            doctor_name: fuDoctor.trim(),
-            purpose: fuPurpose.trim() || 'Tái khám định kỳ',
-            notes: fuNotes.trim(),
-            reminder_label: fuReminderTime,
-        };
-        setFollowUps((prev) => [entry, ...prev]);
-        setShowAddFu(false);
-        setShowFuReminderOptions(false);
-    }, [
-        fuDate,
-        fuTime,
-        fuHospital,
-        fuDoctor,
-        fuPurpose,
-        fuNotes,
-        fuReminderTime,
-    ]);
+        if (!profileId) {
+            appToast.showError('Không xác định được hồ sơ sức khỏe');
+            return;
+        }
+        if (!fuHospital.trim()) {
+            appToast.showWarning('Vui lòng nhập bệnh viện hoặc phòng khám');
+            return;
+        }
+        const appointmentAt = combineDateAndTime(fuDate, fuTime);
+        if (appointmentAt.getTime() < Date.now()) {
+            appToast.showWarning('Không thể đặt lịch trong quá khứ');
+            return;
+        }
+        createFollowUpMutation.mutate();
+    }, [createFollowUpMutation, fuDate, fuHospital, fuTime, profileId]);
 
     const cancelFu = useCallback(() => setShowAddFu(false), []);
 
-    const deleteFu = useCallback((id: string) => {
-        setFollowUps((prev) => prev.filter((f) => f.id !== id));
-    }, []);
+    const deleteFu = useCallback(
+        (id: string) => {
+            deleteFollowUpMutation.mutate(id);
+        },
+        [deleteFollowUpMutation],
+    );
 
     const selectFuReminder = useCallback((option: string) => {
         setShowFuReminderOptions(false);
@@ -1907,6 +2032,9 @@ export function RecordDetail({
                                         <Pressable
                                             style={styles.fuSaveBtn}
                                             onPress={saveFu}
+                                            disabled={
+                                                createFollowUpMutation.isPending
+                                            }
                                         >
                                             <Text style={styles.fuSaveText}>
                                                 Lưu hẹn
@@ -1955,6 +2083,9 @@ export function RecordDetail({
                                     <Pressable
                                         style={styles.fuItemDelete}
                                         onPress={() => deleteFu(fu.id)}
+                                        disabled={
+                                            deleteFollowUpMutation.isPending
+                                        }
                                     >
                                         <Ionicons
                                             name='trash-outline'
@@ -2217,7 +2348,7 @@ function AddRecordForm({
     const createRecordMutation = useMutation({
         mutationFn: async () => {
             if (!profileId) {
-                throw new Error('Khong xac dinh duoc ho so suc khoe');
+                throw new Error('Không xác định được hồ sơ sức khỏe');
             }
 
             const symptomList = symptoms
@@ -2234,26 +2365,51 @@ function AddRecordForm({
                 });
             }
 
-            return medicalRecordsService.create(profileId, {
-                title: name.trim() || diagnosis.trim() || null,
-                diagnosis_name: diagnosis.trim() || null,
-                doctor_name: doctor.trim() || null,
-                hospital_name: hospital.trim() || null,
-                visit_date: date.toISOString().slice(0, 10),
-                specialty: type.trim() || null,
-                symptoms: symptomList.length > 0 ? symptomList : null,
-                test_results: testResults.trim() || null,
-                doctor_advice: doctorAdvice.trim() || null,
-                notes: null,
-            });
+            const createdRecord = await medicalRecordsService.create(
+                profileId,
+                {
+                    title: name.trim() || diagnosis.trim() || null,
+                    diagnosis_name: diagnosis.trim() || null,
+                    doctor_name: doctor.trim() || null,
+                    hospital_name: hospital.trim() || null,
+                    visit_date: date.toISOString().slice(0, 10),
+                    specialty: type.trim() || null,
+                    symptoms: symptomList.length > 0 ? symptomList : null,
+                    test_results: testResults.trim() || null,
+                    doctor_advice: doctorAdvice.trim() || null,
+                    notes: null,
+                },
+            );
+            const followUpResults = await Promise.allSettled(
+                followUps.map((item) =>
+                    appointmentRemindersService.create(profileId, {
+                        type: 'checkup',
+                        title: item.purpose.trim() || 'Tái khám định kỳ',
+                        appointment_at: item.appointment_at,
+                        hospital_name: item.facility_name.trim() || null,
+                        note: toFollowUpNote(item.doctor_name, item.notes),
+                        ...reminderLabelToPayload(item.reminder_label),
+                    }),
+                ),
+            );
+            const followUpFailedCount = followUpResults.filter(
+                (item) => item.status === 'rejected',
+            ).length;
+            return {
+                createdRecord,
+                followUpFailedCount,
+            };
         },
-        onSuccess: async (createdRecord) => {
+        onSuccess: async ({ createdRecord, followUpFailedCount }) => {
             await queryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
             if (profileId) {
                 await queryClient.invalidateQueries({
                     queryKey: medicalRecordsQueryKeys.byProfile(profileId),
+                });
+                await queryClient.invalidateQueries({
+                    queryKey: ['appointment-reminders', profileId],
                 });
                 if (__DEV__) {
                     const refreshed = await queryClient.fetchQuery({
@@ -2268,35 +2424,40 @@ function AddRecordForm({
                     });
                 }
             }
-            appToast.showSuccess('Da luu ho so kham benh');
+            appToast.showSuccess('Đã lưu hồ sơ khám bệnh');
+            if (followUpFailedCount > 0) {
+                appToast.showWarning(
+                    `Có ${followUpFailedCount} lịch tái khám chưa tạo được`,
+                );
+            }
             onClose();
         },
         onError: (error) => {
             appToast.showError(
-                'Khong the luu ho so',
-                getApiErrorMessage(error, 'Vui long thu lai.'),
+                'Không thể lưu hồ sơ',
+                getApiErrorMessage(error, 'Vui lòng thử lại.'),
             );
         },
     });
 
     const handleSaveRecord = useCallback(() => {
         if (!profileId) {
-            appToast.showError('Khong xac dinh duoc ho so suc khoe');
+            appToast.showError('Không xác định được hồ sơ sức khỏe');
             return;
         }
 
         if (!name.trim()) {
-            appToast.showWarning('Vui long nhap ten ho so');
+            appToast.showWarning('Vui lòng nhập tên hồ sơ');
             return;
         }
 
         if (!hospital.trim()) {
-            appToast.showWarning('Vui long nhap benh vien hoac phong kham');
+            appToast.showWarning('Vui lòng nhập bệnh viện hoặc phòng khám');
             return;
         }
 
         if (!diagnosis.trim()) {
-            appToast.showWarning('Vui long nhap chan doan');
+            appToast.showWarning('Vui lòng nhập chẩn đoán');
             return;
         }
 
@@ -2342,15 +2503,23 @@ function AddRecordForm({
     }, []);
 
     const saveFollowUp = useCallback(() => {
-        const dd = String(fuDate.getDate()).padStart(2, '0');
-        const mm = String(fuDate.getMonth() + 1).padStart(2, '0');
-        const yyyy = fuDate.getFullYear();
+        if (!fuHospital.trim()) {
+            appToast.showWarning('Vui lòng nhập bệnh viện hoặc phòng khám');
+            return;
+        }
+        const appointmentAt = combineDateAndTime(fuDate, fuTime);
+        if (appointmentAt.getTime() < Date.now()) {
+            appToast.showWarning('Không thể đặt lịch trong quá khứ');
+            return;
+        }
+        const isoAppointmentAt = appointmentAt.toISOString();
 
         setFollowUps((prev) => [
             {
                 id: `${Date.now()}`,
-                date: `${dd}/${mm}/${yyyy}`,
-                time: formatFollowUpTime(fuTime),
+                appointment_at: isoAppointmentAt,
+                date: formatFollowUpDateFromIso(isoAppointmentAt),
+                time: formatFollowUpTime(appointmentAt),
                 facility_name: fuHospital.trim(),
                 doctor_name: fuDoctor.trim(),
                 purpose: fuPurpose.trim() || 'Tái khám định kỳ',
