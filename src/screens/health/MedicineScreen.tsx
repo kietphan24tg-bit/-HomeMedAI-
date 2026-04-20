@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Modal,
@@ -12,7 +13,15 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    useAddMedicineInventoryMutation,
+    usePatchMedicineInventoryMutation,
+} from '@/src/features/family/mutations';
+import { useMyFamiliesQuery } from '@/src/features/family/queries';
 import { useMeHealthProfileQuery } from '@/src/features/me/queries';
+import { meQueryKeys } from '@/src/features/me/queryKeys';
+import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
 import { MedicineInventoryCard } from '../../components/ui';
 import {
     moderateScale,
@@ -33,6 +42,7 @@ type MedicineStatus = 'ok' | 'low' | 'expiring';
 
 interface MockItem {
     id: string;
+    familyId?: string;
     name: string;
     form: string;
     desc: string;
@@ -41,9 +51,69 @@ interface MockItem {
     hsd: string;
     reminderText: string;
     reminderOn: boolean;
+    reminderTimesLocal: string[];
     progress: number;
     status: MedicineStatus;
     iconName: keyof typeof MaterialCommunityIcons.glyphMap;
+}
+
+function isSameItem(a: MockItem, b: MockItem): boolean {
+    return (
+        a.id === b.id &&
+        a.familyId === b.familyId &&
+        a.name === b.name &&
+        a.form === b.form &&
+        a.desc === b.desc &&
+        a.remaining === b.remaining &&
+        a.unit === b.unit &&
+        a.hsd === b.hsd &&
+        a.reminderText === b.reminderText &&
+        a.reminderOn === b.reminderOn &&
+        isSameStringList(a.reminderTimesLocal, b.reminderTimesLocal) &&
+        a.progress === b.progress &&
+        a.status === b.status &&
+        a.iconName === b.iconName
+    );
+}
+
+function isSameStringList(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+function isSameItemsList(prev: MockItem[], next: MockItem[]): boolean {
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i += 1) {
+        if (!isSameItem(prev[i], next[i])) return false;
+    }
+    return true;
+}
+
+function parseExpiryInput(raw: string): string | null {
+    const t = raw.trim();
+    if (!t) return null;
+    const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+    if (dmy) {
+        const day = parseInt(dmy[1], 10);
+        const month = parseInt(dmy[2], 10);
+        const year = parseInt(dmy[3], 10);
+        const dt = new Date(Date.UTC(year, month - 1, day));
+        if (
+            dt.getUTCFullYear() === year &&
+            dt.getUTCMonth() === month - 1 &&
+            dt.getUTCDate() === day
+        ) {
+            return dt.toISOString().slice(0, 10);
+        }
+        return null;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const parsed = new Date(t);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
 }
 
 const STATUS_THEME: Record<
@@ -80,6 +150,17 @@ function numberValue(value: unknown): number {
     return 0;
 }
 
+function booleanValue(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'on', 'yes'].includes(normalized)) return true;
+        if (['false', '0', 'off', 'no'].includes(normalized)) return false;
+    }
+    return undefined;
+}
+
 function recordList(value: unknown): Record<string, unknown>[] {
     return Array.isArray(value)
         ? value.filter(
@@ -110,19 +191,47 @@ function medicineStatus(item: Record<string, unknown>): MedicineStatus {
     return 'ok';
 }
 
-function reminderText(item: Record<string, unknown>): string {
+function parseReminderState(item: Record<string, unknown>): {
+    on: boolean;
+    text: string;
+    times: string[];
+} {
     const reminder =
         item.medicine_reminder && typeof item.medicine_reminder === 'object'
             ? (item.medicine_reminder as Record<string, unknown>)
             : null;
-    if (!reminder || reminder.enabled === false) return 'Tắt';
-
-    const times = Array.isArray(reminder.times)
+    const timesFromReminder = Array.isArray(reminder?.times)
         ? reminder.times.filter(
-              (time): time is string => typeof time === 'string',
+              (time): time is string => typeof time === 'string' && !!time,
           )
         : [];
-    return times.length ? times.join(', ') : 'Đang bật';
+    const timesFromItem = Array.isArray(item.reminder_times_local)
+        ? item.reminder_times_local.filter(
+              (time): time is string => typeof time === 'string' && !!time,
+          )
+        : [];
+    const times =
+        timesFromReminder.length > 0 ? timesFromReminder : timesFromItem;
+    const on =
+        booleanValue(reminder?.enabled) ??
+        booleanValue(reminder?.reminder_on) ??
+        booleanValue(reminder?.reminder_enabled) ??
+        booleanValue(item.reminder_on) ??
+        booleanValue(item.reminder_enabled) ??
+        times.length > 0;
+
+    if (!on) {
+        return { on: false, text: 'Tắt', times: [] };
+    }
+    return {
+        on: true,
+        text: times.length > 0 ? times.join(', ') : 'Đang bật',
+        times,
+    };
+}
+
+function reminderText(item: Record<string, unknown>): string {
+    return parseReminderState(item).text;
 }
 
 function buildMedicineItems(healthProfile: unknown): MockItem[] {
@@ -139,10 +248,7 @@ function buildMedicineItems(healthProfile: unknown): MockItem[] {
             minStock > 0
                 ? Math.min(100, Math.round((stock / minStock) * 100))
                 : 100;
-        const reminder =
-            item.medicine_reminder && typeof item.medicine_reminder === 'object'
-                ? (item.medicine_reminder as Record<string, unknown>)
-                : null;
+        const reminderState = parseReminderState(item);
 
         return {
             id: nullableString(item.id) ?? `medicine-${index}`,
@@ -162,7 +268,8 @@ function buildMedicineItems(healthProfile: unknown): MockItem[] {
             unit: nullableString(item.unit) ?? 'đơn vị',
             hsd: formatExpiry(item.expiry_date),
             reminderText: reminderText(item),
-            reminderOn: reminder?.enabled === true,
+            reminderOn: reminderState.on,
+            reminderTimesLocal: reminderState.times,
             progress,
             status,
             iconName: 'pill',
@@ -179,20 +286,103 @@ export default function MedicineScreen({
     onClose,
     headerTitle = 'Thuốc đang có',
 }: Props): React.JSX.Element {
+    const queryClient = useQueryClient();
     const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
+    const { data: myFamilies = [] } = useMyFamiliesQuery();
+    const familyMedicineQueries = useQueries({
+        queries: myFamilies.map((family) => ({
+            queryKey: ['families', family.id, 'medicine-inventory'],
+            queryFn: () => familiesServices.getMedicineInventory(family.id),
+            enabled: !!family.id,
+        })),
+    });
+    const addMedicineMutation = useAddMedicineInventoryMutation();
+    const patchMedicineMutation = usePatchMedicineInventoryMutation();
     const [search, setSearch] = useState('');
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
+    const familyItems = useMemo(() => {
+        const rows: MockItem[] = [];
+        myFamilies.forEach((family, index) => {
+            const query = familyMedicineQueries[index];
+            const source = recordList(
+                (query?.data as any)?.data ?? query?.data,
+            );
+            source.forEach((item, itemIndex) => {
+                const status = medicineStatus(item);
+                const stock = numberValue(item.quantity_stock);
+                const minStock = numberValue(item.min_stock_alert);
+                const progress =
+                    minStock > 0
+                        ? Math.min(100, Math.round((stock / minStock) * 100))
+                        : 100;
+                const reminderState = parseReminderState(item);
+
+                rows.push({
+                    id:
+                        nullableString(item.id) ??
+                        `${family.id}-medicine-${itemIndex}`,
+                    familyId: family.id,
+                    name:
+                        nullableString(item.medicine_name) ??
+                        nullableString(item.name) ??
+                        `Thuốc ${itemIndex + 1}`,
+                    form:
+                        nullableString(item.medicine_type) ??
+                        nullableString(item.form) ??
+                        'Chưa rõ dạng',
+                    desc:
+                        nullableString(item.instruction) ??
+                        nullableString(item.storage_location) ??
+                        'Chưa có hướng dẫn',
+                    remaining: stock,
+                    unit: nullableString(item.unit) ?? 'đơn vị',
+                    hsd: formatExpiry(item.expiry_date),
+                    reminderText: reminderText(item),
+                    reminderOn: reminderState.on,
+                    reminderTimesLocal: reminderState.times,
+                    progress,
+                    status,
+                    iconName: 'pill',
+                });
+            });
+        });
+        return rows;
+    }, [familyMedicineQueries, myFamilies]);
     const apiItems = useMemo(
-        () => buildMedicineItems(healthProfile),
-        [healthProfile],
+        () =>
+            familyItems.length > 0
+                ? familyItems
+                : buildMedicineItems(healthProfile),
+        [familyItems, healthProfile],
     );
     const [items, setItems] = useState<MockItem[]>([]);
     const [cloneItem, setCloneItem] = useState<MockItem | null>(null);
     const [deleteItem, setDeleteItem] = useState<MockItem | null>(null);
 
     useEffect(() => {
-        setItems(apiItems);
+        setItems((prev) => {
+            if (!prev.length) return apiItems;
+
+            const prevById = new Map(prev.map((item) => [item.id, item]));
+            const apiIdSet = new Set(apiItems.map((item) => item.id));
+            const mergedApiItems = apiItems.map((apiItem) => {
+                const previous = prevById.get(apiItem.id);
+                if (!previous) return apiItem;
+                return {
+                    ...apiItem,
+                    reminderOn: previous.reminderOn,
+                    reminderText: previous.reminderText,
+                    reminderTimesLocal: previous.reminderTimesLocal,
+                };
+            });
+            const localOnlyItems = prev.filter(
+                (item) => !apiIdSet.has(item.id),
+            );
+            const nextItems = [...localOnlyItems, ...mergedApiItems];
+
+            return isSameItemsList(prev, nextItems) ? prev : nextItems;
+        });
     }, [apiItems]);
 
     const filteredItems = useMemo(() => {
@@ -205,32 +395,65 @@ export default function MedicineScreen({
         );
     }, [items, search]);
 
-    const toggleReminder = (id: string) => {
+    const toggleReminder = async (id: string) => {
+        const currentItem = items.find((item) => item.id === id);
+        if (!currentItem) return;
+
+        const nextReminderOn = !currentItem.reminderOn;
+        const nextReminderTimes = nextReminderOn
+            ? currentItem.reminderTimesLocal.length > 0
+                ? currentItem.reminderTimesLocal
+                : ['08:00']
+            : [];
+        const nextReminderText = nextReminderOn
+            ? nextReminderTimes.join(', ')
+            : 'Tắt';
+
         setItems((prev) =>
             prev.map((item) =>
                 item.id === id
                     ? {
                           ...item,
-                          reminderOn: !item.reminderOn,
-                          reminderText: item.reminderOn
-                              ? 'Tắt'
-                              : item.reminderText === 'Tắt'
-                                ? 'Mỗi ngày · 08:00'
-                                : item.reminderText,
+                          reminderOn: nextReminderOn,
+                          reminderText: nextReminderText,
+                          reminderTimesLocal: nextReminderTimes,
                       }
                     : item,
             ),
         );
+
+        if (!currentItem.familyId) return;
+
+        try {
+            await familiesServices.patchMedicineInventory(currentItem.id, {
+                reminder_on: nextReminderOn,
+                reminder_times_local: nextReminderTimes,
+            });
+            await queryClient.invalidateQueries({
+                queryKey: [
+                    'families',
+                    currentItem.familyId,
+                    'medicine-inventory',
+                ],
+            });
+        } catch {
+            setItems((prev) =>
+                prev.map((item) => (item.id === id ? currentItem : item)),
+            );
+            appToast.showError('Lỗi', 'Không thể cập nhật nhắc thuốc lúc này.');
+        }
     };
 
     const openDetail = (item: MockItem | null) => {
         if (item) {
             setSelectedItem({
+                id: item.id,
+                familyId: item.familyId,
                 name: item.name,
                 form: item.form,
                 qty: String(item.remaining),
                 unit: item.unit,
-                exp: `20${item.hsd.split('/')[1]}-${item.hsd.split('/')[0]}-01`,
+                exp: item.hsd === '--' ? '' : `01/${item.hsd}`,
                 note: item.desc,
                 reminder: item.reminderOn ? 'ON' : 'OFF',
             });
@@ -238,6 +461,76 @@ export default function MedicineScreen({
             setSelectedItem(null);
         }
         setDetailOpen(true);
+    };
+
+    const handleSaveMedicine = async (payload: {
+        medicine_name?: string;
+        medicine_type?: string;
+        quantity_stock?: number;
+        unit?: string;
+        min_stock_alert?: number | null;
+        instruction?: string | null;
+        expiry_date?: string | null;
+    }) => {
+        const medicineName = payload.medicine_name?.trim();
+        if (!medicineName) {
+            appToast.showError('Thiếu thông tin', 'Vui lòng nhập tên thuốc.');
+            return;
+        }
+
+        const familyId =
+            selectedItem?.familyId ?? (myFamilies[0] ? myFamilies[0].id : null);
+        if (!familyId) {
+            appToast.showError(
+                'Chưa có gia đình',
+                'Cần tham gia hoặc tạo gia đình để quản lý thuốc.',
+            );
+            return;
+        }
+
+        const expiryDate = payload.expiry_date
+            ? parseExpiryInput(payload.expiry_date)
+            : null;
+        if (payload.expiry_date && !expiryDate) {
+            appToast.showError(
+                'Ngày không hợp lệ',
+                'Vui lòng dùng dd/mm/yyyy hoặc yyyy-mm-dd.',
+            );
+            return;
+        }
+
+        const requestBody = {
+            medicine_name: medicineName,
+            medicine_type: payload.medicine_type ?? 'Viên nén',
+            quantity_stock: Number(payload.quantity_stock ?? 0),
+            unit: payload.unit ?? 'viên',
+            min_stock_alert: Number(payload.min_stock_alert ?? 5),
+            instruction: payload.instruction ?? null,
+            expiry_date: expiryDate,
+            expiry_alert_days_before: 30,
+        };
+
+        try {
+            if (selectedItem?.id && selectedItem?.familyId) {
+                await patchMedicineMutation.mutateAsync({
+                    itemId: selectedItem.id,
+                    familyId: selectedItem.familyId,
+                    data: requestBody,
+                });
+            } else {
+                await addMedicineMutation.mutateAsync({
+                    familyId,
+                    data: requestBody,
+                });
+            }
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            setDetailOpen(false);
+            setSelectedItem(null);
+        } catch {
+            // toast handled in mutation hooks
+        }
     };
 
     const handleClone = () => {
@@ -379,6 +672,11 @@ export default function MedicineScreen({
                 visible={detailOpen}
                 item={selectedItem}
                 onClose={() => setDetailOpen(false)}
+                onSave={handleSaveMedicine}
+                isPending={
+                    addMedicineMutation.isPending ||
+                    patchMedicineMutation.isPending
+                }
             />
 
             <CloneConfirmSheet

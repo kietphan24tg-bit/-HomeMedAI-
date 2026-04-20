@@ -1,7 +1,7 @@
 // src/screens/health/HealthScreen.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,9 +25,11 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import { useMyFamiliesQuery } from '@/src/features/family/queries';
 import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { formatNumericDisplay } from '@/src/features/me/types';
+import { familiesServices } from '@/src/services/families.services';
 import {
     medicalRecordsQueryKeys,
     medicalRecordsService,
@@ -366,8 +368,23 @@ export default function HealthScreen(): React.JSX.Element {
         () => asRecord(meOverview?.health_profile),
         [meOverview?.health_profile],
     );
+    const { data: myFamilies = [] } = useMyFamiliesQuery();
     const profileId =
         nullableString(healthProfile.profile_id) ?? nullableString(profile.id);
+    const familyMedicineQueries = useQueries({
+        queries: myFamilies.map((family) => ({
+            queryKey: ['families', family.id, 'medicine-inventory'],
+            queryFn: () => familiesServices.getMedicineInventory(family.id),
+            enabled: !!family.id,
+        })),
+    });
+    const familyMedicineInventory = useMemo(
+        () =>
+            familyMedicineQueries.flatMap((query) =>
+                recordList((query.data as any)?.data ?? query.data),
+            ),
+        [familyMedicineQueries],
+    );
     const medicalRecordsQuery = useQuery({
         queryKey: profileId
             ? medicalRecordsQueryKeys.byProfile(profileId)
@@ -398,11 +415,28 @@ export default function HealthScreen(): React.JSX.Element {
         [medicalRecords],
     );
     const medicineRows = useMemo(
-        () => buildMedicineRows(healthProfile),
-        [healthProfile],
+        () =>
+            familyMedicineInventory.length > 0
+                ? familyMedicineInventory.slice(0, 3).map((medicine, index) => {
+                      const category = getCategoryColor(index + 3);
+                      return {
+                          id:
+                              nullableString(medicine.id) ??
+                              `${nullableString(medicine.medicine_name) ?? 'medicine'}-${index}`,
+                          name:
+                              nullableString(medicine.medicine_name) ?? 'Thuốc',
+                          bg: category.bg,
+                          iconColor: category.color,
+                      };
+                  })
+                : buildMedicineRows(healthProfile),
+        [familyMedicineInventory, healthProfile],
     );
     const totalMedicalRecords = medicalRecords.length;
-    const totalMedicines = recordList(healthProfile.medicine_inventory).length;
+    const totalMedicines =
+        familyMedicineInventory.length > 0
+            ? familyMedicineInventory.length
+            : recordList(healthProfile.medicine_inventory).length;
     const vaccineDonutSize = 62;
     const vaccineDonutStroke = 6;
     const vaccineDonutRadius = (vaccineDonutSize - vaccineDonutStroke) / 2;
