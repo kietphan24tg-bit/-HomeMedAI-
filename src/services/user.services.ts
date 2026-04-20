@@ -179,7 +179,7 @@ export type UserMeResponse = {
 export const userService = {
     getMe: async () => {
         const res = await apiClient.get<UserMeResponse>('/users/me', {
-            timeout: 60000,
+            timeout: 90000,
         });
         return res.data;
     },

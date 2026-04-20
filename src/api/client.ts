@@ -85,7 +85,7 @@ async function refreshAccessToken() {
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
-    timeout: 60000,
+    timeout: 90000,
     headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
