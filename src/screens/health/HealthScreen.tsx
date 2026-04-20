@@ -1,6 +1,7 @@
 // src/screens/health/HealthScreen.tsx
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +28,10 @@ import {
 import { usePatchMyHealthProfileMutation } from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { formatNumericDisplay } from '@/src/features/me/types';
+import {
+    medicalRecordsQueryKeys,
+    medicalRecordsService,
+} from '@/src/services/medicalRecords.services';
 import type { PatchMyHealthProfilePayload } from '@/src/services/user.services';
 import { getCategoryColor } from '@/src/utils/color-palette';
 import MedicineScreen from './MedicineScreen';
@@ -246,8 +251,8 @@ function formatShortDate(value: unknown) {
     ).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
-function buildMedicalRecordRows(healthProfile: Record<string, unknown>) {
-    return recordList(healthProfile.medical_records)
+function buildMedicalRecordRows(records: unknown) {
+    return recordList(records)
         .sort((a, b) => {
             const aTime = new Date(
                 nullableString(a.visit_date) ?? '',
@@ -363,6 +368,19 @@ export default function HealthScreen(): React.JSX.Element {
     );
     const profileId =
         nullableString(healthProfile.profile_id) ?? nullableString(profile.id);
+    const medicalRecordsQuery = useQuery({
+        queryKey: profileId
+            ? medicalRecordsQueryKeys.byProfile(profileId)
+            : [...medicalRecordsQueryKeys.all, 'profile', 'none'],
+        queryFn: () => medicalRecordsService.listForProfile(profileId!),
+        enabled: !!profileId,
+    });
+    const medicalRecords = useMemo(
+        () =>
+            medicalRecordsQuery.data ??
+            recordList(healthProfile.medical_records),
+        [medicalRecordsQuery.data, healthProfile.medical_records],
+    );
     const displayName =
         nullableString(profile.full_name) ??
         nullableString(meOverview?.user?.email) ??
@@ -376,16 +394,14 @@ export default function HealthScreen(): React.JSX.Element {
     const vaccineStats = vaccinationStats(healthProfile);
     const vaccinePct = vaccineStats.percent;
     const medicalRecordRows = useMemo(
-        () => buildMedicalRecordRows(healthProfile),
-        [healthProfile],
+        () => buildMedicalRecordRows(medicalRecords),
+        [medicalRecords],
     );
     const medicineRows = useMemo(
         () => buildMedicineRows(healthProfile),
         [healthProfile],
     );
-    const totalMedicalRecords = recordList(
-        healthProfile.medical_records,
-    ).length;
+    const totalMedicalRecords = medicalRecords.length;
     const totalMedicines = recordList(healthProfile.medicine_inventory).length;
     const vaccineDonutSize = 62;
     const vaccineDonutStroke = 6;

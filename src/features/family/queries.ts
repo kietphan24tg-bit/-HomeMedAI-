@@ -101,6 +101,11 @@ function mapMemberToCard(member: any, index: number): any {
 
     return {
         id: member?.id ?? `member-${index}`,
+        healthProfileId:
+            member?.health_profile_id ??
+            member?.health_profile?.id ??
+            member?.profile_id ??
+            undefined,
         familyRole: apiRole,
         initials,
         name: fullName,

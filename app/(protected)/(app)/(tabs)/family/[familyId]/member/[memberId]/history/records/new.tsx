@@ -1,8 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -14,9 +16,36 @@ import {
     View,
 } from 'react-native';
 import { DateField } from '@/src/components/ui';
+import { useFamilyQuery } from '@/src/features/family/queries';
+import { appToast } from '@/src/lib/toast';
+import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
+import { medicalRecordsService } from '@/src/services/medicalRecords.services';
 import { colors, typography } from '@/src/styles/tokens';
 
+function normalizeParam(value: string | string[] | undefined): string {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && value.length > 0) return value[0] ?? '';
+    return '';
+}
+
 export default function MemberRecordNewRoute() {
+    const queryClient = useQueryClient();
+    const { familyId, memberId } = useLocalSearchParams<{
+        familyId?: string | string[];
+        memberId?: string | string[];
+    }>();
+    const normalizedFamilyId = normalizeParam(familyId);
+    const normalizedMemberId = normalizeParam(memberId);
+    const { data: family } = useFamilyQuery(normalizedFamilyId);
+    const member = useMemo(
+        () =>
+            family?.members.find(
+                (item) => String(item.id) === String(normalizedMemberId),
+            ),
+        [family?.members, normalizedMemberId],
+    );
+    const profileId = member?.healthProfileId ?? '';
+
     const [visitDate, setVisitDate] = useState(new Date());
     const [hospital, setHospital] = useState('');
     const [department, setDepartment] = useState('');
@@ -28,10 +57,77 @@ export default function MemberRecordNewRoute() {
     const [followupDate, setFollowupDate] = useState<Date | null>(null);
     const [followupRemind, setFollowupRemind] = useState(false);
 
+    const createMutation = useMutation({
+        mutationFn: async () => {
+            const symptomList = symptoms
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean);
+            await medicalRecordsService.create(profileId, {
+                title: diagnosis.trim() || null,
+                diagnosis_name: diagnosis.trim() || null,
+                doctor_name: doctor.trim() || null,
+                hospital_name: hospital.trim() || null,
+                visit_date: visitDate.toISOString().slice(0, 10),
+                specialty: department.trim() || null,
+                symptoms: symptomList.length > 0 ? symptomList : null,
+                test_results: labResults.trim() || null,
+                doctor_advice: doctorAdvice.trim() || null,
+                notes: null,
+            });
+
+            if (followupDate) {
+                const appointmentAt = new Date(followupDate);
+                appointmentAt.setHours(8, 0, 0, 0);
+                await appointmentRemindersService.create(profileId, {
+                    type: 'checkup',
+                    title: diagnosis.trim() || 'Tai kham dinh ky',
+                    appointment_at: appointmentAt.toISOString(),
+                    hospital_name: hospital.trim() || null,
+                    department: department.trim() || null,
+                    note: doctorAdvice.trim() || null,
+                    reminder_enabled: followupRemind,
+                    remind_before_value: followupRemind ? 1 : undefined,
+                    remind_before_unit: followupRemind ? 'DAYS' : undefined,
+                });
+            }
+        },
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({
+                    queryKey: ['medical-records', profileId],
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: ['appointment-reminders', profileId],
+                }),
+            ]);
+            appToast.showSuccess('Da luu ho so kham');
+            router.back();
+        },
+        onError: () => {
+            appToast.showError('Khong the luu ho so kham');
+        },
+    });
+
+    const onSave = () => {
+        if (!profileId) {
+            appToast.showError('Khong xac dinh duoc ho so suc khoe');
+            return;
+        }
+        if (!hospital.trim()) {
+            appToast.showWarning('Vui long nhap benh vien hoac phong kham');
+            return;
+        }
+        if (!diagnosis.trim()) {
+            appToast.showWarning('Vui long nhap chan doan');
+            return;
+        }
+        createMutation.mutate();
+    };
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
-
             <View style={styles.topbar}>
                 <Pressable style={styles.backBtn} onPress={() => router.back()}>
                     <Ionicons
@@ -40,7 +136,7 @@ export default function MemberRecordNewRoute() {
                         color={colors.text2}
                     />
                 </Pressable>
-                <Text style={styles.topbarTitle}>Thêm hồ sơ khám</Text>
+                <Text style={styles.topbarTitle}>Them ho so kham</Text>
             </View>
 
             <ScrollView
@@ -49,50 +145,36 @@ export default function MemberRecordNewRoute() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps='handled'
             >
-                <Text style={styles.sectionHeading}>THÔNG TIN KHÁM</Text>
-
+                <Text style={styles.sectionHeading}>THONG TIN KHAM</Text>
                 <View style={styles.group}>
-                    <Text style={styles.label}>
-                        Ngày khám{' '}
-                        <Text style={{ color: colors.cDanger }}>*</Text>
-                    </Text>
+                    <Text style={styles.label}>Ngay kham</Text>
                     <DateField value={visitDate} onChange={setVisitDate} />
                 </View>
                 <View style={styles.group}>
-                    <Text style={styles.label}>
-                        Bệnh viện / Phòng khám{' '}
-                        <Text style={{ color: colors.cDanger }}>*</Text>
-                    </Text>
+                    <Text style={styles.label}>Benh vien / Phong kham *</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder='VD: BV Đại học Y Dược'
+                        placeholder='VD: BV Dai hoc Y Duoc'
                         placeholderTextColor={colors.text3}
                         value={hospital}
                         onChangeText={setHospital}
                     />
                 </View>
                 <View style={styles.group}>
-                    <Text style={styles.label}>Khoa / Chuyên khoa</Text>
-                    <View style={styles.dropdownWrap}>
-                        <TextInput
-                            style={[styles.inputFlex, { padding: 0 }]}
-                            placeholder='VD: Tim mạch'
-                            placeholderTextColor={colors.text3}
-                            value={department}
-                            onChangeText={setDepartment}
-                        />
-                        <Ionicons
-                            name='chevron-down'
-                            size={16}
-                            color={colors.text3}
-                        />
-                    </View>
-                </View>
-                <View style={styles.group}>
-                    <Text style={styles.label}>Bác sĩ điều trị</Text>
+                    <Text style={styles.label}>Khoa / Chuyen khoa</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder='VD: BS. Lê Văn Hùng'
+                        placeholder='VD: Tim mach'
+                        placeholderTextColor={colors.text3}
+                        value={department}
+                        onChangeText={setDepartment}
+                    />
+                </View>
+                <View style={styles.group}>
+                    <Text style={styles.label}>Bac si dieu tri</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder='VD: BS Nguyen Van A'
                         placeholderTextColor={colors.text3}
                         value={doctor}
                         onChangeText={setDoctor}
@@ -102,17 +184,13 @@ export default function MemberRecordNewRoute() {
                 <Text
                     style={[styles.sectionHeading, styles.sectionHeadingSpaced]}
                 >
-                    KẾT QUẢ KHÁM
+                    KET QUA KHAM
                 </Text>
-
                 <View style={styles.group}>
-                    <Text style={styles.label}>
-                        Chẩn đoán{' '}
-                        <Text style={{ color: colors.cDanger }}>*</Text>
-                    </Text>
+                    <Text style={styles.label}>Chan doan *</Text>
                     <TextInput
                         style={styles.textarea}
-                        placeholder='Mô tả chẩn đoán...'
+                        placeholder='Mo ta chan doan...'
                         placeholderTextColor={colors.text3}
                         value={diagnosis}
                         onChangeText={setDiagnosis}
@@ -121,20 +199,20 @@ export default function MemberRecordNewRoute() {
                     />
                 </View>
                 <View style={styles.group}>
-                    <Text style={styles.label}>Triệu chứng</Text>
+                    <Text style={styles.label}>Trieu chung</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder='Đau đầu, Chóng mặt...'
+                        placeholder='Cach nhau boi dau phay'
                         placeholderTextColor={colors.text3}
                         value={symptoms}
                         onChangeText={setSymptoms}
                     />
                 </View>
                 <View style={styles.group}>
-                    <Text style={styles.label}>Kết quả xét nghiệm</Text>
+                    <Text style={styles.label}>Ket qua xet nghiem</Text>
                     <TextInput
                         style={styles.textarea}
-                        placeholder='Ghi kết quả xét nghiệm (nếu có)...'
+                        placeholder='Nhap ket qua xet nghiem...'
                         placeholderTextColor={colors.text3}
                         value={labResults}
                         onChangeText={setLabResults}
@@ -143,10 +221,10 @@ export default function MemberRecordNewRoute() {
                     />
                 </View>
                 <View style={styles.group}>
-                    <Text style={styles.label}>Lời dặn bác sĩ</Text>
+                    <Text style={styles.label}>Loi dan bac si</Text>
                     <TextInput
                         style={styles.textarea}
-                        placeholder='Lời dặn, thuốc dùng, lịch tái khám...'
+                        placeholder='Loi dan, huong dan dieu tri...'
                         placeholderTextColor={colors.text3}
                         value={doctorAdvice}
                         onChangeText={setDoctorAdvice}
@@ -158,30 +236,10 @@ export default function MemberRecordNewRoute() {
                 <Text
                     style={[styles.sectionHeading, styles.sectionHeadingSpaced]}
                 >
-                    ĐƠN THUỐC KÊ
+                    HEN TAI KHAM
                 </Text>
-
                 <View style={styles.group}>
-                    <View style={styles.prescriptionBox}>
-                        <Text style={styles.prescriptionPlaceholder}>
-                            Chưa có đơn thuốc
-                        </Text>
-                    </View>
-                    <Pressable style={styles.outlineBtn} onPress={() => {}}>
-                        <Text style={styles.outlineBtnText}>
-                            Thêm vào tủ thuốc gia đình
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <Text
-                    style={[styles.sectionHeading, styles.sectionHeadingSpaced]}
-                >
-                    HẸN TÁI KHÁM
-                </Text>
-
-                <View style={styles.group}>
-                    <Text style={styles.label}>Ngày tái khám</Text>
+                    <Text style={styles.label}>Ngay tai kham</Text>
                     <DateField
                         value={followupDate}
                         onChange={setFollowupDate}
@@ -189,7 +247,7 @@ export default function MemberRecordNewRoute() {
                 </View>
                 <View style={styles.reminderCard}>
                     <View style={styles.reminderHeader}>
-                        <Text style={styles.labelGroup}>Nhắc nhở</Text>
+                        <Text style={styles.labelGroup}>Nhac nho</Text>
                         <Switch
                             value={followupRemind}
                             onValueChange={setFollowupRemind}
@@ -220,19 +278,15 @@ export default function MemberRecordNewRoute() {
                     }}
                 >
                     <Pressable
-                        onPress={() => router.back()}
+                        onPress={onSave}
+                        disabled={createMutation.isPending}
                         style={{ width: '100%', alignItems: 'center' }}
                     >
-                        <Text
-                            style={{
-                                fontFamily: typography.font.black,
-                                fontSize: 15,
-                                color: '#fff',
-                                letterSpacing: 0.2,
-                            }}
-                        >
-                            Lưu hồ sơ
-                        </Text>
+                        {createMutation.isPending ? (
+                            <ActivityIndicator size='small' color='#fff' />
+                        ) : (
+                            <Text style={styles.saveText}>Luu ho so</Text>
+                        )}
                     </Pressable>
                 </LinearGradient>
             </View>
@@ -316,55 +370,6 @@ const styles = StyleSheet.create({
         minHeight: 100,
         textAlignVertical: 'top',
     },
-    dropdownWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.card,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    inputFlex: {
-        flex: 1,
-        fontFamily: typography.font.regular,
-        fontSize: 15,
-        color: colors.text,
-    },
-    prescriptionBox: {
-        minHeight: 120,
-        backgroundColor: colors.card,
-        borderWidth: 1.5,
-        borderColor: colors.border,
-        borderRadius: 12,
-        borderStyle: 'dashed',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        marginBottom: 12,
-    },
-    prescriptionPlaceholder: {
-        fontFamily: typography.font.regular,
-        fontSize: 14,
-        color: colors.text3,
-        textAlign: 'center',
-    },
-    outlineBtn: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: colors.primary,
-        backgroundColor: colors.card,
-    },
-    outlineBtnText: {
-        fontFamily: typography.font.medium,
-        fontSize: 14,
-        color: colors.primary,
-    },
     reminderCard: {
         backgroundColor: colors.card,
         borderWidth: 1.5,
@@ -389,5 +394,11 @@ const styles = StyleSheet.create({
         paddingBottom: 30,
         borderTopWidth: 1,
         borderTopColor: colors.border,
+    },
+    saveText: {
+        fontFamily: typography.font.black,
+        fontSize: 15,
+        color: '#fff',
+        letterSpacing: 0.2,
     },
 });

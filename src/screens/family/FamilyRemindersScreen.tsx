@@ -8,6 +8,7 @@ import {
     useFamilyQuery,
 } from '@/src/features/family/queries';
 import { appToast } from '@/src/lib/toast';
+import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
 import {
     notificationsService,
     type NotificationApiItem,
@@ -18,7 +19,8 @@ import { colors, typography } from '@/src/styles/tokens';
 
 type Reminder = {
     id: string;
-    scheduleId: string;
+    scheduleId?: string;
+    category: 'medicine' | 'checkup' | 'vaccine';
     time: string;
     memberName: string;
     memberInitials: string;
@@ -36,6 +38,26 @@ const AVATAR_BG_COLORS = [
     '#FFF7ED',
     '#FFF1F2',
 ];
+
+function normalizeStatus(value: string | null | undefined): Reminder['status'] {
+    const normalized = (value ?? '').toLowerCase();
+    if (
+        normalized === 'completed' ||
+        normalized === 'taken' ||
+        normalized === 'done'
+    ) {
+        return 'taken';
+    }
+    if (
+        normalized === 'paused' ||
+        normalized === 'skipped' ||
+        normalized === 'missed' ||
+        normalized === 'cancelled'
+    ) {
+        return 'skipped';
+    }
+    return 'pending';
+}
 
 function getReminderColorPair(reminder: Reminder): {
     bg: string;
@@ -56,52 +78,48 @@ function getInitials(name: string): string {
         .split(' ')
         .map((it) => it.trim())
         .filter(Boolean);
-
     if (tokens.length === 0) return '??';
     if (tokens.length === 1) return tokens[0].slice(0, 2).toUpperCase();
     return `${tokens[0][0] ?? ''}${tokens[tokens.length - 1][0] ?? ''}`.toUpperCase();
 }
 
-function mapApiStatusToReminderStatus(
-    value: string | null | undefined,
-): Reminder['status'] {
-    if (value === 'COMPLETED' || value === 'TAKEN') {
-        return 'taken';
+function splitDateAndTime(value: string | Date | null | undefined): {
+    date?: string;
+    time: string;
+} {
+    if (!value) return { time: '--:--' };
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+        return { time: '--:--' };
     }
-    if (value === 'PAUSED' || value === 'SKIPPED') {
-        return 'skipped';
-    }
-    return 'pending';
+    return {
+        date: d.toLocaleDateString('vi-VN'),
+        time: `${String(d.getHours()).padStart(2, '0')}:${String(
+            d.getMinutes(),
+        ).padStart(2, '0')}`,
+    };
 }
 
-function toReminder(item: NotificationApiItem): Reminder {
-    const memberName = item.profile_name?.trim() || 'Thành viên gia đình';
+function toMedicineReminder(item: NotificationApiItem): Reminder {
+    const memberName = item.profile_name?.trim() || 'Thanh vien gia dinh';
     const medicine =
-        item.medicine_name?.trim() || item.body?.trim() || 'Nhắc uống thuốc';
+        item.medicine_name?.trim() || item.body?.trim() || 'Nhac uong thuoc';
     const dosage = item.dosage_per_time
-        ? `Liều ${item.dosage_per_time}`
-        : item.title?.trim() || 'Lịch nhắc thuốc';
-
-    let dateStr;
-    if (item.scheduled_at) {
-        const d = new Date(item.scheduled_at);
-        if (!isNaN(d.getTime())) {
-            dateStr = d.toLocaleDateString('vi-VN');
-        }
-    }
+        ? `Lieu ${item.dosage_per_time}`
+        : item.title?.trim() || 'Lich nhac thuoc';
+    const dateTime = splitDateAndTime(item.scheduled_at);
 
     return {
-        id: item.id,
+        id: `med-${item.id}`,
         scheduleId: item.schedule_id || item.id,
-        time: item.remind_time || '--:--',
-        date: dateStr,
+        category: 'medicine',
+        time: item.remind_time || dateTime.time,
+        date: dateTime.date,
         memberName,
         memberInitials: getInitials(memberName),
         medicineName: medicine,
         dosageInfo: dosage,
-        status: mapApiStatusToReminderStatus(
-            item.occurrence_status || item.status,
-        ),
+        status: normalizeStatus(item.occurrence_status || item.status),
     };
 }
 
@@ -114,38 +132,62 @@ export default function FamilyRemindersScreen({
     const { data: familyProfiles = [] } = useFamilyProfilesQuery(familyId);
     const [reminders, setReminders] = useState<Reminder[]>([]);
 
-    const familyProfileIds = useMemo(
-        () =>
-            new Set(
-                familyProfiles
-                    .map((it: Record<string, unknown>) => String(it.id ?? ''))
-                    .filter(Boolean),
-            ),
-        [familyProfiles],
-    );
+    const familyProfileIds = useMemo(() => {
+        const fromProfiles = familyProfiles
+            .map((it: Record<string, unknown>) => String(it.id ?? ''))
+            .filter(Boolean);
+        if (fromProfiles.length > 0) return fromProfiles;
+        return (family?.members ?? [])
+            .map((it) => String(it.healthProfileId ?? ''))
+            .filter(Boolean);
+    }, [family?.members, familyProfiles]);
+
+    const profileNameMap = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const member of family?.members ?? []) {
+            const profileId = String(member.healthProfileId ?? '');
+            if (profileId) {
+                map.set(profileId, member.name || 'Thanh vien gia dinh');
+            }
+        }
+        for (const profile of familyProfiles as Record<string, unknown>[]) {
+            const profileId = String(profile.id ?? '');
+            const fullName =
+                String(
+                    profile.full_name ??
+                        profile.name ??
+                        profile.profile_name ??
+                        '',
+                ).trim() || 'Thanh vien gia dinh';
+            if (profileId && !map.has(profileId)) {
+                map.set(profileId, fullName);
+            }
+        }
+        return map;
+    }, [family?.members, familyProfiles]);
 
     useEffect(() => {
         let active = true;
 
         const load = async () => {
-            if (!family) {
-                return;
-            }
-
+            if (!family) return;
             try {
-                const res = await notificationsService.getMyNotifications();
-                if (!active) {
-                    return;
-                }
+                const [notificationRes, ...appointmentRes] = await Promise.all([
+                    notificationsService.getMyNotifications(),
+                    ...familyProfileIds.map((profileId) =>
+                        appointmentRemindersService.listForProfile(profileId),
+                    ),
+                ]);
+                if (!active) return;
 
-                const list = Array.isArray(res?.items) ? res.items : [];
-                const mapped = list
+                const medItems = Array.isArray(notificationRes?.items)
+                    ? notificationRes.items
+                    : [];
+                const medicineReminders = medItems
                     .filter((item) => {
-                        if (item.category !== 'MEDICINE') {
-                            return false;
-                        }
-                        if (familyProfileIds.size > 0) {
-                            return familyProfileIds.has(
+                        if (item.category !== 'MEDICINE') return false;
+                        if (familyProfileIds.length > 0) {
+                            return familyProfileIds.includes(
                                 String(item.profile_id),
                             );
                         }
@@ -154,23 +196,71 @@ export default function FamilyRemindersScreen({
                             (family.name || '').trim()
                         );
                     })
-                    .map(toReminder);
+                    .map(toMedicineReminder);
 
-                setReminders(mapped);
+                const appointmentReminders = appointmentRes.flatMap(
+                    (items, index) => {
+                        const profileId = familyProfileIds[index];
+                        const memberName =
+                            profileNameMap.get(profileId) ||
+                            'Thanh vien gia dinh';
+                        return items.map((item) => {
+                            const dateTime = splitDateAndTime(
+                                item.appointment_at,
+                            );
+                            const isVaccine = item.type === 'vaccine';
+                            const title = isVaccine
+                                ? item.vaccine_name?.trim() ||
+                                  item.title?.trim() ||
+                                  'Lich tiem'
+                                : item.title?.trim() || 'Lich tai kham';
+                            const detail = isVaccine
+                                ? `Mui ${item.dose_number ?? '-'}`
+                                : item.hospital_name?.trim() ||
+                                  item.department?.trim() ||
+                                  'Lich hen kham';
+                            return {
+                                id: `appt-${item.id}`,
+                                category: isVaccine ? 'vaccine' : 'checkup',
+                                time: dateTime.time,
+                                date: dateTime.date,
+                                memberName,
+                                memberInitials: getInitials(memberName),
+                                medicineName: title,
+                                dosageInfo: detail,
+                                status: normalizeStatus(item.status),
+                            } as Reminder;
+                        });
+                    },
+                );
+
+                const combined = [
+                    ...medicineReminders,
+                    ...appointmentReminders,
+                ].sort((a, b) => {
+                    const aDate = new Date(
+                        `${a.date ?? '1970-01-01'} ${a.time}`,
+                    ).getTime();
+                    const bDate = new Date(
+                        `${b.date ?? '1970-01-01'} ${b.time}`,
+                    ).getTime();
+                    return bDate - aDate;
+                });
+
+                setReminders(combined);
             } catch (error) {
                 console.error(error);
                 if (active) {
-                    appToast.showError('Không tải được lịch nhắc gia đình.');
+                    appToast.showError('Khong tai duoc lich nhac gia dinh.');
                 }
             }
         };
 
         void load();
-
         return () => {
             active = false;
         };
-    }, [family, familyProfileIds]);
+    }, [family, family?.name, familyProfileIds, profileNameMap]);
 
     if (!family) {
         return <View style={styles.container} />;
@@ -178,15 +268,13 @@ export default function FamilyRemindersScreen({
 
     const handleAction = (id: string, action: 'taken' | 'skipped') => {
         const target = reminders.find((it) => it.id === id);
-        if (!target) {
+        if (!target || target.category !== 'medicine' || !target.scheduleId) {
             return;
         }
-
         const prev = reminders;
         setReminders((items) =>
             items.map((r) => (r.id === id ? { ...r, status: action } : r)),
         );
-
         void notificationsService
             .logScheduleCompliance(
                 target.scheduleId,
@@ -196,13 +284,12 @@ export default function FamilyRemindersScreen({
             .catch((error) => {
                 console.error(error);
                 setReminders(prev);
-                appToast.showError('Không cập nhật được trạng thái lịch nhắc.');
+                appToast.showError('Khong cap nhat duoc trang thai lich nhac.');
             });
     };
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* ── HEADER ── */}
             <View style={styles.header}>
                 <Pressable
                     style={styles.headerBackBtn}
@@ -216,9 +303,9 @@ export default function FamilyRemindersScreen({
                     />
                 </Pressable>
                 <View style={styles.headerTitleContainer}>
-                    <Text style={styles.headerTitle}>Lịch nhắc gia đình</Text>
+                    <Text style={styles.headerTitle}>Lich nhac gia dinh</Text>
                     <Text style={styles.headerSubtitle}>
-                        {family?.name || 'Gia đình'}
+                        {family?.name || 'Gia dinh'}
                     </Text>
                 </View>
                 <View style={styles.headerRightSpacer} />
@@ -230,15 +317,15 @@ export default function FamilyRemindersScreen({
                 showsVerticalScrollIndicator={false}
             >
                 {reminders.length > 0 && (
-                    <Text style={styles.sectionTitle}>Tất cả lịch nhắc</Text>
+                    <Text style={styles.sectionTitle}>Tat ca lich nhac</Text>
                 )}
 
-                {/* ── REMINDER CARDS ── */}
                 {reminders.length === 0 && (
                     <View style={styles.emptyCard}>
-                        <Text style={styles.emptyTitle}>Chưa có lịch nhắc</Text>
+                        <Text style={styles.emptyTitle}>Chua co lich nhac</Text>
                         <Text style={styles.emptySubtitle}>
-                            Lịch nhắc thuốc của gia đình sẽ hiển thị tại đây.
+                            Lich thuoc, lich tiem va lich tai kham se hien thi
+                            tai day.
                         </Text>
                     </View>
                 )}
@@ -247,7 +334,6 @@ export default function FamilyRemindersScreen({
                     const colorPair = getReminderColorPair(reminder);
                     return (
                         <View key={reminder.id} style={styles.card}>
-                            {/* Time pill */}
                             <View style={styles.timePillRow}>
                                 <View style={styles.timePill}>
                                     <Ionicons
@@ -261,52 +347,30 @@ export default function FamilyRemindersScreen({
                                             : reminder.time}
                                     </Text>
                                 </View>
-                                {reminder.status !== 'pending' && (
-                                    <View
-                                        style={[
-                                            styles.statusPill,
-                                            {
-                                                backgroundColor:
-                                                    reminder.status === 'taken'
-                                                        ? colors.successBg
-                                                        : colors.dangerBg,
-                                            },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name={
-                                                reminder.status === 'taken'
-                                                    ? 'checkmark-circle'
-                                                    : 'close-circle'
-                                            }
-                                            size={13}
-                                            color={
-                                                reminder.status === 'taken'
-                                                    ? colors.success
-                                                    : colors.danger
-                                            }
-                                        />
-                                        <Text
-                                            style={[
-                                                styles.statusPillText,
-                                                {
-                                                    color:
-                                                        reminder.status ===
+                                <View
+                                    style={[
+                                        styles.statusPill,
+                                        {
+                                            backgroundColor:
+                                                reminder.status === 'pending'
+                                                    ? colors.warningBg
+                                                    : reminder.status ===
                                                         'taken'
-                                                            ? colors.success
-                                                            : colors.danger,
-                                                },
-                                            ]}
-                                        >
-                                            {reminder.status === 'taken'
-                                                ? 'Đã uống'
-                                                : 'Đã bỏ qua'}
-                                        </Text>
-                                    </View>
-                                )}
+                                                      ? colors.successBg
+                                                      : colors.dangerBg,
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.statusPillText}>
+                                        {reminder.status === 'pending'
+                                            ? 'Dang cho'
+                                            : reminder.status === 'taken'
+                                              ? 'Da xu ly'
+                                              : 'Da bo qua'}
+                                    </Text>
+                                </View>
                             </View>
 
-                            {/* Card body */}
                             <View style={styles.cardBody}>
                                 <View
                                     style={[
@@ -343,8 +407,8 @@ export default function FamilyRemindersScreen({
                                 </View>
                             </View>
 
-                            {/* Actions */}
-                            {reminder.status === 'pending' && (
+                            {reminder.status === 'pending' &&
+                            reminder.category === 'medicine' ? (
                                 <View style={styles.actions}>
                                     <Pressable
                                         style={styles.takenBtn}
@@ -358,7 +422,7 @@ export default function FamilyRemindersScreen({
                                             color='#fff'
                                         />
                                         <Text style={styles.takenBtnText}>
-                                            Đã uống
+                                            Da uong
                                         </Text>
                                     </Pressable>
                                     <Pressable
@@ -373,11 +437,11 @@ export default function FamilyRemindersScreen({
                                             color={colors.text2}
                                         />
                                         <Text style={styles.skipBtnText}>
-                                            Bỏ qua
+                                            Bo qua
                                         </Text>
                                     </Pressable>
                                 </View>
-                            )}
+                            ) : null}
                         </View>
                     );
                 })}
@@ -393,8 +457,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.bg,
     },
-
-    /* ── Header ── */
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -431,8 +493,6 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(12),
         color: colors.text2,
     },
-
-    /* ── Scroll ── */
     scroll: {
         flex: 1,
     },
@@ -442,64 +502,12 @@ const styles = StyleSheet.create({
         paddingBottom: verticalScale(40),
         gap: verticalScale(8),
     },
-
-    /* ── Summary Card ── */
-    summaryCard: {
-        ...cardSystem.shell,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: scale(16),
-        paddingHorizontal: scale(12),
-        paddingVertical: verticalScale(12),
-    },
-    summaryIconWrap: {
-        width: scale(40),
-        height: scale(40),
-        borderRadius: scale(12),
-        backgroundColor: colors.warningBg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: scale(10),
-    },
-    summaryBody: {
-        flex: 1,
-    },
-    summaryTitle: {
-        fontFamily: typography.font.black,
-        fontSize: scaleFont(14),
-        color: colors.text,
-    },
-    summarySub: {
-        marginTop: verticalScale(1),
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(11.5),
-        color: colors.text3,
-    },
-    summaryCountWrap: {
-        alignItems: 'center',
-        minWidth: scale(40),
-    },
-    summaryCount: {
-        fontFamily: typography.font.black,
-        fontSize: scaleFont(20),
-        color: colors.warning,
-    },
-    summaryCountLabel: {
-        fontFamily: typography.font.medium,
-        fontSize: scaleFont(10),
-        color: colors.text3,
-        marginTop: verticalScale(-2),
-    },
-
-    /* ── Section Title ── */
     sectionTitle: {
         ...formSystem.sectionTitle,
         letterSpacing: 0.4,
         marginTop: verticalScale(6),
         marginBottom: verticalScale(2),
     },
-
-    /* ── Reminder Card ── */
     card: {
         ...cardSystem.shell,
         borderRadius: scale(16),
@@ -537,10 +545,8 @@ const styles = StyleSheet.create({
     statusPillText: {
         fontFamily: typography.font.semiBold,
         fontSize: scaleFont(11),
-        color: colors.success,
+        color: colors.text2,
     },
-
-    /* ── Card Body ── */
     cardBody: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -584,8 +590,6 @@ const styles = StyleSheet.create({
         fontSize: scaleFont(11),
         color: colors.text3,
     },
-
-    /* ── Actions ── */
     actions: {
         flexDirection: 'row',
         gap: scale(8),
@@ -618,8 +622,6 @@ const styles = StyleSheet.create({
         ...buttonSystem.textOutline,
         fontSize: scaleFont(12.5),
     },
-
-    /* ── Spacer ── */
     bottomSpacer: {
         height: verticalScale(28),
     },

@@ -4,7 +4,6 @@ const EXCLUDED_REFRESH_PATHS = [
     '/signin',
     '/signup',
     '/signout',
-    '/rag/chat',
     '/auth/login',
     '/auth/register',
     '/auth/logout',

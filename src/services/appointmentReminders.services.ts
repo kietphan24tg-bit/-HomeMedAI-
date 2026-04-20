@@ -9,8 +9,9 @@ export type AppointmentReminderType = {
     hospital_name?: string | null;
     department?: string | null;
     appointment_at: string;
-    remind_before_value: number;
-    remind_before_unit: RemindBeforeUnit;
+    reminder_enabled: boolean;
+    remind_before_value?: number | null;
+    remind_before_unit?: RemindBeforeUnit | null;
     vaccine_name?: string | null;
     dose_number?: number | null;
     total_doses?: number | null;
@@ -34,6 +35,7 @@ export const appointmentRemindersService = {
             type: 'checkup' | 'vaccine';
             title: string;
             appointment_at: string;
+            reminder_enabled?: boolean;
             remind_before_value?: number;
             remind_before_unit?: RemindBeforeUnit;
             hospital_name?: string | null;
@@ -58,8 +60,10 @@ export const appointmentRemindersService = {
         body: Partial<{
             title: string;
             appointment_at: string;
+            reminder_enabled: boolean;
             remind_before_value: number;
             remind_before_unit: RemindBeforeUnit;
+            vaccination_dose_id: string | null;
             status: 'pending' | 'done' | 'missed';
         }>,
     ) => {
