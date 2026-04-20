@@ -1,7 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Modal,
     Pressable,
     ScrollView,
@@ -11,7 +13,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMeHealthProfileQuery } from '@/src/features/me/queries';
+import {
+    useMeHealthProfileQuery,
+    useMeOverviewQuery,
+} from '@/src/features/me/queries';
+import { meQueryKeys } from '@/src/features/me/queryKeys';
+import { getApiErrorMessage } from '@/src/lib/api-error';
+import { appToast } from '@/src/lib/toast';
+import {
+    medicalRecordsQueryKeys,
+    medicalRecordsService,
+} from '@/src/services/medicalRecords.services';
 import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
@@ -242,13 +254,18 @@ function mapPrescriptions(value: unknown): RecordPrescriptionItem[] {
     }));
 }
 
-function buildRecordsFromHealthProfile(healthProfile: unknown): RecordItem[] {
+function buildRecordsFromHealthProfile(
+    healthProfile: unknown,
+    medicalRecordsOverride?: unknown,
+): RecordItem[] {
     const health =
         healthProfile && typeof healthProfile === 'object'
             ? (healthProfile as Record<string, unknown>)
             : {};
 
-    return recordList(health.medical_records)
+    const recordsSource = medicalRecordsOverride ?? health.medical_records;
+
+    return recordList(recordsSource)
         .map((record, index): RecordItem => {
             const isoDate = toIsoDate(record.visit_date ?? record.created_at);
             const category = getCategoryColor(index);
@@ -324,6 +341,21 @@ function buildRecordsFromHealthProfile(healthProfile: unknown): RecordItem[] {
 
 export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
     const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
+    const { data: meOverview } = useMeOverviewQuery();
+    const profileId =
+        nullableString(
+            (healthProfile as Record<string, unknown> | null)?.profile_id,
+        ) ??
+        nullableString(
+            (meOverview?.profile as Record<string, unknown> | null)?.id,
+        );
+    const medicalRecordsQuery = useQuery({
+        queryKey: profileId
+            ? medicalRecordsQueryKeys.byProfile(profileId)
+            : [...medicalRecordsQueryKeys.all, 'profile', 'none'],
+        queryFn: () => medicalRecordsService.listForProfile(profileId!),
+        enabled: !!profileId,
+    });
     const [view, setView] = useState<'list' | 'detail' | 'add'>('list');
     const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(
         null,
@@ -378,7 +410,10 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
     }, []);
 
     const filtered = useMemo(() => {
-        let list = buildRecordsFromHealthProfile(healthProfile);
+        let list = buildRecordsFromHealthProfile(
+            healthProfile,
+            medicalRecordsQuery.data,
+        );
 
         // Apply category filter
         if (filter !== 'Tất cả') {
@@ -408,7 +443,7 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
         }
 
         return list;
-    }, [healthProfile, search, filter, specFilter]);
+    }, [healthProfile, medicalRecordsQuery.data, search, filter, specFilter]);
 
     const groups = useMemo(() => groupByYearMonth(filtered), [filtered]);
 
@@ -537,10 +572,12 @@ export default function RecordsScreen({ onClose }: Props): React.JSX.Element {
                             />
                         </View>
                         <Text style={styles.recEmptyTitle}>
-                            {isLoading ? 'Đang tải hồ sơ' : 'Không có hồ sơ'}
+                            {isLoading || medicalRecordsQuery.isLoading
+                                ? 'Đang tải hồ sơ'
+                                : 'Không có hồ sơ'}
                         </Text>
                         <Text style={styles.recEmptySub}>
-                            {isLoading
+                            {isLoading || medicalRecordsQuery.isLoading
                                 ? 'Dữ liệu đang được lấy từ tài khoản của bạn'
                                 : search.trim()
                                   ? 'Thử tìm kiếm với từ khoá khác'
@@ -2136,6 +2173,9 @@ function AddRecordForm({
 }: {
     onClose: () => void;
 }): React.JSX.Element {
+    const queryClient = useQueryClient();
+    const { data: healthProfile } = useMeHealthProfileQuery();
+    const { data: meOverview } = useMeOverviewQuery();
     const [name, setName] = useState('');
     const [date, setDate] = useState(new Date());
     const [type, setType] = useState('');
@@ -2166,6 +2206,102 @@ function AddRecordForm({
     const [showFuCustomReminder, setShowFuCustomReminder] = useState(false);
 
     const selectedType = ALL_TYPES.find((t) => t.key === type);
+    const profileId =
+        nullableString(
+            (healthProfile as Record<string, unknown> | null)?.profile_id,
+        ) ??
+        nullableString(
+            (meOverview?.profile as Record<string, unknown> | null)?.id,
+        );
+
+    const createRecordMutation = useMutation({
+        mutationFn: async () => {
+            if (!profileId) {
+                throw new Error('Khong xac dinh duoc ho so suc khoe');
+            }
+
+            const symptomList = symptoms
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean);
+
+            if (__DEV__) {
+                console.warn('[Records] Creating medical record', {
+                    profileId,
+                    title: name.trim() || diagnosis.trim() || null,
+                    hospital: hospital.trim() || null,
+                    visit_date: date.toISOString().slice(0, 10),
+                });
+            }
+
+            return medicalRecordsService.create(profileId, {
+                title: name.trim() || diagnosis.trim() || null,
+                diagnosis_name: diagnosis.trim() || null,
+                doctor_name: doctor.trim() || null,
+                hospital_name: hospital.trim() || null,
+                visit_date: date.toISOString().slice(0, 10),
+                specialty: type.trim() || null,
+                symptoms: symptomList.length > 0 ? symptomList : null,
+                test_results: testResults.trim() || null,
+                doctor_advice: doctorAdvice.trim() || null,
+                notes: null,
+            });
+        },
+        onSuccess: async (createdRecord) => {
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            if (profileId) {
+                await queryClient.invalidateQueries({
+                    queryKey: medicalRecordsQueryKeys.byProfile(profileId),
+                });
+                if (__DEV__) {
+                    const refreshed = await queryClient.fetchQuery({
+                        queryKey: medicalRecordsQueryKeys.byProfile(profileId),
+                        queryFn: () =>
+                            medicalRecordsService.listForProfile(profileId),
+                    });
+                    console.warn('[Records] Created medical record success', {
+                        profileId,
+                        createdRecordId: createdRecord?.id ?? null,
+                        totalRecordsAfterRefresh: refreshed.length,
+                    });
+                }
+            }
+            appToast.showSuccess('Da luu ho so kham benh');
+            onClose();
+        },
+        onError: (error) => {
+            appToast.showError(
+                'Khong the luu ho so',
+                getApiErrorMessage(error, 'Vui long thu lai.'),
+            );
+        },
+    });
+
+    const handleSaveRecord = useCallback(() => {
+        if (!profileId) {
+            appToast.showError('Khong xac dinh duoc ho so suc khoe');
+            return;
+        }
+
+        if (!name.trim()) {
+            appToast.showWarning('Vui long nhap ten ho so');
+            return;
+        }
+
+        if (!hospital.trim()) {
+            appToast.showWarning('Vui long nhap benh vien hoac phong kham');
+            return;
+        }
+
+        if (!diagnosis.trim()) {
+            appToast.showWarning('Vui long nhap chan doan');
+            return;
+        }
+
+        createRecordMutation.mutate();
+    }, [profileId, name, hospital, diagnosis, createRecordMutation]);
 
     const handleAddPrescription = (medicine: {
         medicine_name?: string;
@@ -2760,8 +2896,16 @@ function AddRecordForm({
                 ) : null}
 
                 <View style={styles.arSaveInlineWrap}>
-                    <Pressable onPress={onClose} style={styles.arSaveBtn}>
-                        <Text style={styles.arSaveBtnText}>Lưu hồ sơ</Text>
+                    <Pressable
+                        onPress={handleSaveRecord}
+                        style={styles.arSaveBtn}
+                        disabled={createRecordMutation.isPending}
+                    >
+                        {createRecordMutation.isPending ? (
+                            <ActivityIndicator size='small' color='#fff' />
+                        ) : (
+                            <Text style={styles.arSaveBtnText}>Lưu hồ sơ</Text>
+                        )}
                     </Pressable>
                 </View>
             </ScrollView>

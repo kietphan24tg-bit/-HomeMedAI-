@@ -77,10 +77,25 @@ function formatTime(item: NotificationApiItem) {
     return '--:--';
 }
 
+function categoryToType(category?: string | null): NotiType {
+    if (category === 'VACCINE') return 'vax';
+    if (category === 'CHECKUP') return 'appt';
+    return 'med';
+}
+
 function mapApiNotification(item: NotificationApiItem): NotificationItem {
+    const type = categoryToType(item.category);
     const isCompleted = item.status === 'COMPLETED';
-    const title = item.title || 'Nhắc uống thuốc';
-    const summary = item.medicine_name || undefined;
+    const fallbackTitle =
+        type === 'vax'
+            ? 'Nhắc tiêm vaccine'
+            : type === 'appt'
+              ? 'Nhắc tái khám'
+              : 'Nhắc uống thuốc';
+    const title = item.title || fallbackTitle;
+    const summary =
+        item.medicine_name ||
+        (item.category === 'VACCINE' ? (item.body ?? undefined) : undefined);
     const detailParts: string[] = [];
     if (item.medicine_name) {
         detailParts.push(item.medicine_name);
@@ -108,7 +123,7 @@ function mapApiNotification(item: NotificationApiItem): NotificationItem {
         id: item.id,
         scheduleId: item.schedule_id ?? item.id,
         day: getDayGroup(item.scheduled_at),
-        type: 'med',
+        type,
         unread: !isCompleted,
         title,
         summary,
@@ -272,8 +287,8 @@ export default function NotificationScreen({
                             Chưa có thông báo
                         </Text>
                         <Text style={styles.notiEmptyDesc}>
-                            Khi có lịch nhắc uống thuốc, bạn sẽ thấy thông báo ở
-                            đây.
+                            Khi có lịch nhắc thuốc, tái khám hoặc tiêm vaccine,
+                            bạn sẽ thấy thông báo ở đây.
                         </Text>
                     </View>
                 ) : null}

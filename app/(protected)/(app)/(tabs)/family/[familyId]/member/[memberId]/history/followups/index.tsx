@@ -1,7 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
-import React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
+    Modal,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -10,41 +13,239 @@ import {
     Text,
     View,
 } from 'react-native';
+import { DateField } from '@/src/components/ui';
+import { useFamilyQuery } from '@/src/features/family/queries';
+import { appToast } from '@/src/lib/toast';
+import { CustomReminderModal } from '@/src/screens/health/CustomReminderModal';
+import {
+    appointmentRemindersService,
+    type AppointmentReminderType,
+} from '@/src/services/appointmentReminders.services';
 import { colors } from '@/src/styles/tokens';
+import {
+    reminderLabelToPayload,
+    reminderPayloadToLabel,
+} from '@/src/utils/reminder-label';
 
-const UPCOMING = [
-    {
-        date: '15/04/2026',
-        hospital: 'BV Đại học Y Dược',
-        department: 'Khoa Tim mạch',
-        doctor: 'BS. Lê Văn Hùng',
-        purpose: 'Tái khám huyết áp',
-        reminder: '1 ngày',
-    },
-    {
-        date: '01/07/2026',
-        hospital: 'PK Hoàn Mỹ Sài Gòn',
-        department: 'Nội soi dạ dày',
-        doctor: '',
-        purpose: 'Khám định kỳ',
-        reminder: '2 ngày',
-    },
-];
+const REMINDER_OPTIONS = [
+    'Không nhắc',
+    '2 giờ trước',
+    '1 ngày trước',
+    '3 ngày trước',
+    '1 tuần trước',
+    'Tùy chỉnh',
+] as const;
 
-const PAST = [
-    {
-        date: '15/03/2026',
-        hospital: 'BV Đại học Y Dược',
-        summary: 'Tim mạch • Đã đi khám',
-    },
-    {
-        date: '02/01/2026',
-        hospital: 'PK Hoàn Mỹ Sài Gòn',
-        summary: 'Nội tổng quát • Đã đi khám',
-    },
-];
+function normalizeParam(value: string | string[] | undefined): string {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && value.length > 0) return value[0] ?? '';
+    return '';
+}
+
+function formatDateText(value: string): string {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('vi-VN');
+}
+
+function formatReminderLabel(
+    reminderEnabled?: boolean,
+    value?: number | null,
+    unit?: AppointmentReminderType['remind_before_unit'] | null,
+): string {
+    if (reminderEnabled === false) {
+        return 'Không nhắc';
+    }
+    if (!value || !unit) {
+        return 'Không nhắc';
+    }
+    return reminderPayloadToLabel(value, unit);
+}
+
+function sortByAppointmentDate(
+    a: AppointmentReminderType,
+    b: AppointmentReminderType,
+): number {
+    return (
+        new Date(a.appointment_at).getTime() -
+        new Date(b.appointment_at).getTime()
+    );
+}
+
+function toReminderDisplayLabel(item: AppointmentReminderType): string {
+    if (item.reminder_enabled === false) {
+        return 'Không nhắc';
+    }
+    if (!item.remind_before_value || !item.remind_before_unit) {
+        return 'Không nhắc';
+    }
+    return `${reminderPayloadToLabel(item.remind_before_value, item.remind_before_unit)} trước`;
+}
+
+function combineDateAndTime(date: Date, time: Date): Date {
+    const next = new Date(date);
+    next.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    return next;
+}
 
 export default function MemberFollowupsRoute() {
+    const queryClient = useQueryClient();
+    const { familyId, memberId } = useLocalSearchParams<{
+        familyId?: string | string[];
+        memberId?: string | string[];
+    }>();
+    const normalizedFamilyId = normalizeParam(familyId);
+    const normalizedMemberId = normalizeParam(memberId);
+
+    const { data: family, isLoading: isFamilyLoading } =
+        useFamilyQuery(normalizedFamilyId);
+
+    const member = useMemo(
+        () =>
+            family?.members.find(
+                (item) => String(item.id) === String(normalizedMemberId),
+            ),
+        [family?.members, normalizedMemberId],
+    );
+
+    const memberName = member?.name ?? 'Thành viên';
+    const profileId = member?.healthProfileId ?? '';
+    const [editingReminder, setEditingReminder] =
+        useState<AppointmentReminderType | null>(null);
+    const [editDate, setEditDate] = useState(new Date());
+    const [editTime, setEditTime] = useState(new Date());
+    const [editReminder, setEditReminder] = useState('1 ngày trước');
+    const [showReminderOptions, setShowReminderOptions] = useState(false);
+    const [showCustomReminder, setShowCustomReminder] = useState(false);
+
+    const {
+        data: reminders = [],
+        isLoading: isRemindersLoading,
+        isRefetching,
+    } = useQuery({
+        queryKey: ['appointment-reminders', profileId],
+        queryFn: () => appointmentRemindersService.listForProfile(profileId),
+        enabled: !!profileId,
+    });
+
+    const cancelMutation = useMutation({
+        mutationFn: (reminderId: string) =>
+            appointmentRemindersService.delete(reminderId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã hủy lịch tái khám');
+        },
+        onError: () => {
+            appToast.showError('Không thể hủy lịch tái khám');
+        },
+    });
+
+    const completeMutation = useMutation({
+        mutationFn: (reminderId: string) =>
+            appointmentRemindersService.patch(reminderId, { status: 'done' }),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã đánh dấu hoàn thành');
+        },
+        onError: () => {
+            appToast.showError('Không thể cập nhật trạng thái lịch');
+        },
+    });
+
+    const editMutation = useMutation({
+        mutationFn: async (payload: {
+            reminderId: string;
+            appointmentAt: string;
+            reminderLabel: string;
+        }) => {
+            const remindPayload = reminderLabelToPayload(payload.reminderLabel);
+            return appointmentRemindersService.patch(payload.reminderId, {
+                appointment_at: payload.appointmentAt,
+                ...remindPayload,
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            setEditingReminder(null);
+            setShowReminderOptions(false);
+            appToast.showSuccess('Đã cập nhật lịch tái khám');
+        },
+        onError: () => {
+            appToast.showError('Không thể cập nhật lịch tái khám');
+        },
+    });
+
+    const openEditModal = (item: AppointmentReminderType) => {
+        const dt = new Date(item.appointment_at);
+        setEditingReminder(item);
+        setEditDate(dt);
+        setEditTime(dt);
+        setEditReminder(toReminderDisplayLabel(item));
+        setShowReminderOptions(false);
+    };
+
+    const onSaveEdit = () => {
+        if (!editingReminder) {
+            return;
+        }
+        const appointmentAt = combineDateAndTime(editDate, editTime);
+        if (appointmentAt.getTime() < Date.now()) {
+            appToast.showWarning('Không thể đặt lịch trong quá khứ');
+            return;
+        }
+
+        editMutation.mutate({
+            reminderId: editingReminder.id,
+            appointmentAt: appointmentAt.toISOString(),
+            reminderLabel: editReminder,
+        });
+    };
+
+    const checkupReminders = useMemo(
+        () => reminders.filter((item) => item.type === 'checkup'),
+        [reminders],
+    );
+
+    const now = Date.now();
+
+    const upcoming = useMemo(
+        () =>
+            checkupReminders
+                .filter(
+                    (item) =>
+                        item.status === 'pending' &&
+                        new Date(item.appointment_at).getTime() >= now,
+                )
+                .sort(sortByAppointmentDate),
+        [checkupReminders, now],
+    );
+
+    const past = useMemo(
+        () =>
+            checkupReminders
+                .filter(
+                    (item) =>
+                        item.status !== 'pending' ||
+                        new Date(item.appointment_at).getTime() < now,
+                )
+                .sort(sortByAppointmentDate)
+                .reverse(),
+        [checkupReminders, now],
+    );
+
+    const isBusy =
+        isFamilyLoading ||
+        isRemindersLoading ||
+        cancelMutation.isPending ||
+        completeMutation.isPending ||
+        editMutation.isPending;
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgHealth }}>
             <StatusBar
@@ -63,7 +264,7 @@ export default function MemberFollowupsRoute() {
                 </Pressable>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.topbarTitle}>Lịch tái khám</Text>
-                    <Text style={styles.topbarSubtitle}>Nguyễn Thị Bình</Text>
+                    <Text style={styles.topbarSubtitle}>{memberName}</Text>
                 </View>
                 <Pressable
                     style={styles.topbarAction}
@@ -78,33 +279,40 @@ export default function MemberFollowupsRoute() {
                 contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
             >
+                {isBusy ? (
+                    <View style={styles.loadingWrap}>
+                        <ActivityIndicator
+                            size='small'
+                            color={colors.primary}
+                        />
+                        <Text style={styles.loadingText}>
+                            Đang tải lịch tái khám...
+                        </Text>
+                    </View>
+                ) : null}
+
                 {/* SẮP TỚI */}
                 <Text style={styles.sectionHeader}>SẮP TỚI</Text>
-                {UPCOMING.map((item, index) => (
-                    <View key={index} style={styles.card}>
+                {upcoming.map((item) => (
+                    <View key={item.id} style={styles.card}>
                         <View style={styles.cardHeader}>
                             <Ionicons
                                 name='calendar-outline'
                                 size={18}
                                 color={colors.primary}
                             />
-                            <Text style={styles.cardDate}>{item.date}</Text>
+                            <Text style={styles.cardDate}>
+                                {formatDateText(item.appointment_at)}
+                            </Text>
                         </View>
                         <View style={styles.cardBody}>
                             <Text style={styles.cardHospital}>
-                                {item.hospital}
+                                {item.hospital_name || 'Chưa cập nhật cơ sở'}
                             </Text>
                             <Text style={styles.cardDetail}>
-                                {item.department}
+                                {item.department || 'Chưa cập nhật chuyên khoa'}
                             </Text>
-                            {!!item.doctor && (
-                                <Text style={styles.cardDetail}>
-                                    {item.doctor}
-                                </Text>
-                            )}
-                            <Text style={styles.cardDetail}>
-                                {item.purpose}
-                            </Text>
+                            <Text style={styles.cardDetail}>{item.title}</Text>
 
                             <View style={styles.reminderRow}>
                                 <Text style={styles.reminderText}>
@@ -112,18 +320,21 @@ export default function MemberFollowupsRoute() {
                                 </Text>
                                 <View style={styles.reminderPill}>
                                     <Text style={styles.reminderPillText}>
-                                        {item.reminder}
+                                        {formatReminderLabel(
+                                            item.reminder_enabled,
+                                            item.remind_before_value,
+                                            item.remind_before_unit,
+                                        )}
                                     </Text>
-                                    <Ionicons
-                                        name='chevron-down'
-                                        size={12}
-                                        color={colors.text2}
-                                    />
                                 </View>
                             </View>
                         </View>
                         <View style={styles.cardActions}>
-                            <Pressable style={styles.actionBtn}>
+                            <Pressable
+                                style={styles.actionBtn}
+                                onPress={() => openEditModal(item)}
+                                disabled={editMutation.isPending}
+                            >
                                 <Text
                                     style={[
                                         styles.actionBtnText,
@@ -134,7 +345,26 @@ export default function MemberFollowupsRoute() {
                                 </Text>
                             </Pressable>
                             <View style={styles.actionDivider} />
-                            <Pressable style={styles.actionBtn}>
+                            <Pressable
+                                style={styles.actionBtn}
+                                onPress={() => completeMutation.mutate(item.id)}
+                                disabled={completeMutation.isPending}
+                            >
+                                <Text
+                                    style={[
+                                        styles.actionBtnText,
+                                        { color: '#0A8F74' },
+                                    ]}
+                                >
+                                    Hoàn thành
+                                </Text>
+                            </Pressable>
+                            <View style={styles.actionDivider} />
+                            <Pressable
+                                style={styles.actionBtn}
+                                onPress={() => cancelMutation.mutate(item.id)}
+                                disabled={cancelMutation.isPending}
+                            >
                                 <Text
                                     style={[
                                         styles.actionBtnText,
@@ -152,9 +382,9 @@ export default function MemberFollowupsRoute() {
                 <Text style={[styles.sectionHeader, { marginTop: 16 }]}>
                     ĐÃ KHÁM
                 </Text>
-                {PAST.map((item, index) => (
+                {past.map((item) => (
                     <View
-                        key={index}
+                        key={item.id}
                         style={[
                             styles.card,
                             {
@@ -169,16 +399,57 @@ export default function MemberFollowupsRoute() {
                             <Ionicons name='checkmark' size={16} color='#fff' />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.pastDate}>{item.date}</Text>
+                            <Text style={styles.pastDate}>
+                                {formatDateText(item.appointment_at)}
+                            </Text>
                             <Text style={styles.pastHospital}>
-                                {item.hospital}
+                                {item.hospital_name || 'Chưa cập nhật cơ sở'}
                             </Text>
                             <Text style={styles.pastSummary}>
-                                {item.summary}
+                                {(item.department || 'Tái khám') +
+                                    ` • ${
+                                        item.status === 'done'
+                                            ? 'Đã đi khám'
+                                            : item.status === 'missed'
+                                              ? 'Đã bỏ lỡ'
+                                              : 'Đã hủy'
+                                    }`}
                             </Text>
                         </View>
                     </View>
                 ))}
+
+                {!isBusy && !profileId ? (
+                    <View style={styles.emptyWrap}>
+                        <Text style={styles.emptyTitle}>
+                            Khong xac dinh duoc ho so suc khoe
+                        </Text>
+                        <Text style={styles.emptySubtitle}>
+                            Vui long quay lai danh sach thanh vien roi mo lai
+                            man hinh.
+                        </Text>
+                    </View>
+                ) : null}
+
+                {!isBusy &&
+                !!profileId &&
+                upcoming.length === 0 &&
+                past.length === 0 ? (
+                    <View style={styles.emptyWrap}>
+                        <Text style={styles.emptyTitle}>
+                            Chưa có lịch tái khám
+                        </Text>
+                        <Text style={styles.emptySubtitle}>
+                            Hãy thêm lịch tái khám để nhận nhắc nhở đúng hẹn.
+                        </Text>
+                    </View>
+                ) : null}
+
+                {isRefetching ? (
+                    <Text style={styles.refreshText}>
+                        Đang làm mới dữ liệu...
+                    </Text>
+                ) : null}
 
                 <Pressable
                     style={styles.addBtn}
@@ -192,6 +463,129 @@ export default function MemberFollowupsRoute() {
                     <Text style={styles.addBtnText}>Thêm lịch tái khám</Text>
                 </Pressable>
             </ScrollView>
+
+            <Modal
+                visible={!!editingReminder}
+                transparent
+                animationType='fade'
+                onRequestClose={() => setEditingReminder(null)}
+            >
+                <Pressable
+                    style={styles.editModalBackdrop}
+                    onPress={() => setEditingReminder(null)}
+                >
+                    <Pressable
+                        style={styles.editModalCard}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        <Text style={styles.editModalTitle}>
+                            Sửa lịch tái khám
+                        </Text>
+
+                        <View style={styles.editGroup}>
+                            <Text style={styles.editLabel}>Ngày tái khám</Text>
+                            <DateField
+                                value={editDate}
+                                onChange={setEditDate}
+                            />
+                        </View>
+
+                        <View style={styles.editGroup}>
+                            <Text style={styles.editLabel}>Giờ hẹn</Text>
+                            <DateField
+                                value={editTime}
+                                onChange={setEditTime}
+                                mode='time'
+                            />
+                        </View>
+
+                        <View style={styles.editGroup}>
+                            <Text style={styles.editLabel}>Nhắc trước</Text>
+                            <Pressable
+                                style={styles.editReminderSelect}
+                                onPress={() =>
+                                    setShowReminderOptions((prev) => !prev)
+                                }
+                            >
+                                <Text style={styles.editReminderSelectText}>
+                                    {editReminder}
+                                </Text>
+                                <Ionicons
+                                    name={
+                                        showReminderOptions
+                                            ? 'chevron-up'
+                                            : 'chevron-down'
+                                    }
+                                    size={16}
+                                    color={colors.text3}
+                                />
+                            </Pressable>
+                            {showReminderOptions ? (
+                                <View style={styles.editReminderOptionsWrap}>
+                                    {REMINDER_OPTIONS.map((option) => (
+                                        <Pressable
+                                            key={option}
+                                            style={[
+                                                styles.editReminderOption,
+                                                editReminder === option &&
+                                                    styles.editReminderOptionActive,
+                                            ]}
+                                            onPress={() => {
+                                                setShowReminderOptions(false);
+                                                if (option === 'Tùy chỉnh') {
+                                                    setShowCustomReminder(true);
+                                                    return;
+                                                }
+                                                setEditReminder(option);
+                                            }}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.editReminderOptionText,
+                                                    editReminder === option &&
+                                                        styles.editReminderOptionTextActive,
+                                                ]}
+                                            >
+                                                {option}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            ) : null}
+                        </View>
+
+                        <View style={styles.editActions}>
+                            <Pressable
+                                style={styles.editCancelBtn}
+                                onPress={() => setEditingReminder(null)}
+                                disabled={editMutation.isPending}
+                            >
+                                <Text style={styles.editCancelText}>Hủy</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.editSaveBtn}
+                                onPress={onSaveEdit}
+                                disabled={editMutation.isPending}
+                            >
+                                {editMutation.isPending ? (
+                                    <ActivityIndicator
+                                        size='small'
+                                        color='#fff'
+                                    />
+                                ) : (
+                                    <Text style={styles.editSaveText}>Lưu</Text>
+                                )}
+                            </Pressable>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            <CustomReminderModal
+                visible={showCustomReminder}
+                onClose={() => setShowCustomReminder(false)}
+                onSave={setEditReminder}
+            />
         </SafeAreaView>
     );
 }
@@ -234,6 +628,17 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primaryBg,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    loadingWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    loadingText: {
+        fontFamily: 'Inter-Medium',
+        fontSize: 13,
+        color: colors.text2,
     },
     sectionHeader: {
         fontFamily: 'Inter-Black',
@@ -367,5 +772,136 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter-Bold',
         fontSize: 14,
         color: colors.primary,
+    },
+    emptyWrap: {
+        padding: 16,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        marginBottom: 12,
+    },
+    emptyTitle: {
+        fontFamily: 'Inter-Bold',
+        fontSize: 15,
+        color: colors.text,
+    },
+    emptySubtitle: {
+        fontFamily: 'Inter-Regular',
+        fontSize: 13,
+        color: colors.text2,
+        marginTop: 6,
+        lineHeight: 18,
+    },
+    refreshText: {
+        fontFamily: 'Inter-Regular',
+        fontSize: 12,
+        color: colors.text3,
+        marginBottom: 8,
+        marginLeft: 4,
+    },
+    editModalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(2,6,23,0.45)',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+    },
+    editModalCard: {
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+    },
+    editModalTitle: {
+        fontFamily: 'Inter-Bold',
+        fontSize: 16,
+        color: colors.text,
+        marginBottom: 12,
+    },
+    editGroup: {
+        marginBottom: 12,
+    },
+    editLabel: {
+        fontFamily: 'Inter-Medium',
+        fontSize: 13,
+        color: colors.text2,
+        marginBottom: 6,
+    },
+    editReminderSelect: {
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.bg,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    editReminderSelectText: {
+        fontFamily: 'Inter-Medium',
+        fontSize: 14,
+        color: colors.text,
+    },
+    editReminderOptionsWrap: {
+        marginTop: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+        overflow: 'hidden',
+    },
+    editReminderOption: {
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.card,
+    },
+    editReminderOptionActive: {
+        backgroundColor: colors.primaryBg,
+    },
+    editReminderOptionText: {
+        fontFamily: 'Inter-Medium',
+        fontSize: 14,
+        color: colors.text2,
+    },
+    editReminderOptionTextActive: {
+        fontFamily: 'Inter-Bold',
+        color: colors.primary,
+    },
+    editActions: {
+        marginTop: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    editCancelBtn: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        backgroundColor: colors.bg,
+    },
+    editCancelText: {
+        fontFamily: 'Inter-SemiBold',
+        fontSize: 14,
+        color: colors.text2,
+    },
+    editSaveBtn: {
+        flex: 1,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        backgroundColor: colors.primary,
+    },
+    editSaveText: {
+        fontFamily: 'Inter-SemiBold',
+        fontSize: 14,
+        color: '#fff',
     },
 });

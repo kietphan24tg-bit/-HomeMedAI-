@@ -63,6 +63,8 @@ export interface VaccineDose {
 
 export interface VaccineDetailItem {
     id: string;
+    userVaccinationId?: string;
+    recommendationId?: string;
     name: string;
     abbr: string;
     total: number;

@@ -1,8 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -14,9 +16,79 @@ import {
     View,
 } from 'react-native';
 import { DateField } from '@/src/components/ui';
+import { useFamilyQuery } from '@/src/features/family/queries';
+import { appToast } from '@/src/lib/toast';
+import { CustomReminderModal } from '@/src/screens/health/CustomReminderModal';
+import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
 import { colors } from '@/src/styles/tokens';
+import { reminderLabelToPayload } from '@/src/utils/reminder-label';
+
+const FOLLOWUP_REMINDER_OPTIONS = [
+    'Không nhắc',
+    '2 giờ trước',
+    '1 ngày trước',
+    '3 ngày trước',
+    '1 tuần trước',
+    'Tùy chỉnh',
+] as const;
+
+function normalizeParam(value: string | string[] | undefined): string {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && value.length > 0) return value[0] ?? '';
+    return '';
+}
+
+function combineDateAndTime(date: Date, time: string): Date {
+    const next = new Date(date);
+    const matched = time.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!matched) {
+        next.setHours(8, 0, 0, 0);
+        return next;
+    }
+
+    const hours = Number(matched[1]);
+    const minutes = Number(matched[2]);
+    if (
+        Number.isNaN(hours) ||
+        Number.isNaN(minutes) ||
+        hours < 0 ||
+        hours > 23 ||
+        minutes < 0 ||
+        minutes > 59
+    ) {
+        next.setHours(8, 0, 0, 0);
+        return next;
+    }
+
+    next.setHours(hours, minutes, 0, 0);
+    return next;
+}
+
+function mapReminderToPayload(remindActive: boolean, reminderLabel: string) {
+    if (!remindActive) {
+        return {
+            reminder_enabled: false as const,
+        };
+    }
+
+    return reminderLabelToPayload(reminderLabel);
+}
 
 export default function MemberFollowupNewRoute() {
+    const queryClient = useQueryClient();
+    const { familyId, memberId } = useLocalSearchParams<{
+        familyId?: string | string[];
+        memberId?: string | string[];
+    }>();
+    const normalizedFamilyId = normalizeParam(familyId);
+    const normalizedMemberId = normalizeParam(memberId);
+    const { data: family } = useFamilyQuery(normalizedFamilyId);
+
+    const member = family?.members.find(
+        (item) => String(item.id) === String(normalizedMemberId),
+    );
+    const profileId = member?.healthProfileId ?? '';
+
     const [date, setDate] = useState(new Date());
     const [time, setTime] = useState('');
     const [hospital, setHospital] = useState('');
@@ -27,8 +99,75 @@ export default function MemberFollowupNewRoute() {
 
     // Reminders
     const [remindActive, setRemindActive] = useState(true);
-    const remindBefore = '1 ngày';
-    const remindExtra = 'Sáng hôm đó';
+    const [remindBefore, setRemindBefore] = useState('1 ngày trước');
+    const [showReminderOptions, setShowReminderOptions] = useState(false);
+    const [showCustomReminder, setShowCustomReminder] = useState(false);
+
+    const createMutation = useMutation({
+        mutationFn: async () => {
+            const appointmentAt = combineDateAndTime(date, time);
+            const payload = mapReminderToPayload(remindActive, remindBefore);
+
+            return appointmentRemindersService.create(profileId, {
+                type: 'checkup',
+                title: purpose.trim() || 'Tái khám định kỳ',
+                appointment_at: appointmentAt.toISOString(),
+                hospital_name: hospital.trim() || null,
+                department: department.trim() || null,
+                note:
+                    [doctor.trim(), prep.trim()].filter(Boolean).join(' • ') ||
+                    null,
+                ...payload,
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã lưu lịch tái khám');
+            router.back();
+        },
+        onError: () => {
+            appToast.showError('Không thể lưu lịch tái khám');
+        },
+    });
+
+    const onSave = () => {
+        if (!profileId) {
+            appToast.showError('Không xác định được hồ sơ sức khỏe');
+            return;
+        }
+
+        if (!hospital.trim()) {
+            appToast.showWarning('Vui lòng nhập bệnh viện hoặc phòng khám');
+            return;
+        }
+
+        if (time.trim()) {
+            const validTime = /^(\d{1,2}):(\d{2})$/.test(time.trim());
+            if (!validTime) {
+                appToast.showWarning('Giờ hẹn cần đúng định dạng HH:mm');
+                return;
+            }
+        }
+
+        const appointmentAt = combineDateAndTime(date, time);
+        if (appointmentAt.getTime() < Date.now()) {
+            appToast.showWarning('Không thể đặt lịch trong quá khứ');
+            return;
+        }
+
+        createMutation.mutate();
+    };
+
+    const onSelectReminder = (value: string) => {
+        setShowReminderOptions(false);
+        if (value === 'Tùy chỉnh') {
+            setShowCustomReminder(true);
+            return;
+        }
+        setRemindBefore(value);
+    };
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -155,36 +294,63 @@ export default function MemberFollowupNewRoute() {
                                 <Text style={styles.dropdownLabel}>
                                     Nhắc trước
                                 </Text>
-                                <View style={styles.dropdownFake}>
+                                <Pressable
+                                    style={styles.dropdownFake}
+                                    onPress={() =>
+                                        setShowReminderOptions((prev) => !prev)
+                                    }
+                                >
                                     <Text style={styles.dropdownFakeText}>
                                         {remindBefore}
                                     </Text>
                                     <Ionicons
-                                        name='chevron-down'
+                                        name={
+                                            showReminderOptions
+                                                ? 'chevron-up'
+                                                : 'chevron-down'
+                                        }
                                         size={16}
                                         color={colors.text3}
                                     />
-                                </View>
+                                </Pressable>
                             </View>
-                            <View style={styles.dropdownWrapLine}>
-                                <Text style={styles.dropdownLabel}>
-                                    Nhắc thêm
-                                </Text>
-                                <View style={styles.dropdownFake}>
-                                    <Text style={styles.dropdownFakeText}>
-                                        {remindExtra}
-                                    </Text>
-                                    <Ionicons
-                                        name='chevron-down'
-                                        size={16}
-                                        color={colors.text3}
-                                    />
+                            {showReminderOptions ? (
+                                <View style={styles.reminderOptionWrap}>
+                                    {FOLLOWUP_REMINDER_OPTIONS.map((option) => (
+                                        <Pressable
+                                            key={option}
+                                            style={[
+                                                styles.reminderOption,
+                                                remindBefore === option &&
+                                                    styles.reminderOptionActive,
+                                            ]}
+                                            onPress={() =>
+                                                onSelectReminder(option)
+                                            }
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.reminderOptionText,
+                                                    remindBefore === option &&
+                                                        styles.reminderOptionTextActive,
+                                                ]}
+                                            >
+                                                {option}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
                                 </View>
-                            </View>
+                            ) : null}
                         </>
                     )}
                 </View>
             </ScrollView>
+
+            <CustomReminderModal
+                visible={showCustomReminder}
+                onClose={() => setShowCustomReminder(false)}
+                onSave={setRemindBefore}
+            />
 
             {/* SAVE BUTTON */}
             <View style={styles.saveWrap}>
@@ -204,19 +370,24 @@ export default function MemberFollowupNewRoute() {
                     }}
                 >
                     <Pressable
-                        onPress={() => router.back()}
+                        onPress={onSave}
+                        disabled={createMutation.isPending}
                         style={{ width: '100%', alignItems: 'center' }}
                     >
-                        <Text
-                            style={{
-                                fontSize: 15,
-                                fontWeight: '800',
-                                color: '#fff',
-                                letterSpacing: 0.2,
-                            }}
-                        >
-                            Lưu lịch tái khám
-                        </Text>
+                        {createMutation.isPending ? (
+                            <ActivityIndicator size='small' color='#fff' />
+                        ) : (
+                            <Text
+                                style={{
+                                    fontSize: 15,
+                                    fontWeight: '800',
+                                    color: '#fff',
+                                    letterSpacing: 0.2,
+                                }}
+                            >
+                                Lưu lịch tái khám
+                            </Text>
+                        )}
                     </Pressable>
                 </LinearGradient>
             </View>
@@ -329,6 +500,32 @@ const styles = StyleSheet.create({
         fontFamily: 'Inter-SemiBold',
         fontSize: 14,
         color: colors.primary,
+    },
+    reminderOptionWrap: {
+        marginTop: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+        overflow: 'hidden',
+    },
+    reminderOption: {
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.card,
+    },
+    reminderOptionActive: {
+        backgroundColor: colors.primaryBg,
+    },
+    reminderOptionText: {
+        fontFamily: 'Inter-Medium',
+        fontSize: 14,
+        color: colors.text2,
+    },
+    reminderOptionTextActive: {
+        color: colors.primary,
+        fontFamily: 'Inter-Bold',
     },
     saveWrap: {
         position: 'absolute',

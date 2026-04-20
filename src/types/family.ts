@@ -2,6 +2,7 @@
 
 export interface FamilyMember {
     id: string;
+    healthProfileId?: string;
     /** OWNER | ADMIN | MEMBER từ API */
     familyRole?: string;
     initials: string;

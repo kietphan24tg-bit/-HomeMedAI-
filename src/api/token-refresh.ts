@@ -31,7 +31,7 @@ export async function callRefreshTokenApi(refreshToken: string): Promise<{
             'Content-Type': 'application/json',
             Accept: 'application/json',
         },
-        timeout: 10000,
+        timeout: 90000,
     };
 
     try {

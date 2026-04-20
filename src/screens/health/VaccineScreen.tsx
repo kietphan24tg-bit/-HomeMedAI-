@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Modal,
     Pressable,
     ScrollView,
@@ -18,6 +20,14 @@ import {
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
 import { useMeHealthProfileQuery } from '@/src/features/me/queries';
+import { meQueryKeys } from '@/src/features/me/queryKeys';
+import { appToast } from '@/src/lib/toast';
+import { appointmentRemindersService } from '@/src/services/appointmentReminders.services';
+import {
+    vaccinationsService,
+    type VaccinationRecommendation,
+} from '@/src/services/vaccinations.services';
+import { reminderLabelToPayload } from '@/src/utils/reminder-label';
 import { CustomReminderModal } from './CustomReminderModal';
 import { styles } from './styles';
 import type { AttachmentUploadItem } from '../../components/ui';
@@ -87,21 +97,33 @@ function vaccineAbbr(name: string): string {
         .toUpperCase();
 }
 
+function combineDateAndTime(date: Date, time: Date): Date {
+    const next = new Date(date);
+    next.setHours(
+        time.getHours(),
+        time.getMinutes(),
+        time.getSeconds(),
+        time.getMilliseconds(),
+    );
+    return next;
+}
+
 function buildVaccineItems(healthProfile: unknown): VaccineDetailItem[] {
     const health =
         healthProfile && typeof healthProfile === 'object'
             ? (healthProfile as Record<string, unknown>)
             : {};
+    const reminders = recordList(health.appointment_reminders).filter(
+        (item) =>
+            nullableString(item.type ?? item.reminder_type)?.toLowerCase() ===
+            'vaccine',
+    );
 
     return recordList(health.vaccinations ?? health.vaccines).map(
         (vaccination, index): VaccineDetailItem => {
             const rawDoses = recordList(vaccination.doses);
             const administeredCount =
                 numberValue(vaccination.doses_administered_count) ?? 0;
-            const total =
-                numberValue(vaccination.recommendation_total_doses) ??
-                numberValue(vaccination.total_doses) ??
-                Math.max(rawDoses.length, administeredCount, 1);
             const name =
                 nullableString(vaccination.recommendation_name) ??
                 nullableString(vaccination.vaccine_name) ??
@@ -124,6 +146,27 @@ function buildVaccineItems(healthProfile: unknown): VaccineDetailItem[] {
                 };
             });
 
+            const matchedReminders = reminders.filter((reminder) => {
+                const reminderName =
+                    nullableString(reminder.vaccine_name) ??
+                    nullableString(reminder.title);
+                return !reminderName || reminderName === name;
+            });
+
+            const reminderDoseNumbers = matchedReminders
+                .map((reminder) => numberValue(reminder.dose_number))
+                .filter((value): value is number => value !== undefined);
+
+            const total =
+                numberValue(vaccination.recommendation_total_doses) ??
+                numberValue(vaccination.total_doses) ??
+                Math.max(
+                    rawDoses.length,
+                    administeredCount,
+                    ...reminderDoseNumbers,
+                    1,
+                );
+
             for (let i = mappedDoses.length; i < total; i += 1) {
                 mappedDoses.push({
                     num: i + 1,
@@ -133,46 +176,431 @@ function buildVaccineItems(healthProfile: unknown): VaccineDetailItem[] {
                 });
             }
 
+            matchedReminders.forEach((reminder) => {
+                const doseNumber = numberValue(reminder.dose_number);
+                if (!doseNumber || doseNumber < 1) {
+                    return;
+                }
+
+                const existingDose = mappedDoses.find(
+                    (dose) => dose.num === doseNumber,
+                );
+                const scheduled = formatDate(reminder.appointment_at);
+                const place = nullableString(reminder.hospital_name);
+
+                if (existingDose) {
+                    if (!existingDose.date) {
+                        existingDose.scheduled ??= scheduled;
+                        existingDose.place ??= place;
+                    }
+                    return;
+                }
+
+                mappedDoses.push({
+                    num: doseNumber,
+                    date: undefined,
+                    scheduled,
+                    place,
+                });
+            });
+
+            mappedDoses.sort((a, b) => a.num - b.num);
+
             return {
                 id: nullableString(vaccination.id) ?? `${name}-${index}`,
+                userVaccinationId: nullableString(vaccination.id),
+                recommendationId: nullableString(vaccination.recommendation_id),
                 name,
                 abbr: vaccineAbbr(name) || 'VC',
-                total,
+                total: Math.max(
+                    total,
+                    mappedDoses.reduce(
+                        (max, dose) => Math.max(max, dose.num),
+                        1,
+                    ),
+                ),
                 doses: mappedDoses,
             };
         },
     );
 }
 
+function findDoseIdForIndex(
+    healthProfile: unknown,
+    userVaccinationId: string | undefined,
+    doseIndex: number,
+): string | undefined {
+    if (!userVaccinationId) return undefined;
+    const health =
+        healthProfile && typeof healthProfile === 'object'
+            ? (healthProfile as Record<string, unknown>)
+            : {};
+    const vaccination = recordList(health.vaccinations ?? health.vaccines).find(
+        (item) => nullableString(item.id) === userVaccinationId,
+    );
+    if (!vaccination) return undefined;
+    const dose = recordList(vaccination.doses).find(
+        (item) => numberValue(item.dose_index) === doseIndex,
+    );
+    return dose ? nullableString(dose.id) : undefined;
+}
+
+function findPendingUnlinkedVaccineReminderId(
+    healthProfile: unknown,
+    payload: { doseNumber: number; vaccineName?: string },
+): string | undefined {
+    const health =
+        healthProfile && typeof healthProfile === 'object'
+            ? (healthProfile as Record<string, unknown>)
+            : {};
+    const targetName = payload.vaccineName?.trim().toLowerCase();
+    const reminders = recordList(health.appointment_reminders);
+    for (const reminder of reminders) {
+        const type = nullableString(
+            reminder.type ?? reminder.reminder_type,
+        )?.toLowerCase();
+        if (type !== 'vaccine') continue;
+        const status = nullableString(reminder.status)?.toLowerCase();
+        if (status && status !== 'pending') continue;
+        if (nullableString(reminder.vaccination_dose_id)) continue;
+        if (numberValue(reminder.dose_number) !== payload.doseNumber) continue;
+        if (targetName) {
+            const name = nullableString(
+                reminder.vaccine_name ?? reminder.title,
+            )?.toLowerCase();
+            if (name && name !== targetName) continue;
+        }
+        const reminderId = nullableString(reminder.id);
+        if (reminderId) return reminderId;
+    }
+    return undefined;
+}
+
 export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
     const { data: healthProfile, isLoading } = useMeHealthProfileQuery();
+    const queryClient = useQueryClient();
     const [view, setView] = useState<VaxView>('list');
     const [detailVax, setDetailVax] = useState<VaccineDetailItem | null>(null);
     const [showAddVax, setShowAddVax] = useState(false);
     const [showVaxInfo, setShowVaxInfo] = useState(false);
-    const vaccineItems = useMemo(
+    const [manualVaccines, setManualVaccines] = useState<VaccineDetailItem[]>(
+        [],
+    );
+
+    const profileId = useMemo(() => {
+        if (!healthProfile || typeof healthProfile !== 'object') {
+            return undefined;
+        }
+        const record = healthProfile as Record<string, unknown>;
+        return nullableString(record.profile_id ?? record.id);
+    }, [healthProfile]);
+
+    const { data: recommendationCatalog = [] } = useQuery({
+        queryKey: ['vaccinations', 'recommendations'],
+        queryFn: vaccinationsService.listRecommendations,
+        staleTime: 1000 * 60 * 30,
+    });
+
+    const syncedVaccineItems = useMemo(
         () => buildVaccineItems(healthProfile),
         [healthProfile],
+    );
+    const vaccineItems = useMemo(
+        () => [...manualVaccines, ...syncedVaccineItems],
+        [manualVaccines, syncedVaccineItems],
     );
 
     const openDetail = useCallback((v: VaccineDetailItem) => {
         setDetailVax(v);
         setView('detail');
     }, []);
+
     const closeDetail = useCallback(() => {
         setView('list');
         setDetailVax(null);
     }, []);
 
+    const createReminderMutation = useMutation({
+        mutationFn: async (payload: {
+            appointmentAt: Date;
+            vaccineName: string;
+            doseNumber: number;
+            hospitalName?: string;
+            reminderSelection: string;
+            title: string;
+            vaccinationDoseId?: string;
+        }) => {
+            if (!profileId) {
+                throw new Error('missing-profile-id');
+            }
+
+            return appointmentRemindersService.create(profileId, {
+                type: 'vaccine',
+                title: payload.title,
+                appointment_at: payload.appointmentAt.toISOString(),
+                hospital_name: payload.hospitalName?.trim() || null,
+                vaccine_name: payload.vaccineName,
+                dose_number: payload.doseNumber,
+                vaccination_dose_id: payload.vaccinationDoseId ?? null,
+                ...reminderLabelToPayload(payload.reminderSelection),
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã lưu lịch nhắc tiêm');
+        },
+        onError: () => {
+            appToast.showError('Không thể lưu lịch nhắc tiêm');
+        },
+    });
+
+    const subscribeVaccineMutation = useMutation({
+        mutationFn: async (payload: { recommendationId: string }) => {
+            if (!profileId) {
+                throw new Error('missing-profile-id');
+            }
+            return vaccinationsService.subscribeProfileVaccination(profileId, {
+                recommendation_id: payload.recommendationId,
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã thêm vaccine vào hồ sơ');
+        },
+        onError: () => {
+            appToast.showError('Không thể thêm vaccine');
+        },
+    });
+
+    const createDoseMutation = useMutation({
+        mutationFn: async (payload: {
+            userVaccinationId: string;
+            doseIndex: number;
+            administeredAt: Date;
+            location?: string;
+        }) => {
+            return vaccinationsService.createDose(payload.userVaccinationId, {
+                dose_index: payload.doseIndex,
+                administered_at: payload.administeredAt
+                    .toISOString()
+                    .slice(0, 10),
+                location: payload.location?.trim() || null,
+            });
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: meQueryKeys.overview(),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ['appointment-reminders', profileId],
+            });
+            appToast.showSuccess('Đã lưu mũi tiêm');
+        },
+        onError: () => {
+            appToast.showError('Không thể lưu mũi tiêm');
+        },
+    });
+
+    const handleScheduleVaccine = useCallback(
+        (payload: {
+            appointmentAt: Date;
+            vaccineName: string;
+            doseNumber: number;
+            hospitalName?: string;
+            reminderSelection: string;
+        }) => {
+            if (!profileId) {
+                appToast.showError('Không xác định được hồ sơ sức khỏe');
+                return;
+            }
+
+            createReminderMutation.mutate({
+                ...payload,
+                title: `Nhắc lịch tiêm ${payload.vaccineName}`,
+                vaccinationDoseId: findDoseIdForIndex(
+                    healthProfile,
+                    detailVax?.userVaccinationId,
+                    payload.doseNumber,
+                ),
+            });
+        },
+        [
+            createReminderMutation,
+            detailVax?.userVaccinationId,
+            healthProfile,
+            profileId,
+        ],
+    );
+
+    const handleAddVaccine = useCallback(
+        async (
+            payload:
+                | { mode: 'catalog'; recommendationId: string }
+                | { mode: 'custom'; vaccineName: string; totalDoses: number },
+        ) => {
+            if (payload.mode === 'custom') {
+                const name = payload.vaccineName.trim();
+                if (!name) {
+                    appToast.showError('Vui lòng nhập tên vaccine');
+                    return false;
+                }
+
+                const total = Math.max(1, Math.floor(payload.totalDoses || 1));
+                const localItem: VaccineDetailItem = {
+                    id: `manual-${Date.now()}-${Math.random()
+                        .toString(36)
+                        .slice(2, 8)}`,
+                    name,
+                    abbr: vaccineAbbr(name) || 'VC',
+                    total,
+                    doses: Array.from({ length: total }, (_, index) => ({
+                        num: index + 1,
+                    })),
+                };
+
+                setManualVaccines((current) => [localItem, ...current]);
+                setDetailVax(localItem);
+                setView('detail');
+                appToast.showSuccess('Đã thêm vaccine tự nhập');
+                return true;
+            }
+
+            if (!profileId) {
+                appToast.showError('Không xác định được hồ sơ sức khỏe');
+                return false;
+            }
+
+            try {
+                await subscribeVaccineMutation.mutateAsync({
+                    recommendationId: payload.recommendationId,
+                });
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        [profileId, subscribeVaccineMutation],
+    );
+
+    const handleAddDose = useCallback(
+        async (payload: {
+            itemId: string;
+            userVaccinationId?: string;
+            doseIndex: number;
+            administeredAt: Date;
+            location?: string;
+        }) => {
+            if (!payload.userVaccinationId) {
+                let nextDetail: VaccineDetailItem | null = null;
+
+                setManualVaccines((current) =>
+                    current.map((item) => {
+                        if (item.id !== payload.itemId) {
+                            return item;
+                        }
+
+                        const doses = [...item.doses];
+                        const doseIndex = Math.max(1, payload.doseIndex);
+                        const existingIndex = doses.findIndex(
+                            (dose) => dose.num === doseIndex,
+                        );
+                        const nextDose: VaccineDose = {
+                            num: doseIndex,
+                            date: payload.administeredAt.toLocaleDateString(
+                                'vi-VN',
+                            ),
+                            place: payload.location?.trim() || undefined,
+                        };
+
+                        if (existingIndex >= 0) {
+                            doses[existingIndex] = {
+                                ...doses[existingIndex],
+                                ...nextDose,
+                                scheduled: undefined,
+                            };
+                        } else {
+                            doses.push(nextDose);
+                        }
+
+                        nextDetail = {
+                            ...item,
+                            total: Math.max(item.total, doseIndex),
+                            doses: doses.sort((a, b) => a.num - b.num),
+                        };
+
+                        return nextDetail;
+                    }),
+                );
+
+                if (nextDetail && detailVax?.id === payload.itemId) {
+                    setDetailVax(nextDetail);
+                }
+
+                appToast.showSuccess('Đã lưu mũi tiêm tạm thời');
+                return true;
+            }
+
+            try {
+                const createdDose = await createDoseMutation.mutateAsync({
+                    userVaccinationId: payload.userVaccinationId,
+                    doseIndex: payload.doseIndex,
+                    administeredAt: payload.administeredAt,
+                    location: payload.location,
+                });
+                const reminderId = findPendingUnlinkedVaccineReminderId(
+                    healthProfile,
+                    {
+                        doseNumber: payload.doseIndex,
+                        vaccineName: detailVax?.name,
+                    },
+                );
+                if (reminderId && createdDose?.id) {
+                    await appointmentRemindersService.patch(reminderId, {
+                        vaccination_dose_id: createdDose.id,
+                    });
+                    await queryClient.invalidateQueries({
+                        queryKey: meQueryKeys.overview(),
+                    });
+                    await queryClient.invalidateQueries({
+                        queryKey: ['appointment-reminders', profileId],
+                    });
+                }
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        [createDoseMutation, detailVax, healthProfile, profileId, queryClient],
+    );
+
     if (view === 'detail' && detailVax) {
-        return <VaxDetailScreen item={detailVax} onBack={closeDetail} />;
+        return (
+            <VaxDetailScreen
+                item={detailVax}
+                onBack={closeDetail}
+                onSchedule={handleScheduleVaccine}
+                isScheduling={createReminderMutation.isPending}
+                onAddDose={handleAddDose}
+                isAddingDose={createDoseMutation.isPending}
+            />
+        );
     }
 
     const totalDone = vaccineItems.reduce(
-        (s, v) => s + Math.min(doneMuiCount(v), v.total),
+        (sum, item) => sum + Math.min(doneMuiCount(item), item.total),
         0,
     );
-    const totalMui = vaccineItems.reduce((s, v) => s + v.total, 0);
+    const totalMui = vaccineItems.reduce((sum, item) => sum + item.total, 0);
     const pct = totalMui > 0 ? Math.round((totalDone / totalMui) * 100) : 0;
     const pending = totalMui - totalDone;
     const donutSize = 62;
@@ -183,22 +611,25 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
         donutCircumference -
         (Math.max(0, Math.min(100, pct)) / 100) * donutCircumference;
 
-    const complete = vaccineItems.filter((v) => doneMuiCount(v) >= v.total);
-    const soon = vaccineItems.filter(
-        (v) =>
-            doneMuiCount(v) < v.total &&
-            v.doses.some((d: VaccineDose) => d.scheduled && !d.date),
+    const complete = vaccineItems.filter(
+        (item) => doneMuiCount(item) >= item.total,
     );
-    const soonIds = new Set(soon.map((v) => v.id));
+    const soon = vaccineItems.filter(
+        (item) =>
+            doneMuiCount(item) < item.total &&
+            item.doses.some(
+                (dose: VaccineDose) => dose.scheduled && !dose.date,
+            ),
+    );
+    const soonIds = new Set(soon.map((item) => item.id));
     const incomplete = vaccineItems.filter(
-        (v) => doneMuiCount(v) < v.total && !soonIds.has(v.id),
+        (item) => doneMuiCount(item) < item.total && !soonIds.has(item.id),
     );
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
             <StatusBar barStyle='dark-content' backgroundColor={colors.bg} />
 
-            {/* TOP BAR */}
             <View style={[styles.subTopbar, styles.vaxSubTopbar]}>
                 <Pressable
                     style={[styles.subBackBtn, styles.vaxBackBtn]}
@@ -247,7 +678,7 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                                     >
                                         Bộ Y tế Việt Nam
                                     </Text>
-                                    .{'\n'}
+                                    .{`\n`}
                                     Nhấn vào từng mũi tiêm để xem lịch sử và chi
                                     tiết mũi tiêm.
                                 </Text>
@@ -262,10 +693,8 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* PROGRESS HERO */}
                 <View style={styles.vaxHero}>
                     <View style={styles.vaxHeroContent}>
-                        {/* Donut */}
                         <View style={styles.vaxDonut}>
                             <View style={styles.vaxDonutTrack}>
                                 <Svg
@@ -335,7 +764,6 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                     </View>
                 </View>
 
-                {/* SẮP TIÊM */}
                 {soon.length > 0 && (
                     <>
                         <VaxSectionHeader
@@ -348,20 +776,19 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                             countBorder='#BFDBFE'
                         />
                         <View style={styles.vaxListCard}>
-                            {soon.map((v, i) => (
+                            {soon.map((item, index) => (
                                 <VaxRow
-                                    key={v.id}
-                                    item={v}
-                                    isLast={i === soon.length - 1}
+                                    key={item.id}
+                                    item={item}
+                                    isLast={index === soon.length - 1}
                                     status='soon'
-                                    onPress={() => openDetail(v)}
+                                    onPress={() => openDetail(item)}
                                 />
                             ))}
                         </View>
                     </>
                 )}
 
-                {/* CHƯA HOÀN THÀNH */}
                 {incomplete.length > 0 && (
                     <>
                         <VaxSectionHeader
@@ -374,20 +801,19 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                             countBorder='#FDE68A'
                         />
                         <View style={styles.vaxListCard}>
-                            {incomplete.map((v, i) => (
+                            {incomplete.map((item, index) => (
                                 <VaxRow
-                                    key={v.id}
-                                    item={v}
-                                    isLast={i === incomplete.length - 1}
+                                    key={item.id}
+                                    item={item}
+                                    isLast={index === incomplete.length - 1}
                                     status='pending'
-                                    onPress={() => openDetail(v)}
+                                    onPress={() => openDetail(item)}
                                 />
                             ))}
                         </View>
                     </>
                 )}
 
-                {/* ĐÃ TIÊM ĐỦ */}
                 {complete.length > 0 && (
                     <>
                         <VaxSectionHeader
@@ -400,13 +826,13 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                             countBorder='#BBF7D0'
                         />
                         <View style={styles.vaxListCard}>
-                            {complete.map((v, i) => (
+                            {complete.map((item, index) => (
                                 <VaxRow
-                                    key={v.id}
-                                    item={v}
-                                    isLast={i === complete.length - 1}
+                                    key={item.id}
+                                    item={item}
+                                    isLast={index === complete.length - 1}
                                     status='done'
-                                    onPress={() => openDetail(v)}
+                                    onPress={() => openDetail(item)}
                                 />
                             ))}
                         </View>
@@ -432,22 +858,41 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
                                 ? 'Dữ liệu đang được lấy từ tài khoản của bạn'
                                 : 'Chưa có dữ liệu tiêm chủng'}
                         </Text>
+                        {!isLoading ? (
+                            <Pressable
+                                style={[
+                                    styles.vdSchedBtn,
+                                    { marginTop: 12, alignSelf: 'stretch' },
+                                ]}
+                                onPress={() => setShowAddVax(true)}
+                            >
+                                <Ionicons
+                                    name='add-circle-outline'
+                                    size={14}
+                                    color={colors.text2}
+                                />
+                                <Text style={styles.vdSchedBtnText}>
+                                    Thêm vaccine ngay
+                                </Text>
+                            </Pressable>
+                        ) : null}
                     </View>
                 ) : null}
             </ScrollView>
 
-            {/* ADD VACCINE SHEET */}
             <AddVaxSheet
                 visible={showAddVax}
                 onClose={() => setShowAddVax(false)}
+                options={recommendationCatalog}
+                onSave={handleAddVaccine}
+                isSaving={subscribeVaccineMutation.isPending}
             />
         </SafeAreaView>
     );
 }
-
-/* ═══════════════════════════════════
+/* ===================================
    SECTION HEADER
-   ═══════════════════════════════════ */
+   =================================== */
 function VaxSectionHeader({
     label,
     count,
@@ -494,9 +939,9 @@ function VaxSectionHeader({
     );
 }
 
-/* ═══════════════════════════════════
+/* ===================================
    VACCINE ROW (list item)
-   ═══════════════════════════════════ */
+   =================================== */
 function VaxRow({
     item,
     isLast,
@@ -625,15 +1070,35 @@ function VaxRow({
     );
 }
 
-/* ═══════════════════════════════════
-   VACCINE DETAIL – FULL SCREEN
-   ═══════════════════════════════════ */
+/* ===================================
+   VACCINE DETAIL - FULL SCREEN
+   =================================== */
 function VaxDetailScreen({
     item,
     onBack,
+    onSchedule,
+    isScheduling,
+    onAddDose,
+    isAddingDose,
 }: {
     item: VaccineDetailItem;
     onBack: () => void;
+    onSchedule: (payload: {
+        appointmentAt: Date;
+        vaccineName: string;
+        doseNumber: number;
+        hospitalName?: string;
+        reminderSelection: string;
+    }) => void;
+    isScheduling: boolean;
+    onAddDose: (payload: {
+        itemId: string;
+        userVaccinationId?: string;
+        doseIndex: number;
+        administeredAt: Date;
+        location?: string;
+    }) => Promise<boolean>;
+    isAddingDose: boolean;
 }) {
     const [showAddDose, setShowAddDose] = useState(false);
     const [showSchedule, setShowSchedule] = useState(false);
@@ -701,10 +1166,10 @@ function VaxDetailScreen({
                     <View>
                         <Text style={styles.vdSummaryLabel}>Tiến độ</Text>
                         <Text style={styles.vdSummaryProgress}>
-                            {done} / {item.total} mũi
+                            {done} / {item.total} m?i
                         </Text>
                         <Text style={styles.vdSummarySub}>
-                            {item.total} mũi khuyến nghị
+                            {item.total} m?i khuyến nghị
                         </Text>
                     </View>
                     <View
@@ -783,7 +1248,7 @@ function VaxDetailScreen({
                                 {/* Body */}
                                 <View style={styles.vdDoseBody}>
                                     <Text style={styles.vdDoseLabel}>
-                                        Mũi {i + 1}
+                                        M?i {i + 1}
                                     </Text>
                                     {isDone ? (
                                         <>
@@ -816,7 +1281,7 @@ function VaxDetailScreen({
                                                     },
                                                 ]}
                                             >
-                                                📅 {dose!.scheduled}
+                                                Lịch: {dose!.scheduled}
                                             </Text>
                                             {dose!.place ? (
                                                 <Text
@@ -845,7 +1310,7 @@ function VaxDetailScreen({
                                                 },
                                             ]}
                                         >
-                                            Chưa tiêm
+                                            Ch?a tiêm
                                         </Text>
                                     )}
                                 </View>
@@ -875,36 +1340,89 @@ function VaxDetailScreen({
                 onClose={() => setShowAddDose(false)}
                 nextNum={Math.min(done + 1, item.total)}
                 vaxName={item.name}
+                itemId={item.id}
+                userVaccinationId={item.userVaccinationId}
+                onSave={onAddDose}
+                isSaving={isAddingDose}
             />
 
             {/* SCHEDULE DOSE SHEET */}
             <ScheduleDoseSheet
                 visible={showSchedule}
                 onClose={() => setShowSchedule(false)}
+                vaccineName={item.name}
+                nextDoseNumber={Math.min(done + 1, item.total)}
+                onSave={(payload) => {
+                    onSchedule(payload);
+                    setShowSchedule(false);
+                }}
+                isSaving={isScheduling}
             />
         </SafeAreaView>
     );
 }
 
-/* ═══════════════════════════════════
+/* ===================================
    ADD DOSE BOTTOM SHEET
-   ═══════════════════════════════════ */
+   =================================== */
 function AddDoseSheet({
     visible,
     onClose,
     nextNum,
     vaxName,
+    itemId,
+    userVaccinationId,
+    onSave,
+    isSaving,
 }: {
     visible: boolean;
     onClose: () => void;
     nextNum: number;
     vaxName?: string;
+    itemId: string;
+    userVaccinationId?: string;
+    onSave: (payload: {
+        itemId: string;
+        userVaccinationId?: string;
+        doseIndex: number;
+        administeredAt: Date;
+        location?: string;
+    }) => Promise<boolean>;
+    isSaving: boolean;
 }) {
     const [doseNum, setDoseNum] = useState(nextNum.toString());
     const [doseDate, setDoseDate] = useState(new Date());
     const [dosePlace, setDosePlace] = useState('');
     const [reaction, setReaction] = useState('');
     const [attachments, setAttachments] = useState<AttachmentUploadItem[]>([]);
+
+    const handleSaveDose = useCallback(async () => {
+        const doseIndex = Number(doseNum);
+        if (!Number.isInteger(doseIndex) || doseIndex < 1) {
+            appToast.showError('Số mũi không hợp lệ');
+            return;
+        }
+
+        const ok = await onSave({
+            itemId,
+            userVaccinationId,
+            doseIndex,
+            administeredAt: doseDate,
+            location: dosePlace,
+        });
+
+        if (ok) {
+            onClose();
+        }
+    }, [
+        doseDate,
+        doseNum,
+        dosePlace,
+        itemId,
+        onClose,
+        onSave,
+        userVaccinationId,
+    ]);
 
     return (
         <Modal
@@ -941,7 +1459,7 @@ function AddDoseSheet({
                             />
                         </Pressable>
                         <Text style={[styles.subTopbarTitle, { flex: 0 }]}>
-                            Thêm mũi tiêm
+                            Thêm m?i tiêm
                         </Text>
                     </View>
 
@@ -967,9 +1485,9 @@ function AddDoseSheet({
                             />
                         </View>
 
-                        {/* Mũi thứ */}
+                        {/* M?i thứ */}
                         <View style={styles.arGroup}>
-                            <Text style={styles.arLabel}>Mũi thứ</Text>
+                            <Text style={styles.arLabel}>M?i thứ</Text>
                             <TextInput
                                 style={styles.arInput}
                                 placeholder='VD: 3'
@@ -1041,12 +1559,17 @@ function AddDoseSheet({
                     {/* SAVE BUTTON */}
                     <View style={styles.arSaveWrap}>
                         <Pressable
-                            onPress={onClose}
+                            onPress={handleSaveDose}
+                            disabled={isSaving}
                             style={styles.vdSaveBtnSolid}
                         >
-                            <Text style={styles.vdSaveBtnText}>
-                                Lưu mũi tiêm
-                            </Text>
+                            {isSaving ? (
+                                <ActivityIndicator size='small' color='#fff' />
+                            ) : (
+                                <Text style={styles.vdSaveBtnText}>
+                                    Lưu mũi tiêm
+                                </Text>
+                            )}
                         </Pressable>
                     </View>
                 </View>
@@ -1055,15 +1578,29 @@ function AddDoseSheet({
     );
 }
 
-/* ═══════════════════════════════════
+/* ===================================
    SCHEDULE DOSE BOTTOM SHEET
-   ═══════════════════════════════════ */
+   =================================== */
 function ScheduleDoseSheet({
     visible,
     onClose,
+    vaccineName,
+    nextDoseNumber,
+    onSave,
+    isSaving,
 }: {
     visible: boolean;
     onClose: () => void;
+    vaccineName: string;
+    nextDoseNumber: number;
+    onSave: (payload: {
+        appointmentAt: Date;
+        vaccineName: string;
+        doseNumber: number;
+        hospitalName?: string;
+        reminderSelection: string;
+    }) => void;
+    isSaving: boolean;
 }) {
     const [schedDate, setSchedDate] = useState(new Date());
     const [schedTime, setSchedTime] = useState(new Date());
@@ -1193,9 +1730,34 @@ function ScheduleDoseSheet({
                             </View>
                             <Pressable style={styles.vdSaveBtn}>
                                 <View style={styles.vdSaveBtnSolid}>
-                                    <Text style={styles.vdSaveBtnText}>
-                                        Lưu lịch tiêm
-                                    </Text>
+                                    <Pressable
+                                        onPress={() =>
+                                            onSave({
+                                                appointmentAt:
+                                                    combineDateAndTime(
+                                                        schedDate,
+                                                        schedTime,
+                                                    ),
+                                                vaccineName,
+                                                doseNumber: nextDoseNumber,
+                                                hospitalName: schedPlace,
+                                                reminderSelection:
+                                                    schedReminder,
+                                            })
+                                        }
+                                        disabled={isSaving}
+                                    >
+                                        {isSaving ? (
+                                            <ActivityIndicator
+                                                size='small'
+                                                color='#fff'
+                                            />
+                                        ) : (
+                                            <Text style={styles.vdSaveBtnText}>
+                                                Lưu lịch tiêm
+                                            </Text>
+                                        )}
+                                    </Pressable>
                                 </View>
                             </Pressable>
                         </View>
@@ -1211,18 +1773,86 @@ function ScheduleDoseSheet({
     );
 }
 
-/* ═══════════════════════════════════
+/* ===================================
    ADD VACCINE BOTTOM SHEET
-   ═══════════════════════════════════ */
+   =================================== */
 function AddVaxSheet({
     visible,
     onClose,
+    options,
+    onSave,
+    isSaving,
 }: {
     visible: boolean;
     onClose: () => void;
+    options: VaccinationRecommendation[];
+    onSave: (
+        payload:
+            | { mode: 'catalog'; recommendationId: string }
+            | { mode: 'custom'; vaccineName: string; totalDoses: number },
+    ) => Promise<boolean>;
+    isSaving: boolean;
 }) {
-    const [vaxName, setVaxName] = useState('');
-    const [vaxTotal, setVaxTotal] = useState('');
+    const [mode, setMode] = useState<'catalog' | 'custom'>('catalog');
+    const [search, setSearch] = useState('');
+    const [selectedRecommendationId, setSelectedRecommendationId] =
+        useState('');
+    const [customName, setCustomName] = useState('');
+    const [customTotal, setCustomTotal] = useState('1');
+
+    const filteredOptions = useMemo(() => {
+        const keyword = search.trim().toLowerCase();
+        if (!keyword) return options;
+        return options.filter((item) => {
+            const title = item.name.toLowerCase();
+            const code = (item.code ?? '').toLowerCase();
+            const disease = (item.disease_name ?? '').toLowerCase();
+            return (
+                title.includes(keyword) ||
+                code.includes(keyword) ||
+                disease.includes(keyword)
+            );
+        });
+    }, [options, search]);
+
+    const handleSubmit = useCallback(async () => {
+        if (mode === 'custom') {
+            const total = Number(customTotal);
+            const ok = await onSave({
+                mode: 'custom',
+                vaccineName: customName,
+                totalDoses: Number.isFinite(total) ? total : 1,
+            });
+            if (ok) {
+                setCustomName('');
+                setCustomTotal('1');
+                onClose();
+            }
+            return;
+        }
+
+        if (!selectedRecommendationId) {
+            appToast.showError('Vui lòng chọn vaccine từ danh mục');
+            return;
+        }
+
+        const ok = await onSave({
+            mode: 'catalog',
+            recommendationId: selectedRecommendationId,
+        });
+        if (ok) {
+            setSearch('');
+            setSelectedRecommendationId('');
+            onClose();
+        }
+    }, [
+        customName,
+        customTotal,
+        mode,
+        onClose,
+        onSave,
+        selectedRecommendationId,
+    ]);
 
     return (
         <Modal
@@ -1243,45 +1873,255 @@ function AddVaxSheet({
                         <Text style={styles.vdSheetTitle}>
                             Thêm vaccine mới
                         </Text>
-                        <View style={{ gap: 10 }}>
-                            <View>
-                                <Text style={styles.vdFieldLabel}>
-                                    Tên vaccine
-                                </Text>
-                                <TextInput
-                                    style={styles.vdFieldInput}
-                                    placeholder='VD: Viêm gan B, Uốn ván…'
-                                    placeholderTextColor={colors.text3}
-                                    value={vaxName}
-                                    onChangeText={setVaxName}
-                                />
-                            </View>
-                            <View>
-                                <Text style={styles.vdFieldLabel}>
-                                    Tổng số mũi khuyến nghị
-                                </Text>
-                                <TextInput
-                                    style={styles.vdFieldInput}
-                                    placeholder='VD: 3'
-                                    placeholderTextColor={colors.text3}
-                                    keyboardType='number-pad'
-                                    value={vaxTotal}
-                                    onChangeText={setVaxTotal}
-                                />
-                            </View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
                             <Pressable
-                                style={[
-                                    styles.vdSaveBtn,
-                                    styles.vdAddVaxSaveBtnSpacing,
-                                ]}
+                                onPress={() => setMode('catalog')}
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 10,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor:
+                                        mode === 'catalog'
+                                            ? colors.primary
+                                            : colors.border,
+                                    backgroundColor:
+                                        mode === 'catalog'
+                                            ? colors.primaryBg
+                                            : colors.card,
+                                    alignItems: 'center',
+                                }}
                             >
-                                <View style={styles.vdSaveBtnSolid}>
+                                <Text
+                                    style={{
+                                        color:
+                                            mode === 'catalog'
+                                                ? colors.primary
+                                                : colors.text2,
+                                        fontWeight: '600',
+                                    }}
+                                >
+                                    Từ danh mục
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={() => setMode('custom')}
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 10,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor:
+                                        mode === 'custom'
+                                            ? colors.primary
+                                            : colors.border,
+                                    backgroundColor:
+                                        mode === 'custom'
+                                            ? colors.primaryBg
+                                            : colors.card,
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color:
+                                            mode === 'custom'
+                                                ? colors.primary
+                                                : colors.text2,
+                                        fontWeight: '600',
+                                    }}
+                                >
+                                    Tự nhập
+                                </Text>
+                            </Pressable>
+                        </View>
+                        <View style={{ gap: 10 }}>
+                            {mode === 'catalog' ? (
+                                <>
+                                    <View>
+                                        <Text style={styles.vdFieldLabel}>
+                                            Tìm vaccine
+                                        </Text>
+                                        <TextInput
+                                            style={styles.vdFieldInput}
+                                            placeholder='VD: Viêm gan B, Uốn ván...'
+                                            placeholderTextColor={colors.text3}
+                                            value={search}
+                                            onChangeText={setSearch}
+                                        />
+                                    </View>
+                                    <View style={{ gap: 8, maxHeight: 220 }}>
+                                        <Text style={styles.vdFieldLabel}>
+                                            Chọn từ danh mục
+                                        </Text>
+                                        <ScrollView
+                                            nestedScrollEnabled
+                                            showsVerticalScrollIndicator={false}
+                                        >
+                                            <View style={{ gap: 8 }}>
+                                                {filteredOptions.length ===
+                                                0 ? (
+                                                    <View
+                                                        style={{
+                                                            borderWidth: 1,
+                                                            borderColor:
+                                                                colors.border,
+                                                            borderRadius: 12,
+                                                            padding: 12,
+                                                            backgroundColor:
+                                                                colors.card,
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                color: colors.text3,
+                                                                fontSize: 13,
+                                                            }}
+                                                        >
+                                                            Không tìm thấy
+                                                            vaccine phù hợp.
+                                                        </Text>
+                                                        <Pressable
+                                                            onPress={() =>
+                                                                setMode(
+                                                                    'custom',
+                                                                )
+                                                            }
+                                                            style={{
+                                                                marginTop: 10,
+                                                                alignSelf:
+                                                                    'flex-start',
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={{
+                                                                    color: colors.primary,
+                                                                    fontWeight:
+                                                                        '600',
+                                                                }}
+                                                            >
+                                                                Chuyển sang tự
+                                                                nhập
+                                                            </Text>
+                                                        </Pressable>
+                                                    </View>
+                                                ) : (
+                                                    filteredOptions.map(
+                                                        (option) => {
+                                                            const active =
+                                                                selectedRecommendationId ===
+                                                                option.id;
+                                                            return (
+                                                                <Pressable
+                                                                    key={
+                                                                        option.id
+                                                                    }
+                                                                    onPress={() =>
+                                                                        setSelectedRecommendationId(
+                                                                            option.id,
+                                                                        )
+                                                                    }
+                                                                    style={{
+                                                                        borderWidth: 1,
+                                                                        borderColor:
+                                                                            active
+                                                                                ? colors.primary
+                                                                                : colors.border,
+                                                                        borderRadius: 12,
+                                                                        padding: 12,
+                                                                        backgroundColor:
+                                                                            active
+                                                                                ? colors.primaryBg
+                                                                                : colors.card,
+                                                                    }}
+                                                                >
+                                                                    <Text
+                                                                        style={{
+                                                                            color: colors.text,
+                                                                            fontWeight:
+                                                                                active
+                                                                                    ? '700'
+                                                                                    : '600',
+                                                                            fontSize: 14,
+                                                                        }}
+                                                                    >
+                                                                        {
+                                                                            option.name
+                                                                        }
+                                                                    </Text>
+                                                                    <Text
+                                                                        style={{
+                                                                            color: colors.text3,
+                                                                            fontSize: 12,
+                                                                            marginTop: 2,
+                                                                        }}
+                                                                    >
+                                                                        {(option.code
+                                                                            ? `${option.code} · `
+                                                                            : '') +
+                                                                            (option.disease_name ??
+                                                                                'Không rõ bệnh đích')}
+                                                                    </Text>
+                                                                </Pressable>
+                                                            );
+                                                        },
+                                                    )
+                                                )}
+                                            </View>
+                                        </ScrollView>
+                                    </View>
+                                </>
+                            ) : (
+                                <>
+                                    <View>
+                                        <Text style={styles.vdFieldLabel}>
+                                            Tên vaccine
+                                        </Text>
+                                        <TextInput
+                                            style={styles.vdFieldInput}
+                                            placeholder='VD: Thủy đậu, HPV, cúm mùa...'
+                                            placeholderTextColor={colors.text3}
+                                            value={customName}
+                                            onChangeText={setCustomName}
+                                        />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.vdFieldLabel}>
+                                            Tổng số m?i khuyến nghị
+                                        </Text>
+                                        <TextInput
+                                            style={styles.vdFieldInput}
+                                            placeholder='VD: 3'
+                                            placeholderTextColor={colors.text3}
+                                            keyboardType='number-pad'
+                                            value={customTotal}
+                                            onChangeText={setCustomTotal}
+                                        />
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                        <Pressable
+                            style={[
+                                styles.vdSaveBtn,
+                                styles.vdAddVaxSaveBtnSpacing,
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={isSaving}
+                        >
+                            <View style={styles.vdSaveBtnSolid}>
+                                {isSaving ? (
+                                    <ActivityIndicator
+                                        size='small'
+                                        color='#fff'
+                                    />
+                                ) : (
                                     <Text style={styles.vdSaveBtnText}>
                                         Thêm vaccine
                                     </Text>
-                                </View>
-                            </Pressable>
-                        </View>
+                                )}
+                            </View>
+                        </Pressable>
                     </View>
                 </Pressable>
             </Pressable>

@@ -115,8 +115,8 @@ export const authService = {
     },
     fetchMe: async () => {
         // GET /users/me là bundle nặng (nhiều profile × records/vaccine/inventory…);
-        // timeout mặc 10s dễ gây Axios "Network Error" khi server/DB chậm hoặc JSON lớn.
-        const res = await apiClient.get('/users/me', { timeout: 60000 });
+        // dùng timeout 90s để giảm lỗi "Network Error" khi server/DB chậm hoặc JSON lớn.
+        const res = await apiClient.get('/users/me', { timeout: 90000 });
         return res.data;
     },
     refresh: async (refreshToken: string) => {
@@ -126,7 +126,7 @@ export const authService = {
         return res.data;
     },
     profile: async () => {
-        const res = await apiClient.get('/users/me', { timeout: 60000 });
+        const res = await apiClient.get('/users/me', { timeout: 90000 });
         return res.data;
     },
     forgotPassword: async (email: string) => {
