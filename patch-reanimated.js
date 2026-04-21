@@ -65,6 +65,17 @@ function patchWorkletsCMakeForWindows() {
   }
 
   let content = fs.readFileSync(filePath, 'utf8');
+  const buggyHermesCondition =
+    'if(${HERMES_ENABLE_DEBUGGER} AND NOT (WIN32 AND CMAKE_BUILD_TYPE MATCHES "Debug"))';
+  const fixedHermesCondition =
+    'if(HERMES_ENABLE_DEBUGGER AND NOT (WIN32 AND CMAKE_BUILD_TYPE MATCHES "Debug"))';
+
+  if (content.includes(buggyHermesCondition)) {
+    content = content.replace(buggyHermesCondition, fixedHermesCondition);
+    fs.writeFileSync(filePath, content, 'utf8');
+    console.log('[Fix] react-native-worklets CMakeLists.txt Hermes debugger condition fixed.');
+    return;
+  }
 
   if (!content.includes('Reduce clang frontend memory pressure on Windows debug builds.')) {
     content = content.replace(
@@ -84,11 +95,18 @@ function patchWorkletsCMakeForWindows() {
 
     content = content.replace(
       "  if(${HERMES_ENABLE_DEBUGGER})\n",
-      "  if(${HERMES_ENABLE_DEBUGGER} AND NOT (WIN32 AND CMAKE_BUILD_TYPE MATCHES \"Debug\"))\n"
+      "  if(HERMES_ENABLE_DEBUGGER AND NOT (WIN32 AND CMAKE_BUILD_TYPE MATCHES \"Debug\"))\n"
     );
 
     fs.writeFileSync(filePath, content, 'utf8');
     console.log('[Fix] react-native-worklets CMakeLists.txt patched for lower Windows debug memory usage.');
+    return;
+  }
+
+  if (!content.includes(fixedHermesCondition) && content.includes('if(${HERMES_ENABLE_DEBUGGER})')) {
+    content = content.replace('if(${HERMES_ENABLE_DEBUGGER})', fixedHermesCondition);
+    fs.writeFileSync(filePath, content, 'utf8');
+    console.log('[Fix] react-native-worklets CMakeLists.txt Hermes debugger condition normalized.');
     return;
   }
 
