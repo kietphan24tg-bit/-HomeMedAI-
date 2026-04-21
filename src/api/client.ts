@@ -1,9 +1,9 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { getAuthSessionBridge } from '@/src/auth/session-bridge';
 import * as SecureStore from '@/src/lib/secureStore';
 import { appToast } from '@/src/lib/toast';
-import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
     resolveAndroidLoopbackFallbackUrl,
     resolveApiBaseUrl,
@@ -59,7 +59,7 @@ async function refreshAccessToken() {
                 throw new Error('No refresh token returned');
             }
 
-            useAuthStore.getState().setAccessToken(accessToken);
+            getAuthSessionBridge().setAccessToken(accessToken);
             await SecureStore.setItemAsync(REFRESH_TOKEN, nextRefreshToken);
 
             return accessToken;
@@ -68,7 +68,7 @@ async function refreshAccessToken() {
                 if (isNetworkError(error)) {
                     throw error;
                 }
-                await useAuthStore.getState().clearSession();
+                await getAuthSessionBridge().clearSession();
                 appToast.showError(
                     'Error',
                     'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!',
@@ -95,7 +95,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config) => {
-        const raw = useAuthStore.getState().accessToken;
+        const raw = getAuthSessionBridge().getAccessToken();
         const token = typeof raw === 'string' ? raw.trim() : null;
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;

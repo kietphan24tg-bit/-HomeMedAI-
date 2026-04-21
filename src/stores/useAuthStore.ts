@@ -1,5 +1,6 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { create } from 'zustand';
+import { configureAuthSessionBridge } from '@/src/auth/session-bridge';
 import { getMeOverviewQueryOptions } from '@/src/features/me/queries';
 import type { MeOverview } from '@/src/features/me/types';
 import { getDeviceMetadata } from '@/src/lib/device';
@@ -406,4 +407,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             }
         },
     };
+});
+
+configureAuthSessionBridge({
+    getAccessToken: () => useAuthStore.getState().accessToken,
+    setAccessToken: (token) => useAuthStore.getState().setAccessToken(token),
+    clearSession: () => useAuthStore.getState().clearSession(),
 });
