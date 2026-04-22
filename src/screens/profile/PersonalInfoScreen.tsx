@@ -13,6 +13,7 @@ import React, {
 import {
     ActivityIndicator,
     Animated,
+    KeyboardAvoidingView,
     Platform,
     Pressable,
     ScrollView,
@@ -313,250 +314,264 @@ export default function PersonalInfoScreen({
                 <StatusBar barStyle='dark-content' backgroundColor={PAGE_BG} />
             )}
 
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps='handled'
-                keyboardDismissMode='none'
-                removeClippedSubviews={false}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoiding}
             >
-                {isProfileLoading && (
-                    <View style={styles.loadingInline}>
-                        <ActivityIndicator color={colors.primary} />
-                        <Text style={styles.loadingInlineText}>
-                            Đang tải thông tin hồ sơ...
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps='handled'
+                    keyboardDismissMode='interactive'
+                    removeClippedSubviews={false}
+                >
+                    {isProfileLoading && (
+                        <View style={styles.loadingInline}>
+                            <ActivityIndicator color={colors.primary} />
+                            <Text style={styles.loadingInlineText}>
+                                Đang tải thông tin hồ sơ...
+                            </Text>
+                        </View>
+                    )}
+                    {isProfileError && (
+                        <Text style={styles.loadErrorText}>
+                            Không thể tải dữ liệu hồ sơ. Bạn vẫn có thể nhập và
+                            lưu thủ công.
                         </Text>
-                    </View>
-                )}
-                {isProfileError && (
-                    <Text style={styles.loadErrorText}>
-                        Không thể tải dữ liệu hồ sơ. Bạn vẫn có thể nhập và lưu
-                        thủ công.
-                    </Text>
-                )}
+                    )}
 
-                <Animated.View style={[styles.header, anim(0)]}>
-                    <View style={styles.badge}>
-                        <Ionicons
-                            name='person-outline'
-                            size={11}
-                            color={colors.primary}
-                        />
-                        <Text style={styles.badgeText}>Thông tin cá nhân</Text>
-                    </View>
-                    <Text style={styles.title}>
-                        {'Hãy cho HomeMedAI\n'}
-                        <Text style={{ color: colors.primary }}>
-                            biết về bạn
-                        </Text>
-                    </Text>
-                    <Text style={styles.sub}>
-                        Thông tin này giúp cá nhân hóa trải nghiệm và theo dõi
-                        sức khỏe chính xác hơn.
-                    </Text>
-                </Animated.View>
-
-                <Animated.View style={[styles.inputGroup, anim(1)]}>
-                    <Text style={styles.label}>Họ và tên</Text>
-                    <View style={styles.inputCard}>
-                        <Ionicons
-                            name='person-outline'
-                            size={18}
-                            color={colors.text3}
-                            style={styles.leadingIcon}
-                        />
-                        <TextInput
-                            style={[styles.inputText, { flex: 1 }]}
-                            value={fullName}
-                            onChangeText={setFullName}
-                            placeholder='Nguyễn Văn An'
-                            placeholderTextColor={colors.text3}
-                            autoCapitalize='words'
-                            returnKeyType='done'
-                        />
-                    </View>
-                </Animated.View>
-
-                <Animated.View style={[styles.inputGroup, anim(2)]}>
-                    <Text style={styles.label}>Ngày sinh</Text>
-                    <View style={styles.inputCard}>
-                        <Pressable
-                            onPress={() => setShowPicker(true)}
-                            hitSlop={8}
-                            style={styles.dateIconButton}
-                        >
+                    <Animated.View style={[styles.header, anim(0)]}>
+                        <View style={styles.badge}>
                             <Ionicons
-                                name='calendar-outline'
+                                name='person-outline'
+                                size={11}
+                                color={colors.primary}
+                            />
+                            <Text style={styles.badgeText}>
+                                Thông tin cá nhân
+                            </Text>
+                        </View>
+                        <Text style={styles.title}>
+                            {'Hãy cho HomeMedAI\n'}
+                            <Text style={{ color: colors.primary }}>
+                                biết về bạn
+                            </Text>
+                        </Text>
+                        <Text style={styles.sub}>
+                            Thông tin này giúp cá nhân hóa trải nghiệm và theo
+                            dõi sức khỏe chính xác hơn.
+                        </Text>
+                    </Animated.View>
+
+                    <Animated.View style={[styles.inputGroup, anim(1)]}>
+                        <Text style={styles.label}>Họ và tên</Text>
+                        <View style={styles.inputCard}>
+                            <Ionicons
+                                name='person-outline'
                                 size={18}
                                 color={colors.text3}
+                                style={styles.leadingIcon}
                             />
-                        </Pressable>
-                        <TextInput
-                            style={[styles.inputText, { flex: 1 }]}
-                            value={dobText}
-                            onChangeText={handleDobText}
-                            placeholder='DD / MM / YYYY'
-                            placeholderTextColor={colors.text3}
-                            keyboardType='numeric'
-                            maxLength={14}
-                            returnKeyType='done'
-                        />
-                    </View>
+                            <TextInput
+                                style={[styles.inputText, { flex: 1 }]}
+                                value={fullName}
+                                onChangeText={setFullName}
+                                placeholder='Nguyễn Văn An'
+                                placeholderTextColor={colors.text3}
+                                autoCapitalize='words'
+                                returnKeyType='done'
+                            />
+                        </View>
+                    </Animated.View>
 
-                    {showPicker &&
-                        (Platform.OS === 'ios' ? (
-                            <View style={styles.iosWrap}>
-                                <View style={styles.iosBar}>
-                                    <Pressable onPress={closePicker}>
-                                        <Text style={styles.iosDone}>Xong</Text>
-                                    </Pressable>
+                    <Animated.View style={[styles.inputGroup, anim(2)]}>
+                        <Text style={styles.label}>Ngày sinh</Text>
+                        <View style={styles.inputCard}>
+                            <Pressable
+                                onPress={() => setShowPicker(true)}
+                                hitSlop={8}
+                                style={styles.dateIconButton}
+                            >
+                                <Ionicons
+                                    name='calendar-outline'
+                                    size={18}
+                                    color={colors.text3}
+                                />
+                            </Pressable>
+                            <TextInput
+                                style={[styles.inputText, { flex: 1 }]}
+                                value={dobText}
+                                onChangeText={handleDobText}
+                                placeholder='DD / MM / YYYY'
+                                placeholderTextColor={colors.text3}
+                                keyboardType='numeric'
+                                maxLength={14}
+                                returnKeyType='done'
+                            />
+                        </View>
+
+                        {showPicker &&
+                            (Platform.OS === 'ios' ? (
+                                <View style={styles.iosWrap}>
+                                    <View style={styles.iosBar}>
+                                        <Pressable onPress={closePicker}>
+                                            <Text style={styles.iosDone}>
+                                                Xong
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                    <DateTimePicker
+                                        value={dob ?? new Date()}
+                                        mode='date'
+                                        display='inline'
+                                        onChange={handlePicker}
+                                        themeVariant='light'
+                                    />
                                 </View>
+                            ) : (
                                 <DateTimePicker
                                     value={dob ?? new Date()}
                                     mode='date'
-                                    display='inline'
+                                    display='default'
                                     onChange={handlePicker}
-                                    themeVariant='light'
                                 />
-                            </View>
-                        ) : (
-                            <DateTimePicker
-                                value={dob ?? new Date()}
-                                mode='date'
-                                display='default'
-                                onChange={handlePicker}
-                            />
-                        ))}
-                </Animated.View>
+                            ))}
+                    </Animated.View>
 
-                <Animated.View style={[styles.inputGroup, anim(3)]}>
-                    <Text style={styles.label}>Giới tính</Text>
-                    <View style={styles.genderRow}>
-                        {GENDERS.map(({ key, label, icon }) => {
-                            const active = gender === key;
+                    <Animated.View style={[styles.inputGroup, anim(3)]}>
+                        <Text style={styles.label}>Giới tính</Text>
+                        <View style={styles.genderRow}>
+                            {GENDERS.map(({ key, label, icon }) => {
+                                const active = gender === key;
 
-                            return (
-                                <Pressable
-                                    key={key}
-                                    onPress={() => setGender(key)}
-                                    style={({ pressed }) => [
-                                        styles.genderBtn,
-                                        active && styles.genderBtnActive,
-                                        pressed && shared.pressed,
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name={icon}
-                                        size={18}
-                                        color={
-                                            active
-                                                ? colors.primary
-                                                : colors.text3
-                                        }
-                                        style={styles.genderIcon}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.genderLabel,
-                                            active && styles.genderLabelActive,
+                                return (
+                                    <Pressable
+                                        key={key}
+                                        onPress={() => setGender(key)}
+                                        style={({ pressed }) => [
+                                            styles.genderBtn,
+                                            active && styles.genderBtnActive,
+                                            pressed && shared.pressed,
                                         ]}
                                     >
-                                        {label}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </Animated.View>
-
-                <Animated.View style={[styles.dualRow, anim(4)]}>
-                    <View style={styles.dualCol}>
-                        <Text style={styles.label}>Chiều cao</Text>
-                        <View style={styles.inputCard}>
-                            <TextInput
-                                style={[styles.metricInput, { flex: 1 }]}
-                                value={height}
-                                onChangeText={setHeight}
-                                placeholder='170'
-                                placeholderTextColor={colors.text3}
-                                keyboardType='numeric'
-                                maxLength={3}
-                                returnKeyType='done'
-                            />
-                            <Text style={styles.metricUnit}>cm</Text>
+                                        <Ionicons
+                                            name={icon}
+                                            size={18}
+                                            color={
+                                                active
+                                                    ? colors.primary
+                                                    : colors.text3
+                                            }
+                                            style={styles.genderIcon}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.genderLabel,
+                                                active &&
+                                                    styles.genderLabelActive,
+                                            ]}
+                                        >
+                                            {label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
                         </View>
-                    </View>
+                    </Animated.View>
 
-                    <View style={styles.dualCol}>
-                        <Text style={styles.label}>Cân nặng</Text>
-                        <View style={styles.inputCard}>
-                            <TextInput
-                                style={[styles.metricInput, { flex: 1 }]}
-                                value={weight}
-                                onChangeText={setWeight}
-                                placeholder='65'
-                                placeholderTextColor={colors.text3}
-                                keyboardType='numeric'
-                                maxLength={3}
-                                returnKeyType='done'
-                            />
-                            <Text style={styles.metricUnit}>kg</Text>
-                        </View>
-                    </View>
-                </Animated.View>
-
-                <Animated.View style={[styles.inputGroup, anim(5)]}>
-                    <Text style={styles.label}>Địa chỉ</Text>
-                    <View style={styles.inputCard}>
-                        <Ionicons
-                            name='location-outline'
-                            size={18}
-                            color={colors.text3}
-                            style={styles.leadingIcon}
-                        />
-                        <TextInput
-                            style={[styles.inputText, { flex: 1 }]}
-                            value={address}
-                            onChangeText={setAddress}
-                            placeholder='Hồ Chí Minh'
-                            placeholderTextColor={colors.text3}
-                            returnKeyType='done'
-                        />
-                    </View>
-                </Animated.View>
-
-                <Animated.View style={[styles.btnWrap, anim(6)]}>
-                    <Pressable
-                        style={[
-                            styles.btnSave,
-                            upsertMutation.isPending && styles.btnSaveLoading,
-                        ]}
-                        onPress={handleComplete}
-                        disabled={upsertMutation.isPending}
-                    >
-                        {upsertMutation.isPending ? (
-                            <View style={styles.btnSaveContent}>
-                                <ActivityIndicator size='small' color='#fff' />
-                                <Text style={styles.btnSaveText}>
-                                    {'\u0110ang l\u01B0u...'}
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.btnSaveContent}>
-                                <Feather
-                                    name='arrow-right'
-                                    size={18}
-                                    color='#fff'
+                    <Animated.View style={[styles.dualRow, anim(4)]}>
+                        <View style={styles.dualCol}>
+                            <Text style={styles.label}>Chiều cao</Text>
+                            <View style={styles.inputCard}>
+                                <TextInput
+                                    style={[styles.metricInput, { flex: 1 }]}
+                                    value={height}
+                                    onChangeText={setHeight}
+                                    placeholder='170'
+                                    placeholderTextColor={colors.text3}
+                                    keyboardType='numeric'
+                                    maxLength={3}
+                                    returnKeyType='done'
                                 />
-                                <Text style={styles.btnSaveText}>
-                                    {'Ti\u1EBFp theo'}
-                                </Text>
+                                <Text style={styles.metricUnit}>cm</Text>
                             </View>
-                        )}
-                    </Pressable>
-                </Animated.View>
-            </ScrollView>
+                        </View>
+
+                        <View style={styles.dualCol}>
+                            <Text style={styles.label}>Cân nặng</Text>
+                            <View style={styles.inputCard}>
+                                <TextInput
+                                    style={[styles.metricInput, { flex: 1 }]}
+                                    value={weight}
+                                    onChangeText={setWeight}
+                                    placeholder='65'
+                                    placeholderTextColor={colors.text3}
+                                    keyboardType='numeric'
+                                    maxLength={3}
+                                    returnKeyType='done'
+                                />
+                                <Text style={styles.metricUnit}>kg</Text>
+                            </View>
+                        </View>
+                    </Animated.View>
+
+                    <Animated.View style={[styles.inputGroup, anim(5)]}>
+                        <Text style={styles.label}>Địa chỉ</Text>
+                        <View style={styles.inputCard}>
+                            <Ionicons
+                                name='location-outline'
+                                size={18}
+                                color={colors.text3}
+                                style={styles.leadingIcon}
+                            />
+                            <TextInput
+                                style={[styles.inputText, { flex: 1 }]}
+                                value={address}
+                                onChangeText={setAddress}
+                                placeholder='Hồ Chí Minh'
+                                placeholderTextColor={colors.text3}
+                                returnKeyType='done'
+                            />
+                        </View>
+                    </Animated.View>
+
+                    <Animated.View style={[styles.btnWrap, anim(6)]}>
+                        <Pressable
+                            style={[
+                                styles.btnSave,
+                                upsertMutation.isPending &&
+                                    styles.btnSaveLoading,
+                            ]}
+                            onPress={handleComplete}
+                            disabled={upsertMutation.isPending}
+                        >
+                            {upsertMutation.isPending ? (
+                                <View style={styles.btnSaveContent}>
+                                    <ActivityIndicator
+                                        size='small'
+                                        color='#fff'
+                                    />
+                                    <Text style={styles.btnSaveText}>
+                                        {'\u0110ang l\u01B0u...'}
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.btnSaveContent}>
+                                    <Feather
+                                        name='arrow-right'
+                                        size={18}
+                                        color='#fff'
+                                    />
+                                    <Text style={styles.btnSaveText}>
+                                        {'Ti\u1EBFp theo'}
+                                    </Text>
+                                </View>
+                            )}
+                        </Pressable>
+                    </Animated.View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </Wrapper>
     );
 }
@@ -570,6 +585,9 @@ const styles = StyleSheet.create({
         paddingTop: verticalScale(12),
         paddingBottom: verticalScale(28),
         flexGrow: 1,
+    },
+    keyboardAvoiding: {
+        flex: 1,
     },
     header: {
         paddingTop: verticalScale(4),

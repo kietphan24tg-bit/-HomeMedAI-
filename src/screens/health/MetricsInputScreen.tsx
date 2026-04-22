@@ -14,6 +14,10 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCreateMyHealthMetricReadingMutation } from '@/src/features/me/mutations';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
+import { appToast } from '@/src/lib/toast';
+import type { CreateHealthMetricReadingPayload } from '@/src/services/user.services';
 import {
     moderateScale,
     scale,
@@ -36,7 +40,7 @@ interface MetricInput {
 
 interface MetricsInputScreenProps {
     metricType?: 'bp' | 'weight' | 'glucose';
-    onSave?: (data: MetricInput) => void;
+    onSave?: (data: MetricInput) => void | Promise<void>;
     onCancel?: () => void;
 }
 
@@ -78,6 +82,142 @@ function normalizeMetricType(value: unknown, fallback: MetricType): MetricType {
         : fallback;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object'
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+function parseRequiredNumber(
+    value: string | undefined,
+    label: string,
+): number | null {
+    const normalized = value?.trim().replace(',', '.') ?? '';
+    if (!normalized) {
+        Alert.alert('Thiếu thông tin', `Vui lòng nhập ${label}.`);
+        return null;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        Alert.alert('Dữ liệu không hợp lệ', `${label} phải là số lớn hơn 0.`);
+        return null;
+    }
+
+    return parsed;
+}
+
+function parseOptionalNumber(value: string | undefined, label: string) {
+    const normalized = value?.trim().replace(',', '.') ?? '';
+    if (!normalized) {
+        return null;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        Alert.alert('Dữ liệu không hợp lệ', `${label} phải là số lớn hơn 0.`);
+        return null;
+    }
+
+    return parsed;
+}
+
+function toMeasuredAt(dateValue: string, timeValue: string): string | null {
+    const dateMatch = dateValue.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!dateMatch) {
+        Alert.alert(
+            'Ngày đo không hợp lệ',
+            'Vui lòng nhập ngày theo định dạng DD/MM/YYYY.',
+        );
+        return null;
+    }
+
+    const [, dayRaw, monthRaw, yearRaw] = dateMatch;
+    const safeTime = timeValue.trim() || '00:00';
+    const timeMatch = safeTime.match(/^(\d{2}):(\d{2})$/);
+    if (!timeMatch) {
+        Alert.alert(
+            'Giờ đo không hợp lệ',
+            'Vui lòng nhập giờ theo định dạng HH:mm.',
+        );
+        return null;
+    }
+
+    const day = Number(dayRaw);
+    const monthIndex = Number(monthRaw) - 1;
+    const year = Number(yearRaw);
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    const measuredAt = new Date(year, monthIndex, day, hours, minutes);
+
+    if (
+        Number.isNaN(measuredAt.getTime()) ||
+        measuredAt.getFullYear() !== year ||
+        measuredAt.getMonth() !== monthIndex ||
+        measuredAt.getDate() !== day ||
+        hours > 23 ||
+        minutes > 59
+    ) {
+        Alert.alert(
+            'Thời điểm đo không hợp lệ',
+            'Vui lòng kiểm tra lại ngày và giờ đo.',
+        );
+        return null;
+    }
+
+    return measuredAt.toISOString();
+}
+
+function buildPayload(
+    metric: MetricType,
+    input: MetricInput,
+): CreateHealthMetricReadingPayload | null {
+    const measuredAt = toMeasuredAt(input.date, input.time);
+    if (!measuredAt) {
+        return null;
+    }
+
+    if (metric === 'bp') {
+        const systolic = parseRequiredNumber(input.systolic, 'tâm thu');
+        if (systolic === null) return null;
+        const diastolic = parseRequiredNumber(input.diastolic, 'tâm trương');
+        if (diastolic === null) return null;
+        const heartRate = parseOptionalNumber(input.heartRate, 'nhịp tim');
+        if (input.heartRate?.trim() && heartRate === null) return null;
+
+        return {
+            metric_type: 'bp',
+            measured_at: measuredAt,
+            systolic,
+            diastolic,
+            heart_rate: heartRate,
+            notes: input.notes.trim() || null,
+        };
+    }
+
+    if (metric === 'weight') {
+        const weight = parseRequiredNumber(input.weight, 'cân nặng');
+        if (weight === null) return null;
+
+        return {
+            metric_type: 'weight',
+            measured_at: measuredAt,
+            weight_kg: weight,
+            notes: input.notes.trim() || null,
+        };
+    }
+
+    const glucose = parseRequiredNumber(input.glucose, 'đường huyết');
+    if (glucose === null) return null;
+
+    return {
+        metric_type: 'glucose',
+        measured_at: measuredAt,
+        glucose_mmol_l: glucose,
+        notes: input.notes.trim() || null,
+    };
+}
+
 /**
  * Standalone Metrics Input Screen (C3c-input)
  * For adding/editing health metric measurements
@@ -90,9 +230,12 @@ export default function MetricsInputScreen({
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
+    const { data: meOverview } = useMeOverviewQuery();
+    const createHealthMetricMutation = useCreateMyHealthMetricReadingMutation();
 
     const metric = normalizeMetricType(params.metric, metricType);
     const config = METRIC_CONFIG[metric];
+    const profileId = asRecord(meOverview?.profile).id;
 
     // Get current date and time
     const now = new Date();
@@ -112,14 +255,34 @@ export default function MetricsInputScreen({
 
     const handleSave = async () => {
         if (onSave) {
-            onSave(input);
+            await onSave(input);
             return;
         }
 
-        Alert.alert(
-            'Chưa có API lưu chỉ số',
-            'OpenAPI hiện tại chỉ trả health_metrics trong GET /users/me, chưa có endpoint tạo lần đo mới.',
-        );
+        if (createHealthMetricMutation.isPending) {
+            return;
+        }
+
+        if (typeof profileId !== 'string' || !profileId) {
+            appToast.showError('Không xác định được hồ sơ sức khỏe');
+            return;
+        }
+
+        const payload = buildPayload(metric, input);
+        if (!payload) {
+            return;
+        }
+
+        try {
+            await createHealthMetricMutation.mutateAsync({
+                profileId,
+                payload,
+            });
+            appToast.showSuccess('Đã lưu lần đo');
+            router.back();
+        } catch {
+            appToast.showError('Không thể lưu lần đo');
+        }
     };
 
     const handleCancel = () => {
@@ -234,7 +397,7 @@ export default function MetricsInputScreen({
                                     style={[styles.input, { flex: 1 }]}
                                     placeholder='55'
                                     placeholderTextColor={colors.text3}
-                                    keyboardType='numeric'
+                                    keyboardType='decimal-pad'
                                     value={input.weight}
                                     onChangeText={(text) =>
                                         setInput({ ...input, weight: text })
@@ -322,10 +485,17 @@ export default function MetricsInputScreen({
                             onPress={handleSave}
                             style={({ pressed }) => [
                                 styles.saveBtn,
+                                createHealthMetricMutation.isPending &&
+                                    styles.saveBtnDisabled,
                                 pressed && shared.pressed,
                             ]}
+                            disabled={createHealthMetricMutation.isPending}
                         >
-                            <Text style={styles.saveBtnText}>Lưu lần đo</Text>
+                            <Text style={styles.saveBtnText}>
+                                {createHealthMetricMutation.isPending
+                                    ? 'Đang lưu...'
+                                    : 'Lưu lần đo'}
+                            </Text>
                         </Pressable>
                     </View>
                 </ScrollView>

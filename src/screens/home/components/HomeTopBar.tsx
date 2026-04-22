@@ -41,13 +41,6 @@ export default function HomeTopBar({
                     />
                     <View style={styles.notifDot} />
                 </Pressable>
-                <Pressable style={shared.iconBtn}>
-                    <Ionicons
-                        name='search-outline'
-                        size={17}
-                        color={colors.text2}
-                    />
-                </Pressable>
             </View>
         </View>
     );

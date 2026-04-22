@@ -14,6 +14,7 @@ export type CreatePersonalProfilePayload = {
 export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
 
 export type PatchMyUserPayload = {
+    email?: string | null;
     phone_number?: string | null;
 };
 
@@ -31,6 +32,18 @@ export type PatchMyHealthProfilePayload = {
               relationship?: string | null;
           }[]
         | null;
+    notes?: string | null;
+};
+
+export type CreateHealthMetricReadingPayload = {
+    metric_type: 'bp' | 'weight' | 'glucose';
+    measured_at: string;
+    systolic?: number;
+    diastolic?: number;
+    heart_rate?: number | null;
+    weight_kg?: number;
+    glucose_mmol_l?: number;
+    status?: string | null;
     notes?: string | null;
 };
 
@@ -214,7 +227,7 @@ export const userService = {
         const res = await apiClient.patch(`/profiles/${profileId}`, payload);
         return res.data;
     },
-    patchMyUser: async (payload: PatchMyUserPayload) => {
+    patchMyUser: async (payload: PatchMyUserPayload = {}) => {
         const res = await apiClient.patch('/users/me', payload);
         return res.data;
     },
@@ -239,5 +252,15 @@ export const userService = {
             );
             return res.data;
         }
+    },
+    createHealthMetricReading: async (
+        profileId: string,
+        payload: CreateHealthMetricReadingPayload,
+    ) => {
+        const res = await apiClient.post(
+            `/profiles/${profileId}/health-metric-readings`,
+            payload,
+        );
+        return res.data;
     },
 };

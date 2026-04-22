@@ -20,7 +20,10 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePatchMyProfileMutation } from '@/src/features/me/mutations';
+import {
+    usePatchMyProfileMutation,
+    usePatchMyUserMutation,
+} from '@/src/features/me/mutations';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import { styles } from './styles';
 import FieldRow from '../../components/profile/FieldRow';
@@ -141,6 +144,7 @@ export default function ProfileScreen(): React.JSX.Element {
         error: queryError,
     } = useMeOverviewQuery();
     const patchProfileMutation = usePatchMyProfileMutation();
+    const patchUserMutation = usePatchMyUserMutation();
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
     const [userName, setUserName] = useState('');
     const [userAge, setUserAge] = useState('20');
@@ -160,6 +164,8 @@ export default function ProfileScreen(): React.JSX.Element {
 
     const [sheet, setSheet] = useState<SheetState | null>(null);
     const [draft, setDraft] = useState('');
+    const isSavingSheet =
+        patchProfileMutation.isPending || patchUserMutation.isPending;
 
     // Sync profile screen state from the shared feature/me query cache.
     useEffect(() => {
@@ -285,7 +291,11 @@ export default function ProfileScreen(): React.JSX.Element {
     };
 
     const saveSheet = async () => {
-        if (!sheet) return;
+        if (!sheet || isSavingSheet) return;
+        const user =
+            meOverview?.user && typeof meOverview.user === 'object'
+                ? meOverview.user
+                : null;
         const profile =
             meOverview?.profile && typeof meOverview.profile === 'object'
                 ? meOverview.profile
@@ -293,13 +303,35 @@ export default function ProfileScreen(): React.JSX.Element {
         const profileId = stringValue(profile?.id);
 
         if (sheet.type === 'contacts') {
-            setContacts(contactDraft);
             setSheet(null);
+            const nextEmail = contactDraft.email.trim();
+            const currentEmail = stringValue(user?.email).trim();
+            const payload = {
+                ...(nextEmail !== currentEmail
+                    ? { email: nextEmail || null }
+                    : {}),
+            };
 
-            Alert.alert(
-                'Chưa hỗ trợ lưu liên hệ',
-                'API hiện tại chưa có mutation cập nhật email/số điện thoại của tài khoản.',
-            );
+            if (Object.keys(payload).length === 0) {
+                return;
+            }
+
+            patchUserMutation.mutate(payload, {
+                onError: (err: unknown) => {
+                    const apiError = err as {
+                        config?: { url?: string; data?: unknown };
+                        response?: { status?: number; data?: unknown };
+                    };
+                    console.error('Failed to save user contacts:', {
+                        status: apiError.response?.status,
+                        url: apiError.config?.url,
+                        requestData: apiError.config?.data,
+                        responseData: apiError.response?.data,
+                        error: err,
+                    });
+                    Alert.alert('Không thể lưu', 'Vui lòng thử lại sau.');
+                },
+            });
             return;
         }
 
@@ -493,7 +525,7 @@ export default function ProfileScreen(): React.JSX.Element {
                             <View style={styles.heroMeta}>
                                 <Text style={styles.hmName}>{userName}</Text>
                                 <Text style={styles.hmSub}>
-                                    {userAge} tuổi · 
+                                    {userAge} tuổi ·
                                     {fields.address.trim() || '—'}
                                 </Text>
                             </View>
@@ -909,9 +941,11 @@ export default function ProfileScreen(): React.JSX.Element {
                                 <Pressable
                                     style={[
                                         shared.sheetBtnPrimaryWrap,
+                                        isSavingSheet && { opacity: 0.7 },
                                         { backgroundColor: colors.primary },
                                     ]}
                                     onPress={saveSheet}
+                                    disabled={isSavingSheet}
                                 >
                                     <View style={shared.sheetBtnPrimary}>
                                         <View
