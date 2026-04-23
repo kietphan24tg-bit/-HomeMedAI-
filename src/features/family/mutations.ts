@@ -1,19 +1,35 @@
 import { useMutation } from '@tanstack/react-query';
+import { getApiErrorMessage, getApiErrorStatus } from '@/src/lib/api-error';
 import { appQueryClient } from '@/src/lib/query-client';
 import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
+import type { FamilyRole } from '@/src/types/family-domain';
 import { familyQueryKeys } from './queryKeys';
 
 export function useRejectFamilyInviteMutation() {
     return useMutation({
         mutationFn: ({ inviteId }: { inviteId: string }) =>
-            familiesServices.rejectInvite({ invite_id: inviteId }),
+            familiesServices.respondInvite({
+                action: 'reject',
+                invite_id: inviteId,
+            }),
         onSuccess: () => {
             appQueryClient.invalidateQueries({ queryKey: familyQueryKeys.all });
             appToast.showSuccess('Thành công', 'Đã từ chối lời mời.');
         },
-        onError: () => {
-            appToast.showError('Lỗi', 'Không thể từ chối lời mời lúc này.');
+        onError: (error) => {
+            const status = getApiErrorStatus(error);
+            if (status === 404) {
+                appToast.showError(
+                    'Lời mời không tồn tại',
+                    'Lời mời có thể đã hết hạn hoặc đã được xử lý.',
+                );
+                return;
+            }
+            appToast.showError(
+                'Lỗi',
+                getApiErrorMessage(error, 'Không thể từ chối lời mời lúc này.'),
+            );
         },
     });
 }
@@ -23,36 +39,45 @@ export function useAcceptFamilyInviteMutation() {
         mutationFn: ({
             inviteId,
             fullName,
+            profileId,
         }: {
             inviteId: string;
-            fullName: string | null;
-        }) => {
-            if (!fullName) {
-                throw new Error('missing_full_name');
-            }
-
-            return familiesServices.acceptInvite({
+            fullName?: string | null;
+            profileId?: string;
+        }) =>
+            familiesServices.respondInvite({
+                action: 'accept',
                 invite_id: inviteId,
-                full_name: fullName,
-            });
-        },
+                full_name: fullName ?? undefined,
+                profile_id: profileId,
+            }),
         onSuccess: () => {
             appQueryClient.invalidateQueries({ queryKey: familyQueryKeys.all });
             appToast.showSuccess('Thành công', 'Đã chấp nhận lời mời.');
         },
         onError: (error) => {
-            if (
-                error instanceof Error &&
-                error.message === 'missing_full_name'
-            ) {
-                appToast.showError(
-                    'Thiếu dữ liệu',
-                    'Backend chưa trả đủ full_name để chấp nhận lời mời.',
+            const status = getApiErrorStatus(error);
+            if (status === 409) {
+                appToast.showInfo(
+                    'Cần chọn hồ sơ',
+                    'Tài khoản có nhiều hồ sơ. Vui lòng chọn một hồ sơ để tham gia.',
                 );
                 return;
             }
-
-            appToast.showError('Lỗi', 'Không thể chấp nhận lời mời lúc này.');
+            if (status === 404) {
+                appToast.showError(
+                    'Lời mời không tồn tại',
+                    'Lời mời có thể đã hết hạn hoặc đã được xử lý.',
+                );
+                return;
+            }
+            appToast.showError(
+                'Lỗi',
+                getApiErrorMessage(
+                    error,
+                    'Không thể chấp nhận lời mời lúc này.',
+                ),
+            );
         },
     });
 }
@@ -115,7 +140,7 @@ export function useInviteUserByPhoneMutation() {
             familyId: string;
             phoneNumber: string;
             userId: string;
-            role: any;
+            role: FamilyRole;
             dryRun?: boolean;
         }) =>
             familiesServices.inviteUser(
@@ -127,10 +152,28 @@ export function useInviteUserByPhoneMutation() {
             ),
         onSuccess: () => {
             appQueryClient.invalidateQueries({ queryKey: familyQueryKeys.all });
-            appToast.showSuccess('Thành công', 'Đã gởi lời mời.');
+            appToast.showSuccess('Thành công', 'Đã gửi lời mời.');
         },
-        onError: () => {
-            appToast.showError('Lỗi', 'Không thể gởi lời mời.');
+        onError: (error) => {
+            const status = getApiErrorStatus(error);
+            if (status === 409) {
+                appToast.showInfo(
+                    'Trạng thái hiện tại',
+                    'Người này đã là thành viên hoặc đang có lời mời chờ xử lý.',
+                );
+                return;
+            }
+            if (status === 403) {
+                appToast.showError(
+                    'Không đủ quyền',
+                    'Bạn cần quyền OWNER hoặc ADMIN để mời thành viên.',
+                );
+                return;
+            }
+            appToast.showError(
+                'Lỗi',
+                getApiErrorMessage(error, 'Không thể gửi lời mời.'),
+            );
         },
     });
 }

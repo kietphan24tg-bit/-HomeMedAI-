@@ -48,7 +48,7 @@ export function getApiErrorStatus(error: unknown): number | null {
 
 export function getApiErrorMessage(
     error: unknown,
-    fallback = 'Co loi xay ra.',
+    fallback = 'Có lỗi xảy ra.',
 ): string {
     const apiError = error as ApiErrorLike | null;
 

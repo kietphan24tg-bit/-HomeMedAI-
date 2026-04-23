@@ -20,7 +20,7 @@ import { colors, typography } from '@/src/styles/tokens';
 import type { FamilyGroup, FamilyMember } from '@/src/types/family';
 import { styles } from './styles';
 
-export type SearchState = 'idle' | 'loading' | 'found' | 'notFound';
+export type SearchState = 'idle' | 'loading' | 'found' | 'notFound' | 'error';
 
 export type InviteItem = {
     id: string;
@@ -683,12 +683,16 @@ export function RoleSelectionModal({
     visible,
     selectedRole,
     onSelectRole,
+    onSubmit,
     onClose,
+    isSubmitting = false,
 }: {
     visible: boolean;
     selectedRole: string | null;
     onSelectRole: (value: string) => void;
+    onSubmit: () => void;
     onClose: () => void;
+    isSubmitting?: boolean;
 }) {
     return (
         <Modal
@@ -842,12 +846,14 @@ export function RoleSelectionModal({
                             ]}
                         >
                             <Pressable
-                                disabled={!selectedRole}
+                                disabled={!selectedRole || isSubmitting}
                                 style={{ width: '100%', alignItems: 'center' }}
-                                onPress={onClose}
+                                onPress={onSubmit}
                             >
                                 <Text style={styles.createBtnText}>
-                                    Gửi lời mời
+                                    {isSubmitting
+                                        ? 'Đang gửi...'
+                                        : 'Gửi lời mời'}
                                 </Text>
                             </Pressable>
                         </View>

@@ -1,12 +1,3 @@
-import {
-    useInviteUserByPhoneMutation,
-    useSearchUserByPhoneMutation,
-} from '@/src/features/family/mutations';
-import { appToast } from '@/src/lib/toast';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -19,6 +10,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    useInviteUserByPhoneMutation,
+    useSearchUserByPhoneMutation,
+} from '@/src/features/family/mutations';
+import { getApiErrorStatus } from '@/src/lib/api-error';
+import { appToast } from '@/src/lib/toast';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { shared } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
+import type { FamilyRole } from '@/src/types/family-domain';
 import type { SearchState } from './familyShared';
 import {
     RECENT_CONTACTS,
@@ -38,7 +40,12 @@ export default function FamilySearchPhoneScreen({
     const [selectedInviteRole, setSelectedInviteRole] = useState<string | null>(
         null,
     );
-    const [foundUser, setFoundUser] = useState<any>(null);
+    const [foundUser, setFoundUser] = useState<{
+        id: string;
+        phone_number: string | null;
+        full_name: string | null;
+    } | null>(null);
+    const [searchError, setSearchError] = useState<string | null>(null);
 
     const searchUserMutation = useSearchUserByPhoneMutation();
     const inviteUserMutation = useInviteUserByPhoneMutation();
@@ -50,6 +57,7 @@ export default function FamilySearchPhoneScreen({
         setSelectedInviteRole(null);
         setSearchState('loading');
         setFoundUser(null);
+        setSearchError(null);
 
         try {
             const result = await searchUserMutation.mutateAsync({
@@ -58,24 +66,42 @@ export default function FamilySearchPhoneScreen({
                 dryRun: true,
             });
             if (result.found && result.user) {
-                setFoundUser(result.user);
+                setFoundUser({
+                    id: String(result.user.id),
+                    phone_number: result.user.phone_number ?? cleanPhone,
+                    full_name: result.user.full_name ?? null,
+                });
                 setSearchState('found');
             } else {
                 setSearchState('notFound');
             }
-        } catch {
-            setSearchState('notFound');
+        } catch (error) {
+            const status = getApiErrorStatus(error);
+            setSearchState('error');
+            if (status === 403) {
+                setSearchError(
+                    'Bạn chưa có quyền mời thành viên trong gia đình này.',
+                );
+                return;
+            }
+            if (status && status >= 500) {
+                setSearchError(
+                    'Hệ thống đang gặp sự cố, vui lòng thử lại sau.',
+                );
+                return;
+            }
+            setSearchError('Không thể tìm kiếm lúc này. Vui lòng thử lại.');
         }
     };
 
-    const handleInviteUser = async (role: string) => {
-        if (!foundUser) return;
+    const handleInviteUser = async () => {
+        if (!selectedInviteRole || !foundUser) return;
         try {
             await inviteUserMutation.mutateAsync({
                 familyId: family.id,
-                phoneNumber: foundUser.phone_number,
+                phoneNumber: foundUser.phone_number ?? searchPhone,
                 userId: foundUser.id,
-                role: role,
+                role: selectedInviteRole as FamilyRole,
                 dryRun: false,
             });
             setShowRoleSheet(false);
@@ -187,6 +213,7 @@ export default function FamilySearchPhoneScreen({
                                 setSearchPhone(value.replace(/\D/g, ''));
                                 setSearchState('idle');
                                 setSelectedInviteRole(null);
+                                setSearchError(null);
                             }}
                             placeholderTextColor={colors.text3}
                         />
@@ -280,6 +307,7 @@ export default function FamilySearchPhoneScreen({
                                     onPress={() => {
                                         setSearchPhone(contact.phone);
                                         setSearchState('idle');
+                                        setSearchError(null);
                                     }}
                                 >
                                     <View
@@ -536,15 +564,53 @@ export default function FamilySearchPhoneScreen({
                         </View>
                     </View>
                 ) : null}
+
+                {searchState === 'error' ? (
+                    <View
+                        style={{
+                            alignItems: 'center',
+                            marginTop: verticalScale(44),
+                        }}
+                    >
+                        <View
+                            style={{
+                                width: scale(72),
+                                height: scale(72),
+                                borderRadius: scale(22),
+                                backgroundColor: '#FEF2F2',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: verticalScale(18),
+                            }}
+                        >
+                            <Ionicons
+                                name='alert-circle-outline'
+                                size={32}
+                                color='#DC2626'
+                            />
+                        </View>
+                        <Text
+                            style={{
+                                textAlign: 'center',
+                                color: colors.text2,
+                                fontFamily: typography.font.medium,
+                                fontSize: scaleFont(13),
+                                lineHeight: verticalScale(20),
+                                marginBottom: verticalScale(20),
+                            }}
+                        >
+                            {searchError ?? 'Không thể tìm kiếm lúc này.'}
+                        </Text>
+                    </View>
+                ) : null}
             </ScrollView>
 
             <RoleSelectionModal
                 visible={showRoleSheet}
                 selectedRole={selectedInviteRole}
-                onSelectRole={(role) => {
-                    setSelectedInviteRole(role);
-                    handleInviteUser(role);
-                }}
+                onSelectRole={(role) => setSelectedInviteRole(role)}
+                onSubmit={handleInviteUser}
+                isSubmitting={inviteUserMutation.isPending}
                 onClose={() => setShowRoleSheet(false)}
             />
         </SafeAreaView>

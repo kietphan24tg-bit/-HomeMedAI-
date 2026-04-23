@@ -1,6 +1,87 @@
 import apiClient from '../api/client';
 import type { FamilyRole } from '../types/family-domain';
 import { toVietnamE164 } from '../utils/phone';
+
+export type InvitePreviewResponse = {
+    family_name: string;
+    invite_code: string;
+    valid: boolean;
+    expires_at: string;
+};
+
+export type InviteByPhoneUser = {
+    id: string;
+    full_name: string | null;
+    phone_number: string | null;
+    avatar_url: string | null;
+    has_account: boolean;
+};
+
+export type FamilyInvitePayload = {
+    id: string;
+    family_id: string;
+    phone_number: string | null;
+    user_id: string | null;
+    role: string;
+    relation_role: string | null;
+    status: string;
+    invited_by: string;
+    invited_at: string;
+    responded_at: string | null;
+};
+
+export type InviteByPhoneResponse = {
+    dry_run: boolean;
+    found: boolean | null;
+    user: InviteByPhoneUser | null;
+    invite: FamilyInvitePayload | null;
+};
+
+export type JoinByInviteCodeRequest = {
+    invite_code: string;
+    profile_id?: string;
+    full_name?: string;
+};
+
+export type RespondInviteRequest = {
+    action: 'accept' | 'reject';
+    invite_id: string;
+    profile_id?: string;
+    full_name?: string;
+};
+
+export type LinkableInviteProfile = {
+    id: string;
+    full_name: string;
+    role: string;
+    relation_role: string | null;
+};
+
+export type LinkableProfilesResponse = {
+    id: string;
+    name: string;
+    address: string | null;
+    avatar_url: string | null;
+    invite_code: string;
+    created_at: string;
+    members: LinkableInviteProfile[];
+};
+
+export type LinkInviteProfileRequest = {
+    invite_code: string;
+    profile_id: string;
+};
+
+export type LinkInviteProfileResponse = {
+    success: boolean;
+    family_id: string;
+    profile_id: string;
+    health_profile_id: string | null;
+    linked_user_id: string;
+    membership_created: boolean;
+    post_login_flow_completed: boolean;
+};
+
 export const familiesServices = {
     createFamily: async ({
         name,
@@ -49,9 +130,28 @@ export const familiesServices = {
         //"data": []
     },
     previewInviteCode: async (invite_code: string) => {
-        const res = await apiClient.get('/families/invite/preview', {
-            params: { invite_code },
-        });
+        const res = await apiClient.get<InvitePreviewResponse>(
+            '/families/invite/preview',
+            {
+                params: { invite_code },
+            },
+        );
+        return res.data;
+    },
+    getLinkableProfiles: async (invite_code: string) => {
+        const res = await apiClient.get<LinkableProfilesResponse>(
+            '/families/invite/linkable-profiles',
+            {
+                params: { invite_code },
+            },
+        );
+        return res.data;
+    },
+    linkProfileByInvite: async (payload: LinkInviteProfileRequest) => {
+        const res = await apiClient.post<LinkInviteProfileResponse>(
+            '/families/invite/link-profile',
+            payload,
+        );
         return res.data;
     },
     findUserByPhoneNumber: async (
@@ -61,7 +161,7 @@ export const familiesServices = {
     ) => {
         const normalizedPhoneNumber = toVietnamE164(phone_number);
 
-        const res = await apiClient.post(
+        const res = await apiClient.post<InviteByPhoneResponse>(
             `/families/${family_id}/invite-by-phone`,
             {
                 phone_number: normalizedPhoneNumber ?? phone_number,
@@ -75,11 +175,11 @@ export const familiesServices = {
         phone_number: string,
         user_id: string,
         role: FamilyRole,
-        dry_run = true,
+        dry_run = false,
     ) => {
         const normalizedPhoneNumber = toVietnamE164(phone_number);
 
-        const res = await apiClient.post(
+        const res = await apiClient.post<InviteByPhoneResponse>(
             `/families/${family_id}/invite-by-phone`,
             {
                 phone_number: normalizedPhoneNumber ?? phone_number,
@@ -90,27 +190,29 @@ export const familiesServices = {
         );
         return res.data;
     },
-    acceptInvite: async ({
-        invite_id,
+    joinByInviteCode: async ({
+        invite_code,
         full_name,
         profile_id,
-    }: {
-        invite_id: string;
-        full_name: string;
-        profile_id?: string;
-    }) => {
-        const res = await apiClient.post(`/families/join`, {
-            action: 'accept',
-            invite_id,
+    }: JoinByInviteCodeRequest) => {
+        const res = await apiClient.post('/families/join', {
+            invite_code,
             full_name,
             profile_id,
         });
         return res.data;
     },
-    rejectInvite: async ({ invite_id }: { invite_id: string }) => {
+    respondInvite: async ({
+        action,
+        invite_id,
+        full_name,
+        profile_id,
+    }: RespondInviteRequest) => {
         const res = await apiClient.post(`/families/join`, {
-            action: 'reject',
+            action,
             invite_id,
+            full_name,
+            profile_id,
         });
         return res.data;
     },

@@ -1,19 +1,3 @@
-import StatePanel from '@/src/components/state/StatePanel';
-import { useCreateFamilyMutation } from '@/src/features/family/mutations';
-import {
-    useFamilyInvitesQuery,
-    useMyFamiliesQuery,
-} from '@/src/features/family/queries';
-import { useMeOverviewQuery } from '@/src/features/me/queries';
-import {
-    moderateScale,
-    scale,
-    scaleFont,
-    verticalScale,
-} from '@/src/styles/responsive';
-import { cardSystem, shared } from '@/src/styles/shared';
-import { colors, shadows, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -36,6 +20,22 @@ import Svg, {
     Stop,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import StatePanel from '@/src/components/state/StatePanel';
+import { useCreateFamilyMutation } from '@/src/features/family/mutations';
+import {
+    useFamilyInvitesQuery,
+    useMyFamiliesQuery,
+} from '@/src/features/family/queries';
+import { useMeOverviewQuery } from '@/src/features/me/queries';
+import {
+    moderateScale,
+    scale,
+    scaleFont,
+    verticalScale,
+} from '@/src/styles/responsive';
+import { cardSystem, shared } from '@/src/styles/shared';
+import { colors, shadows, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import { CreateFamilyModal, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
@@ -328,6 +328,17 @@ export default function FamilyListScreen(): React.JSX.Element {
                                 name='add'
                                 size={18}
                                 color={colors.primary}
+                            />
+                        </Pressable>
+
+                        <Pressable
+                            style={shared.iconBtn}
+                            onPress={() => router.push('/join-family-code')}
+                        >
+                            <Ionicons
+                                name='key-outline'
+                                size={16}
+                                color={colors.text3}
                             />
                         </Pressable>
 

@@ -14,8 +14,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatePanel from '@/src/components/state/StatePanel';
+import { getApiErrorStatus } from '@/src/lib/api-error';
 import { appToast } from '@/src/lib/toast';
-import { familiesServices } from '@/src/services/families.services';
+import {
+    familiesServices,
+    type InvitePreviewResponse,
+} from '@/src/services/families.services';
+import { userService } from '@/src/services/user.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
     moderateScale,
@@ -28,10 +33,8 @@ import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
-type PreviewData = {
+type PreviewData = InvitePreviewResponse & {
     family_id?: string;
-    family_name?: string;
-    invite_code?: string;
     address?: string;
     created_at?: string;
 };
@@ -40,7 +43,7 @@ type CandidateProfile = {
     id: string;
     initials: string;
     name: string;
-    role: string;
+    role?: string;
 };
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
@@ -103,14 +106,6 @@ function mapProfileToCandidate(
         return null;
     }
 
-    const linkedUserId = profile.linked_user_id ?? item.linked_user_id;
-    const isLinked =
-        typeof linkedUserId === 'string' && linkedUserId.trim().length > 0;
-
-    if (isLinked) {
-        return null;
-    }
-
     const name =
         stringValue(profile.full_name) ||
         stringValue(item.full_name) ||
@@ -141,6 +136,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
         null,
     );
+    const [isJoining, setIsJoining] = useState(false);
+    const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
     const handlePreview = async () => {
         if (!inviteCode.trim()) {
@@ -156,18 +153,11 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             const res = await familiesServices.previewInviteCode(
                 inviteCode.trim(),
             );
-            const familyId = stringValue(res?.family_id);
-            const profilesRes = familyId
-                ? await familiesServices.getProfiles(familyId)
-                : [];
-            const profiles = toArray(profilesRes)
-                .map(mapProfileToCandidate)
-                .filter(
-                    (profile): profile is CandidateProfile => profile !== null,
-                );
-
-            setPreviewData(res);
-            setCandidateProfiles(profiles);
+            setPreviewData({
+                ...res,
+                valid: Boolean(res.valid),
+            });
+            setCandidateProfiles([]);
             setPreviewState('success');
             setShowLinkModal(false);
             setSelectedProfileId(null);
@@ -195,58 +185,93 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
         router.replace(APP_TABS_ROUTE);
     };
 
-    const handleOpenLinkModal = () => {
-        if (!candidateProfiles.length) {
+    const loadMyProfiles = async () => {
+        const profilesRes = await userService.getMyProfiles('all');
+        const profiles = toArray(profilesRes)
+            .map(mapProfileToCandidate)
+            .filter((profile): profile is CandidateProfile => profile !== null);
+        setCandidateProfiles(profiles);
+        return profiles;
+    };
+
+    const handleJoinByCode = async (profileId?: string) => {
+        if (!previewData?.invite_code || !previewData.valid || isJoining) {
+            return;
+        }
+
+        try {
+            setIsJoining(true);
+            await familiesServices.joinByInviteCode({
+                invite_code: previewData.invite_code,
+                profile_id: profileId,
+            });
+            setShowLinkModal(false);
+            await handleComplete();
+        } catch (error) {
+            const status = getApiErrorStatus(error);
+            if (status === 409 && !profileId) {
+                setIsLoadingProfiles(true);
+                try {
+                    const profiles = await loadMyProfiles();
+                    if (!profiles.length) {
+                        appToast.showInfo(
+                            'Chưa có hồ sơ',
+                            'Tài khoản của bạn chưa có hồ sơ để tham gia gia đình này.',
+                        );
+                        return;
+                    }
+                    setSelectedProfileId(profiles[0]?.id ?? null);
+                    setShowLinkModal(true);
+                    return;
+                } finally {
+                    setIsLoadingProfiles(false);
+                }
+            }
+
+            if (status === 404) {
+                appToast.showError(
+                    'Mã mời không còn hiệu lực',
+                    'Mã mời có thể đã hết hạn, đã được sử dụng hoặc đã bị rotate.',
+                );
+                return;
+            }
+
+            console.error(error);
+            appToast.showError(
+                'Tham gia thất bại',
+                'Không thể tham gia gia đình lúc này.',
+            );
+        } finally {
+            setIsJoining(false);
+        }
+    };
+
+    const handleOpenLinkModal = async () => {
+        if (!previewData?.valid) {
             appToast.showInfo(
-                'Chưa có hồ sơ',
-                'Gia đình này hiện chưa có hồ sơ phù hợp để liên kết.',
+                'Mã mời đã hết hiệu lực',
+                'Vui lòng yêu cầu chủ gia đình gửi mã mời mới.',
             );
             return;
         }
 
-        setSelectedProfileId(candidateProfiles[0]?.id ?? null);
-        setShowLinkModal(true);
+        if (isJoining || isLoadingProfiles) {
+            return;
+        }
+
+        await handleJoinByCode();
     };
 
     const handleConfirmLink = async () => {
         if (!selectedProfileId) {
             appToast.showInfo(
                 'Chọn hồ sơ',
-                'Vui lòng chọn một hồ sơ để tiếp tục liên kết.',
+                'Vui lòng chọn một hồ sơ để tiếp tục tham gia gia đình.',
             );
             return;
         }
 
-        const selectedProfile = candidateProfiles.find(
-            (member) => member.id === selectedProfileId,
-        );
-
-        if (!selectedProfile) {
-            appToast.showError(
-                'Không tìm thấy hồ sơ',
-                'Hồ sơ đã chọn không còn hợp lệ. Vui lòng chọn lại.',
-            );
-            return;
-        }
-
-        try {
-            setShowLinkModal(false);
-            await familiesServices.acceptInvite({
-                invite_id:
-                    previewData?.invite_code ??
-                    previewData?.family_id ??
-                    selectedProfileId,
-                full_name: selectedProfile.name,
-                profile_id: selectedProfile.id,
-            });
-            await handleComplete();
-        } catch (error) {
-            console.error(error);
-            appToast.showError(
-                'Liên kết thất bại',
-                'Không thể liên kết hồ sơ với gia đình lúc này.',
-            );
-        }
+        await handleJoinByCode(selectedProfileId);
     };
 
     return (
@@ -392,22 +417,59 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
                                 <View style={styles.previewInfoRow}>
                                     <Text style={styles.previewInfoLabel}>
-                                        Ngày tạo
+                                        Hết hạn
                                     </Text>
                                     <Text style={styles.previewInfoValue}>
                                         {formatPreviewDate(
-                                            previewData.created_at,
+                                            previewData.expires_at,
                                         )}
                                     </Text>
                                 </View>
                             </View>
 
+                            {!previewData.valid ? (
+                                <View
+                                    style={{
+                                        backgroundColor: '#FFF1F2',
+                                        borderWidth: 1,
+                                        borderColor: '#FECDD3',
+                                        borderRadius: moderateScale(12),
+                                        paddingHorizontal: scale(12),
+                                        paddingVertical: verticalScale(10),
+                                        marginBottom: verticalScale(12),
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: '#BE123C',
+                                            fontFamily: typography.font.bold,
+                                            fontSize: scaleFont(11.5),
+                                        }}
+                                    >
+                                        Mã mời không còn hiệu lực. Vui lòng yêu
+                                        cầu chủ gia đình chia sẻ mã mới.
+                                    </Text>
+                                </View>
+                            ) : null}
+
                             <Pressable
-                                style={styles.joinBtn}
+                                style={[
+                                    styles.joinBtn,
+                                    (!previewData.valid ||
+                                        isJoining ||
+                                        isLoadingProfiles) && { opacity: 0.55 },
+                                ]}
                                 onPress={handleOpenLinkModal}
+                                disabled={
+                                    !previewData.valid ||
+                                    isJoining ||
+                                    isLoadingProfiles
+                                }
                             >
                                 <Text style={styles.joinBtnText}>
-                                    Tham gia gia đình này
+                                    {isJoining || isLoadingProfiles
+                                        ? 'Đang xử lý...'
+                                        : 'Tham gia gia đình này'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -546,15 +608,18 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                         <Pressable
                             style={[
                                 styles.confirmBtn,
-                                !selectedProfileId && styles.confirmBtnDisabled,
+                                (!selectedProfileId || isJoining) &&
+                                    styles.confirmBtnDisabled,
                             ]}
                             onPress={() => {
                                 void handleConfirmLink();
                             }}
-                            disabled={!selectedProfileId}
+                            disabled={!selectedProfileId || isJoining}
                         >
                             <Text style={styles.confirmBtnText}>
-                                Xác nhận liên kết
+                                {isJoining
+                                    ? 'Đang xử lý...'
+                                    : 'Xác nhận liên kết'}
                             </Text>
                         </Pressable>
                     </Pressable>

@@ -101,12 +101,12 @@ function splitDateAndTime(value: string | Date | null | undefined): {
 }
 
 function toMedicineReminder(item: NotificationApiItem): Reminder {
-    const memberName = item.profile_name?.trim() || 'Thanh vien gia dinh';
+    const memberName = item.profile_name?.trim() || 'Thành viên gia đình';
     const medicine =
-        item.medicine_name?.trim() || item.body?.trim() || 'Nhac uong thuoc';
+        item.medicine_name?.trim() || item.body?.trim() || 'Nhắc uống thuốc';
     const dosage = item.dosage_per_time
-        ? `Lieu ${item.dosage_per_time}`
-        : item.title?.trim() || 'Lich nhac thuoc';
+        ? `Liều ${item.dosage_per_time}`
+        : item.title?.trim() || 'Lịch nhắc thuốc';
     const dateTime = splitDateAndTime(item.scheduled_at);
 
     return {
@@ -147,7 +147,7 @@ export default function FamilyRemindersScreen({
         for (const member of family?.members ?? []) {
             const profileId = String(member.healthProfileId ?? '');
             if (profileId) {
-                map.set(profileId, member.name || 'Thanh vien gia dinh');
+                map.set(profileId, member.name || 'Thành viên gia đình');
             }
         }
         for (const profile of familyProfiles as Record<string, unknown>[]) {
@@ -158,7 +158,7 @@ export default function FamilyRemindersScreen({
                         profile.name ??
                         profile.profile_name ??
                         '',
-                ).trim() || 'Thanh vien gia dinh';
+                ).trim() || 'Thành viên gia đình';
             if (profileId && !map.has(profileId)) {
                 map.set(profileId, fullName);
             }
@@ -203,7 +203,7 @@ export default function FamilyRemindersScreen({
                         const profileId = familyProfileIds[index];
                         const memberName =
                             profileNameMap.get(profileId) ||
-                            'Thanh vien gia dinh';
+                            'Thành viên gia đình';
                         return items.map((item) => {
                             const dateTime = splitDateAndTime(
                                 item.appointment_at,
@@ -212,13 +212,13 @@ export default function FamilyRemindersScreen({
                             const title = isVaccine
                                 ? item.vaccine_name?.trim() ||
                                   item.title?.trim() ||
-                                  'Lich tiem'
-                                : item.title?.trim() || 'Lich tai kham';
+                                  'Lịch tiêm'
+                                : item.title?.trim() || 'Lịch tái khám';
                             const detail = isVaccine
-                                ? `Mui ${item.dose_number ?? '-'}`
+                                ? `Mũi ${item.dose_number ?? '-'}`
                                 : item.hospital_name?.trim() ||
                                   item.department?.trim() ||
-                                  'Lich hen kham';
+                                  'Lịch hẹn khám';
                             return {
                                 id: `appt-${item.id}`,
                                 category: isVaccine ? 'vaccine' : 'checkup',
@@ -251,7 +251,7 @@ export default function FamilyRemindersScreen({
             } catch (error) {
                 console.error(error);
                 if (active) {
-                    appToast.showError('Khong tai duoc lich nhac gia dinh.');
+                    appToast.showError('Không tải được lịch nhắc gia đình.');
                 }
             }
         };
@@ -284,7 +284,7 @@ export default function FamilyRemindersScreen({
             .catch((error) => {
                 console.error(error);
                 setReminders(prev);
-                appToast.showError('Khong cap nhat duoc trang thai lich nhac.');
+                appToast.showError('Không cập nhật được trạng thái lịch nhắc.');
             });
     };
 
@@ -303,9 +303,9 @@ export default function FamilyRemindersScreen({
                     />
                 </Pressable>
                 <View style={styles.headerTitleContainer}>
-                    <Text style={styles.headerTitle}>Lich nhac gia dinh</Text>
+                    <Text style={styles.headerTitle}>Lịch nhắc gia đình</Text>
                     <Text style={styles.headerSubtitle}>
-                        {family?.name || 'Gia dinh'}
+                        {family?.name || 'Gia đình'}
                     </Text>
                 </View>
                 <View style={styles.headerRightSpacer} />
@@ -317,15 +317,15 @@ export default function FamilyRemindersScreen({
                 showsVerticalScrollIndicator={false}
             >
                 {reminders.length > 0 && (
-                    <Text style={styles.sectionTitle}>Tat ca lich nhac</Text>
+                    <Text style={styles.sectionTitle}>Tất cả lịch nhắc</Text>
                 )}
 
                 {reminders.length === 0 && (
                     <View style={styles.emptyCard}>
-                        <Text style={styles.emptyTitle}>Chua co lich nhac</Text>
+                        <Text style={styles.emptyTitle}>Chưa có lịch nhắc</Text>
                         <Text style={styles.emptySubtitle}>
-                            Lich thuoc, lich tiem va lich tai kham se hien thi
-                            tai day.
+                            Lịch thuốc, lịch tiêm và lịch tái khám sẽ hiển thị
+                            tại đây.
                         </Text>
                     </View>
                 )}
@@ -363,10 +363,10 @@ export default function FamilyRemindersScreen({
                                 >
                                     <Text style={styles.statusPillText}>
                                         {reminder.status === 'pending'
-                                            ? 'Dang cho'
+                                            ? 'Đang chờ'
                                             : reminder.status === 'taken'
-                                              ? 'Da xu ly'
-                                              : 'Da bo qua'}
+                                              ? 'Đã xử lý'
+                                              : 'Đã bỏ qua'}
                                     </Text>
                                 </View>
                             </View>
@@ -422,7 +422,7 @@ export default function FamilyRemindersScreen({
                                             color='#fff'
                                         />
                                         <Text style={styles.takenBtnText}>
-                                            Da uong
+                                            Đã uống
                                         </Text>
                                     </Pressable>
                                     <Pressable
@@ -437,7 +437,7 @@ export default function FamilyRemindersScreen({
                                             color={colors.text2}
                                         />
                                         <Text style={styles.skipBtnText}>
-                                            Bo qua
+                                            Bỏ qua
                                         </Text>
                                     </Pressable>
                                 </View>
