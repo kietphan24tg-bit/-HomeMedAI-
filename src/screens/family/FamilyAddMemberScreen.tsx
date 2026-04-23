@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Clipboard,
@@ -16,7 +16,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCreateProfileInFamilyMutation } from '@/src/features/family/mutations';
+import { getApiErrorStatus } from '@/src/lib/api-error';
 import { appToast } from '@/src/lib/toast';
+import { familiesServices } from '@/src/services/families.services';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { formSystem } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
@@ -46,11 +48,129 @@ export default function FamilyAddMemberScreen({
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [proxyFullName, setProxyFullName] = useState('');
     const [proxyRelationId, setProxyRelationId] = useState<string | null>(null);
+    const [inviteCode, setInviteCode] = useState(
+        family.invite_code?.trim() ?? '',
+    );
+    const [checkingInviteCode, setCheckingInviteCode] = useState(false);
 
     const createProfileMutation = useCreateProfileInFamilyMutation();
+    const isOwner = family.familyRole === 'OWNER';
+
+    const rotateInviteCode = async ({
+        showAutoMessage = false,
+    }: {
+        showAutoMessage?: boolean;
+    } = {}) => {
+        if (!isOwner) {
+            appToast.showInfo(
+                'Mã mời đã hết hạn',
+                'Vui lòng nhờ chủ gia đình làm mới mã mời để tiếp tục mời thành viên.',
+            );
+            return false;
+        }
+
+        try {
+            const rotated = await familiesServices.rotateInviteCode(family.id);
+            const nextCode =
+                typeof rotated?.invite_code === 'string'
+                    ? rotated.invite_code.trim()
+                    : '';
+
+            if (!nextCode) {
+                appToast.showError(
+                    'Lỗi',
+                    'Đã làm mới nhưng chưa nhận được mã mời mới. Vui lòng thử lại.',
+                );
+                return false;
+            }
+
+            setInviteCode(nextCode);
+            if (showAutoMessage) {
+                appToast.showInfo(
+                    'Đã làm mới mã mời',
+                    'Mã mời cũ đã hết hạn nên hệ thống đã tạo mã mới.',
+                );
+            } else {
+                appToast.showSuccess('Thành công', 'Đã làm mới mã mời.');
+            }
+            return true;
+        } catch (error) {
+            const status = getApiErrorStatus(error);
+            if (status === 403) {
+                appToast.showError(
+                    'Không đủ quyền',
+                    'Chỉ chủ gia đình mới có thể làm mới mã mời.',
+                );
+                return false;
+            }
+            appToast.showError('Lỗi', 'Không thể làm mới mã mời lúc này.');
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const ensureInviteCodeActive = async () => {
+            const sourceCode = family.invite_code?.trim() ?? '';
+            setInviteCode(sourceCode);
+
+            if (!sourceCode) {
+                return;
+            }
+
+            setCheckingInviteCode(true);
+            try {
+                const preview =
+                    await familiesServices.previewInviteCode(sourceCode);
+
+                if (cancelled) {
+                    return;
+                }
+
+                if (preview.valid) {
+                    setInviteCode(preview.invite_code?.trim() || sourceCode);
+                    return;
+                }
+
+                await rotateInviteCode({ showAutoMessage: true });
+            } catch (error) {
+                if (cancelled) {
+                    return;
+                }
+                const status = getApiErrorStatus(error);
+                if (status === 404 || status === 410) {
+                    await rotateInviteCode({ showAutoMessage: true });
+                    return;
+                }
+                appToast.showError(
+                    'Không kiểm tra được mã mời',
+                    'Vui lòng kiểm tra kết nối mạng và thử lại.',
+                );
+            } finally {
+                if (!cancelled) {
+                    setCheckingInviteCode(false);
+                }
+            }
+        };
+
+        void ensureInviteCodeActive();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [family.id, family.invite_code, isOwner]);
 
     const handleCopy = (code: string) => {
-        Clipboard.setString(code);
+        const value = code.trim();
+        if (!value) {
+            appToast.showInfo(
+                'Chưa có mã mời',
+                'Mã mời chưa sẵn sàng. Vui lòng thử làm mới mã.',
+            );
+            return;
+        }
+        Clipboard.setString(value);
         appToast.showSuccess('Thành công', 'Đã sao chép mã mời.');
     };
 
@@ -146,13 +266,13 @@ export default function FamilyAddMemberScreen({
                             </Text>
                             <Text
                                 style={
-                                    family.invite_code
+                                    inviteCode
                                         ? styles.linkText
                                         : styles.linkPlaceholderText
                                 }
-                                numberOfLines={family.invite_code ? 1 : 2}
+                                numberOfLines={inviteCode ? 1 : 2}
                             >
-                                {family.invite_code ||
+                                {inviteCode ||
                                     'Chia sẻ mã để liên kết thành viên'}
                             </Text>
                         </View>
@@ -160,17 +280,45 @@ export default function FamilyAddMemberScreen({
                             <Pressable
                                 style={[
                                     styles.linkActionBtn,
-                                    { backgroundColor: colors.primary },
+                                    {
+                                        backgroundColor: colors.primary,
+                                        opacity:
+                                            !inviteCode || checkingInviteCode
+                                                ? 0.7
+                                                : 1,
+                                    },
                                 ]}
-                                onPress={() =>
-                                    handleCopy(family.invite_code || '')
-                                }
+                                disabled={!inviteCode || checkingInviteCode}
+                                onPress={() => handleCopy(inviteCode)}
                             >
                                 <Ionicons
                                     name='copy-outline'
                                     size={20}
                                     color='#fff'
                                 />
+                            </Pressable>
+                            <Pressable
+                                style={[
+                                    styles.linkActionBtn,
+                                    {
+                                        backgroundColor: colors.secondary,
+                                        opacity: checkingInviteCode ? 0.7 : 1,
+                                    },
+                                ]}
+                                disabled={checkingInviteCode}
+                                onPress={() => {
+                                    void rotateInviteCode();
+                                }}
+                            >
+                                {checkingInviteCode ? (
+                                    <ActivityIndicator color='#fff' />
+                                ) : (
+                                    <Ionicons
+                                        name='refresh-outline'
+                                        size={20}
+                                        color='#fff'
+                                    />
+                                )}
                             </Pressable>
                         </View>
                     </View>
