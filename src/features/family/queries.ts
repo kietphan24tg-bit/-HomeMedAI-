@@ -10,6 +10,7 @@ import { familyQueryKeys } from './queryKeys';
 
 const FALLBACK_ROLE = 'Thành viên';
 const FALLBACK_ROLE_EMOJI = '👤';
+const FAMILY_SYNC_INTERVAL_MS = 30000;
 
 export type FamilyInviteSummary = {
     id: string;
@@ -58,6 +59,49 @@ function ageFromDateString(dob: string | null | undefined): number {
     return Math.max(0, age);
 }
 
+function parseDateSafe(value: unknown): Date | null {
+    if (typeof value !== 'string' || !value.trim()) {
+        return null;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDisplayDate(value: unknown): string {
+    const date = parseDateSafe(value);
+    return date
+        ? date.toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+          })
+        : '--';
+}
+
+function stringValue(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(value);
+    }
+    return '';
+}
+
+function displayGender(value: unknown): string {
+    const normalized = stringValue(value).trim().toLowerCase();
+    if (normalized === 'male' || normalized === 'nam') return 'Nam';
+    if (normalized === 'female' || normalized === 'nữ' || normalized === 'nu') {
+        return 'Nữ';
+    }
+    if (
+        normalized === 'other' ||
+        normalized === 'khác' ||
+        normalized === 'khac'
+    ) {
+        return 'Khác';
+    }
+    return stringValue(value) || 'Khác';
+}
+
 function formatCreatedAt(iso: string | undefined): string {
     if (!iso) return '--/----';
     const d = new Date(iso);
@@ -92,26 +136,52 @@ function mapMemberToCard(member: any, index: number): any {
 
     const chronic = Array.isArray(h.chronic_conditions)
         ? h.chronic_conditions.filter(Boolean).join(', ')
-        : '';
+        : Array.isArray(h.chronic_diseases)
+          ? h.chronic_diseases.filter(Boolean).join(', ')
+          : '';
     const allergiesStr = Array.isArray(h.allergies)
         ? h.allergies.filter(Boolean).join(', ')
         : '';
+    const drugAllergiesStr = Array.isArray(h.drug_allergies)
+        ? h.drug_allergies.filter(Boolean).join(', ')
+        : allergiesStr;
+    const foodAllergiesStr = Array.isArray(h.food_allergies)
+        ? h.food_allergies.filter(Boolean).join(', ')
+        : '';
+    const medicalRecords = Array.isArray(h.medical_records)
+        ? h.medical_records
+        : [];
+    const vaccinations = Array.isArray(h.vaccinations)
+        ? h.vaccinations
+        : Array.isArray(h.vaccines)
+          ? h.vaccines
+          : [];
+    const medicineInventory = Array.isArray(h.medicine_inventory)
+        ? h.medicine_inventory
+        : [];
+    const healthMetrics = Array.isArray(h.health_metrics)
+        ? h.health_metrics
+        : [];
 
     const dob = p.date_of_birth ?? p.dob ?? undefined;
 
     return {
         id: member?.id ?? `member-${index}`,
+        profileId:
+            member?.profile_id ??
+            member?.profile?.id ??
+            member?.health_profile?.profile_id ??
+            undefined,
         healthProfileId:
             member?.health_profile_id ??
             member?.health_profile?.id ??
-            member?.profile_id ??
             undefined,
         familyRole: apiRole,
         initials,
         name: fullName,
         role: displayRole,
         age: member?.age ?? ageFromDateString(dob),
-        gender: p.gender ?? member?.gender ?? 'Khác',
+        gender: displayGender(p.gender ?? member?.gender),
         city: member?.city ?? p.address?.split?.(',')?.[0] ?? '',
         gradientColors: member?.gradientColors ?? getAvatarGradient(index),
         isOwner: member?.is_owner ?? apiRole === 'OWNER',
@@ -120,13 +190,35 @@ function mapMemberToCard(member: any, index: number): any {
         recordCount: member?.record_count ?? 0,
         vaccineDoseCount: member?.vaccine_dose_count ?? 0,
         vaccineTotalCount: member?.vaccine_total_count ?? 0,
-        dob: dob ?? '--',
+        dob: formatDisplayDate(dob),
         height: parseProfileNumber(p.height_cm),
         weight: parseProfileNumber(p.weight_kg),
         address: p.address ?? undefined,
         bloodType: h.blood_type ?? undefined,
         chronicIllness: chronic || undefined,
         allergies: allergiesStr || undefined,
+        drugAllergies: drugAllergiesStr || undefined,
+        foodAllergies: foodAllergiesStr || undefined,
+        importantMedicalNote: h.notes ?? h.important_medical_note ?? undefined,
+        emergencyContacts: Array.isArray(h.emergency_contacts)
+            ? h.emergency_contacts
+            : undefined,
+        medicalRecords,
+        vaccinations,
+        healthMetrics,
+        medications: medicineInventory.map((item: any) => ({
+            name: item?.medicine_name ?? item?.name ?? 'Thuốc',
+            desc: [
+                item?.medicine_type,
+                item?.dosage_value && item?.dosage_unit
+                    ? `${item.dosage_value} ${item.dosage_unit}`
+                    : item?.instruction,
+                item?.unit,
+            ]
+                .filter(Boolean)
+                .join(' · '),
+            type: 'teal',
+        })),
     };
 }
 
@@ -268,6 +360,7 @@ export function useFamilyQuery(familyId: string) {
             return mapFamilyToCard(res?.data || res, 0);
         },
         enabled: !!familyId,
+        refetchInterval: FAMILY_SYNC_INTERVAL_MS,
     });
 }
 
@@ -281,6 +374,7 @@ export function useFamilyMembersQuery(familyId: string) {
             return members.map(mapMemberToCard);
         },
         enabled: !!familyId,
+        refetchInterval: FAMILY_SYNC_INTERVAL_MS,
     });
 }
 
@@ -293,6 +387,7 @@ export function useFamilyMedicineInventoryQuery(familyId: string) {
             return toArray(res);
         },
         enabled: !!familyId,
+        refetchInterval: FAMILY_SYNC_INTERVAL_MS,
     });
 }
 
@@ -305,5 +400,6 @@ export function useFamilyProfilesQuery(familyId: string) {
             return toArray(res);
         },
         enabled: !!familyId,
+        refetchInterval: FAMILY_SYNC_INTERVAL_MS,
     });
 }

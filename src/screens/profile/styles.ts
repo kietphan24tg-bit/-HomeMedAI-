@@ -387,6 +387,9 @@ export const styles = StyleSheet.create({
         ...inputSystem.textStrong,
         paddingVertical: 0,
     },
+    contactFieldInputDisabled: {
+        color: colors.text3,
+    },
     sheetSelectOption: {
         ...inputSystem.selectOption,
         minHeight: verticalScale(45),

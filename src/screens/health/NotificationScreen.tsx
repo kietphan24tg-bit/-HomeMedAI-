@@ -11,9 +11,10 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { syncFamilyQueries } from '@/src/features/family/sync';
 import { appToast } from '@/src/lib/toast';
-import { notificationsService } from '@/src/services/notifications.services';
 import type { NotificationApiItem } from '@/src/services/notifications.services';
+import { notificationsService } from '@/src/services/notifications.services';
 import { moderateScale, scale, verticalScale } from '@/src/styles/responsive';
 import type { NotiDay, NotificationItem, NotiType } from '@/src/types/health';
 import { styles } from './styles';
@@ -214,6 +215,7 @@ export default function NotificationScreen({
             void queryClient.invalidateQueries({
                 queryKey: ['notifications', 'me'],
             });
+            syncFamilyQueries(queryClient);
         },
         onError: (_error, _variables, context) => {
             if (context?.previousItems) {

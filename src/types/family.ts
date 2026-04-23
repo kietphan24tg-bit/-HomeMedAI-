@@ -2,6 +2,7 @@
 
 export interface FamilyMember {
     id: string;
+    profileId?: string;
     healthProfileId?: string;
     /** OWNER | ADMIN | MEMBER từ API */
     familyRole?: string;
@@ -22,9 +23,21 @@ export interface FamilyMember {
     bloodType?: string;
     chronicIllness?: string;
     allergies?: string;
+    drugAllergies?: string;
+    foodAllergies?: string;
+    importantMedicalNote?: string;
+    emergencyContacts?: {
+        id?: string;
+        name?: string | null;
+        relationship?: string | null;
+        phone?: string | null;
+    }[];
     recordCount?: number;
     vaccineDoseCount?: number;
     vaccineTotalCount?: number;
+    vaccinations?: Record<string, unknown>[];
+    medicalRecords?: Record<string, unknown>[];
+    healthMetrics?: Record<string, unknown>[];
     records?: {
         title: string;
         desc: string;

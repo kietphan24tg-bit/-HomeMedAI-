@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { syncFamilyQueries } from '@/src/features/family/sync';
 import {
     useMeHealthProfileQuery,
     useMeOverviewQuery,
@@ -1020,6 +1021,7 @@ export function RecordDetail({
             await queryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries(queryClient);
             setShowAddFu(false);
             setShowFuReminderOptions(false);
             appToast.showSuccess('Đã lưu lịch tái khám');
@@ -1044,6 +1046,12 @@ export function RecordDetail({
             appToast.showError('Không thể hủy lịch tái khám');
         },
     });
+
+    useEffect(() => {
+        if (deleteFollowUpMutation.isSuccess) {
+            syncFamilyQueries(queryClient);
+        }
+    }, [deleteFollowUpMutation.isSuccess, queryClient]);
 
     const specEntry = SPECIALTIES.find((s) => s.key === recordCategory);
     const specLabel =
@@ -2404,6 +2412,7 @@ function AddRecordForm({
             await queryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries(queryClient);
             if (profileId) {
                 await queryClient.invalidateQueries({
                     queryKey: medicalRecordsQueryKeys.byProfile(profileId),

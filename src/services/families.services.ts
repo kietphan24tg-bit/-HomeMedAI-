@@ -54,6 +54,25 @@ export const familiesServices = {
         });
         return res.data;
     },
+    getLinkableProfilesByInviteCode: async (invite_code: string) => {
+        const res = await apiClient.get('/families/invite/linkable-profiles', {
+            params: { invite_code },
+        });
+        return res.data;
+    },
+    linkProfileByInviteCode: async ({
+        invite_code,
+        profile_id,
+    }: {
+        invite_code: string;
+        profile_id: string;
+    }) => {
+        const res = await apiClient.post('/families/invite/link-profile', {
+            invite_code,
+            profile_id,
+        });
+        return res.data;
+    },
     findUserByPhoneNumber: async (
         family_id: string,
         phone_number: string,
@@ -93,18 +112,34 @@ export const familiesServices = {
     acceptInvite: async ({
         invite_id,
         full_name,
-        profile_id,
     }: {
         invite_id: string;
         full_name: string;
-        profile_id?: string;
     }) => {
         const res = await apiClient.post(`/families/join`, {
             action: 'accept',
             invite_id,
             full_name,
-            profile_id,
         });
+        return res.data;
+    },
+    acceptInviteCode: async ({
+        invite_code,
+        full_name,
+    }: {
+        invite_code: string;
+        full_name?: string | null;
+    }) => {
+        const res = await apiClient.post(
+            `/families/join`,
+            {
+                invite_code,
+                full_name,
+            },
+            {
+                params: { invite_code },
+            },
+        );
         return res.data;
     },
     rejectInvite: async ({ invite_id }: { invite_id: string }) => {

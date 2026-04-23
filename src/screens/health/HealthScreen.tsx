@@ -755,13 +755,6 @@ export default function HealthScreen(): React.JSX.Element {
                             />
                             <View style={styles.notiBadge} />
                         </Pressable>
-                        <Pressable style={shared.iconBtn}>
-                            <Ionicons
-                                name='search-outline'
-                                size={16}
-                                color={colors.text2}
-                            />
-                        </Pressable>
                     </View>
                 </View>
 

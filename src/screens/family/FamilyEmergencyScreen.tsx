@@ -1,3 +1,16 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import React from 'react';
+import {
+    ActivityIndicator,
+    Linking,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     useFamilyMembersQuery,
     useFamilyQuery,
@@ -10,18 +23,6 @@ import {
     shared,
 } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
-import React from 'react';
-import {
-    Linking,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 function roleLabel(role?: string): string {
     if (role === 'OWNER') return 'Chủ gia đình';
@@ -87,11 +88,33 @@ export default function FamilyEmergencyScreen({
 }: {
     familyId: string;
 }): React.JSX.Element {
-    const { data: family } = useFamilyQuery(familyId);
-    const { data: members = [] } = useFamilyMembersQuery(familyId);
+    const { data: family, isLoading: familyLoading } = useFamilyQuery(familyId);
+    const { data: members = [], isLoading: membersLoading } =
+        useFamilyMembersQuery(familyId);
+
+    if (familyLoading || membersLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingState}>
+                    <ActivityIndicator size='large' color={colors.primary} />
+                    <Text style={styles.loadingText}>
+                        Đang tải thông tin khẩn cấp...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (!family) {
-        return <View style={styles.container} />;
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingState}>
+                    <Text style={styles.loadingText}>
+                        Không tìm thấy gia đình.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
     }
 
     const owners = members.filter((m) => m.role === 'OWNER');
@@ -408,6 +431,19 @@ const styles = StyleSheet.create({
         paddingTop: verticalScale(8),
         paddingBottom: verticalScale(40),
         gap: verticalScale(8),
+    },
+    loadingState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: verticalScale(10),
+        paddingHorizontal: scale(24),
+    },
+    loadingText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(13),
+        color: colors.text3,
+        textAlign: 'center',
     },
     sectionTitle: {
         ...formSystem.sectionTitle,

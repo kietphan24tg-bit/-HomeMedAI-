@@ -243,11 +243,11 @@ export default function MetricsInputScreen({
     const defaultTime = formatTime(now);
 
     const [input, setInput] = useState<MetricInput>({
-        systolic: '130',
-        diastolic: '85',
-        heartRate: '72',
-        weight: '55',
-        glucose: '5.4',
+        systolic: '',
+        diastolic: '',
+        heartRate: '',
+        weight: '',
+        glucose: '',
         date: defaultDate,
         time: defaultTime,
         notes: '',

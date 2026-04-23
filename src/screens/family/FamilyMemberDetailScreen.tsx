@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -25,13 +26,17 @@ import {
     DateField,
     SectionHeader,
 } from '@/src/components/ui';
-import { MED_ROWS, RECORDS } from '@/src/data/health-data';
+import { MED_ROWS } from '@/src/data/health-data';
 import {
     useDeleteMemberMutation,
     usePatchMemberMutation,
 } from '@/src/features/family/mutations';
 import MedicineScreen from '@/src/screens/health/MedicineScreen';
 import { RecordDetail } from '@/src/screens/health/RecordsScreen';
+import {
+    medicalRecordsQueryKeys,
+    medicalRecordsService,
+} from '@/src/services/medicalRecords.services';
 import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
 import { shared } from '@/src/styles/shared';
 import { colors, typography } from '@/src/styles/tokens';
@@ -68,146 +73,33 @@ interface SheetState {
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
-const DEFAULT_EMERGENCY_CONTACTS = [
+const RECORD_STYLE_PRESETS = [
     {
-        id: 'ec-1',
-        name: 'Nguyen Van An',
-        relation: 'Chong',
-        phone: '0909 123 456',
+        category: 'cardiology',
+        iconName: 'heart-outline',
+        iconColor: colors.primary,
+        bg: colors.primaryBg,
+        tagBg: colors.primaryBg,
+        tagColor: colors.primary,
+        dotColor: colors.primary,
     },
     {
-        id: 'ec-2',
-        name: 'Tran Thi Lan',
-        relation: 'Me ruot',
-        phone: '0912 345 678',
-    },
-];
-
-const MetricCard = ({
-    title,
-    iconName,
-    iconColor,
-    iconBg,
-    statusText,
-    statusColor,
-    statusBg,
-    trendType,
-    trendData,
-    latestValue,
-    latestValueColor,
-    lastUpdate,
-    memberBasePath,
-    metricId,
-}: any) => {
-    return (
-        <View style={styles.metricCard}>
-            <View style={styles.metricCardHeader}>
-                <View
-                    style={[styles.metricIconWrap, { backgroundColor: iconBg }]}
-                >
-                    <Ionicons name={iconName} size={18} color={iconColor} />
-                </View>
-                <Text style={styles.metricTitle}>{title}</Text>
-                {statusText ? (
-                    <View
-                        style={[
-                            styles.metricStatus,
-                            { backgroundColor: statusBg },
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                styles.metricStatusText,
-                                { color: statusColor },
-                            ]}
-                        >
-                            {statusText}
-                        </Text>
-                    </View>
-                ) : null}
-                <View style={{ flex: 1 }} />
-                <Pressable
-                    onPress={() =>
-                        router.push({
-                            pathname: `${memberBasePath}/history/metrics`,
-                            params: { metric: metricId },
-                        } as any)
-                    }
-                    style={{ flexDirection: 'row', alignItems: 'center' }}
-                >
-                    <Text style={styles.metricDetailLink}>Chi tiết</Text>
-                    <Ionicons
-                        name='chevron-forward'
-                        size={14}
-                        color={colors.primary}
-                    />
-                </Pressable>
-            </View>
-
-            <View style={styles.metricChartWrap}>
-                {trendData.map((item: any, index: number) => (
-                    <View key={index} style={styles.metricChartCol}>
-                        {trendType === 'bar' ? (
-                            <View
-                                style={[
-                                    styles.metricBarFill,
-                                    {
-                                        height: item.barHeight,
-                                        backgroundColor: item.color,
-                                    },
-                                ]}
-                            />
-                        ) : (
-                            <View style={styles.metricTextWrap}>
-                                <Text
-                                    style={[
-                                        styles.metricTextVal,
-                                        { color: item.color },
-                                    ]}
-                                >
-                                    {item.formattedValue}
-                                </Text>
-                            </View>
-                        )}
-                        <Text style={styles.metricChartLabel}>
-                            {item.label}
-                        </Text>
-                    </View>
-                ))}
-            </View>
-
-            <View style={styles.metricFooter}>
-                <Text style={styles.metricUpdateText}>
-                    Cập nhật {lastUpdate}
-                </Text>
-                <Text
-                    style={[
-                        styles.metricLatestVal,
-                        { color: latestValueColor },
-                    ]}
-                >
-                    {latestValue}
-                </Text>
-            </View>
-        </View>
-    );
-};
-
-const DEFAULT_MEDICATIONS = [
-    {
-        name: 'Amlodipine 5mg',
-        schedule: 'Sang 1 vien',
-        note: 'sau an',
+        category: 'internal',
+        iconName: 'shield-checkmark-outline',
+        iconColor: colors.info,
+        bg: colors.infoBg,
+        tagBg: colors.infoBg,
+        tagColor: colors.info,
+        dotColor: colors.info,
     },
     {
-        name: 'Omeprazole 20mg',
-        schedule: 'Sang 1 vien',
-        note: 'truoc an',
-    },
-    {
-        name: 'Candesartan 8mg',
-        schedule: 'Toi 1 vien',
-        note: 'sau an',
+        category: 'general',
+        iconName: 'medical-outline',
+        iconColor: colors.secondary,
+        bg: colors.secondaryBg,
+        tagBg: colors.secondaryBg,
+        tagColor: colors.secondary,
+        dotColor: colors.secondary,
     },
 ];
 
@@ -259,6 +151,39 @@ function parseHealthList(value?: string | null): string[] {
         .filter(Boolean);
 }
 
+function formatApiDate(value: string): string | null {
+    const parts = value.split('/');
+    if (parts.length !== 3) return null;
+
+    const day = Number(parts[0]);
+    const month = Number(parts[1]);
+    const year = Number(parts[2]);
+
+    if (!day || !month || !year) return null;
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(
+        2,
+        '0',
+    )}`;
+}
+
+function apiGender(value: string): string | null {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'nam' || normalized === 'male') return 'male';
+    if (normalized === 'nữ' || normalized === 'nu' || normalized === 'female') {
+        return 'female';
+    }
+    if (
+        normalized === 'khác' ||
+        normalized === 'khac' ||
+        normalized === 'other'
+    ) {
+        return 'other';
+    }
+    return normalized;
+}
+
 function summarizeHealthTags(values: string[]): {
     lead: string | null;
     remaining: number;
@@ -277,6 +202,118 @@ function truncateHealthTag(label: string | null, maxLength = 22): string {
     if (!label) return '';
     if (label.length <= maxLength) return label;
     return `${label.slice(0, maxLength - 1).trimEnd()}...`;
+}
+
+function nullableString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+}
+
+function recordList(value: unknown): Record<string, unknown>[] {
+    return Array.isArray(value)
+        ? value.filter(
+              (item): item is Record<string, unknown> =>
+                  !!item && typeof item === 'object',
+          )
+        : [];
+}
+
+function formatDisplayDate(value: unknown): string {
+    const raw = nullableString(value);
+    if (!raw) return '';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return `${String(date.getDate()).padStart(2, '0')}/${String(
+        date.getMonth() + 1,
+    ).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+function normalizeRecord(
+    record: Record<string, unknown>,
+    index: number,
+): RecordItem {
+    const preset = RECORD_STYLE_PRESETS[index % RECORD_STYLE_PRESETS.length];
+    const visitDate =
+        nullableString(record.visit_date) ??
+        nullableString(record.created_at) ??
+        new Date().toISOString();
+    const title =
+        nullableString(record.title) ??
+        nullableString(record.diagnosis_name) ??
+        `Hồ sơ khám bệnh ${index + 1}`;
+    const specialty =
+        nullableString(record.specialty) ??
+        nullableString(record.department) ??
+        'Khám bệnh';
+
+    return {
+        id: nullableString(record.id) ?? `record-${index}`,
+        category: preset.category,
+        iconName: preset.iconName,
+        iconColor: preset.iconColor,
+        bg: preset.bg,
+        title,
+        hospital: nullableString(record.hospital_name) ?? 'Chưa cập nhật cơ sở',
+        doctor: nullableString(record.doctor_name),
+        diagnosis: nullableString(record.diagnosis_name),
+        tag: specialty,
+        tagBg: preset.tagBg,
+        tagColor: preset.tagColor,
+        dotColor: preset.dotColor,
+        date: formatDisplayDate(visitDate) || '--/--/----',
+        isoDate: visitDate.slice(0, 10),
+        location: nullableString(record.location),
+        department: specialty,
+        symptoms: Array.isArray(record.symptoms)
+            ? record.symptoms.filter(
+                  (item): item is string =>
+                      typeof item === 'string' && item.trim().length > 0,
+              )
+            : undefined,
+        testResults: nullableString(record.test_results),
+        doctorAdvice: nullableString(record.doctor_advice),
+    };
+}
+
+function calculateVaccineSummary(vaccinations: unknown): {
+    done: number;
+    total: number;
+    percent: number;
+} {
+    const items = recordList(vaccinations);
+    let done = 0;
+    let total = 0;
+
+    for (const vaccination of items) {
+        const doses = recordList(vaccination.doses);
+        const administered =
+            numberValue(vaccination.doses_administered_count) ??
+            doses.filter((dose) =>
+                Boolean(
+                    nullableString(dose.administered_at) ??
+                    nullableString(dose.date) ??
+                    nullableString(dose.injected_at),
+                ),
+            ).length;
+        const required =
+            numberValue(vaccination.recommendation_total_doses) ??
+            numberValue(vaccination.total_doses) ??
+            Math.max(doses.length, administered);
+
+        done += administered;
+        total += required;
+    }
+
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { done, total, percent };
 }
 
 export default function FamilyMemberDetailScreen({
@@ -299,9 +336,14 @@ export default function FamilyMemberDetailScreen({
     const [draftContactRelation, setDraftContactRelation] =
         useState('Vợ/chồng');
     const [draftContactPhone, setDraftContactPhone] = useState('');
+    const profileId =
+        (member as any).profileId ??
+        (member as any).profile_id ??
+        (member as any).healthProfile?.profile_id ??
+        member.healthProfileId;
     const [healthSheetKey, setHealthSheetKey] = useState<HealthSheetKey>(null);
     const [healthSheetDraftBlood, setHealthSheetDraftBlood] = useState(
-        member.bloodType || 'O+',
+        member.bloodType || '',
     );
     const [healthSheetDraftTags, setHealthSheetDraftTags] = useState<string[]>(
         [],
@@ -309,21 +351,19 @@ export default function FamilyMemberDetailScreen({
     const [healthTagText, setHealthTagText] = useState('');
     const [tagPreview, setTagPreview] = useState<TagPreviewState>(null);
     const [memberBloodType, setMemberBloodType] = useState(
-        member.bloodType || 'O+',
+        member.bloodType || '',
     );
     const [memberChronicIllnesses, setMemberChronicIllnesses] = useState(
         parseHealthList(member.chronicIllness),
     );
     const [memberDrugAllergies, setMemberDrugAllergies] = useState(
-        parseHealthList(member.allergies),
+        parseHealthList(member.drugAllergies ?? member.allergies),
     );
     const [memberFoodAllergies, setMemberFoodAllergies] = useState<string[]>(
-        parseHealthList((member as any).foodAllergies).length > 0
-            ? parseHealthList((member as any).foodAllergies)
-            : ['Hải sản'],
+        parseHealthList(member.foodAllergies),
     );
     const [memberHealthNotes, setMemberHealthNotes] = useState(
-        (member as any).importantMedicalNote || 'Tiền sử mổ ruột thừa 2018',
+        member.importantMedicalNote || '',
     );
 
     const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(
@@ -331,6 +371,15 @@ export default function FamilyMemberDetailScreen({
     );
     const [showMedicinesScreen, setShowMedicinesScreen] = useState(false);
     const [recordMenuId, setRecordMenuId] = useState<string | null>(null);
+    const { data: remoteMedicalRecords = [], isLoading: recordsLoading } =
+        useQuery({
+            queryKey: profileId
+                ? medicalRecordsQueryKeys.byProfile(String(profileId))
+                : [...medicalRecordsQueryKeys.all, 'missing-profile'],
+            queryFn: () =>
+                medicalRecordsService.listForProfile(String(profileId)),
+            enabled: !!profileId,
+        });
 
     const bmi = bmiValue(member.height, member.weight);
     const _deleteMemberMutation = useDeleteMemberMutation();
@@ -343,7 +392,13 @@ export default function FamilyMemberDetailScreen({
     const _showRemoveOther =
         _canManageMembers && !member.isSelf && !member.isOwner;
     const memberBasePath = `/family/${family.id}/member/${member.id}`;
-    const emergencyContacts = DEFAULT_EMERGENCY_CONTACTS;
+    const emergencyContacts =
+        member.emergencyContacts?.map((contact, index) => ({
+            id: contact.id ?? `ec-${index}`,
+            name: contact.name?.trim() || 'Người liên hệ',
+            relation: contact.relationship?.trim() || 'Người thân',
+            phone: contact.phone?.trim() || '',
+        })) ?? [];
     const healthInfoItems = [
         {
             key: 'bloodType',
@@ -409,24 +464,31 @@ export default function FamilyMemberDetailScreen({
             type: 'note',
         },
     ];
-    const medications = (
-        member.medications?.length
-            ? member.medications.map((item) => ({
-                  name: item.name,
-                  ...normalizeMedicationSchedule(item.desc),
-              }))
-            : DEFAULT_MEDICATIONS
-    ).slice(0, 3);
-    const previewRecords = ['rec-cardiology', 'rec-internal']
-        .map((recordId) => RECORDS.find((record) => record.id === recordId))
-        .filter((record): record is RecordItem => Boolean(record));
+    const medications = (member.medications ?? [])
+        .map((item) => ({
+            name: item.name,
+            ...normalizeMedicationSchedule(item.desc),
+        }))
+        .slice(0, 3);
+    const embeddedMedicalRecords = recordList(member.medicalRecords);
+    const medicalRecordSource =
+        remoteMedicalRecords.length > 0
+            ? remoteMedicalRecords
+            : embeddedMedicalRecords;
+    const previewRecords = medicalRecordSource
+        .slice(0, 2)
+        .map((record, index) =>
+            normalizeRecord(record as Record<string, unknown>, index),
+        );
+    const vaccineSummary = calculateVaccineSummary(member.vaccinations);
+    const hasHealthMetrics = recordList(member.healthMetrics).length > 0;
 
     const openHealthSheet = (key: HealthSheetKey) => {
         Keyboard.dismiss();
         setHealthTagText('');
         setHealthSheetKey(key);
         if (key === 'blood') {
-            setHealthSheetDraftBlood(memberBloodType || 'O+');
+            setHealthSheetDraftBlood(memberBloodType || '');
             return;
         }
         if (key === 'chronicIllness') {
@@ -533,10 +595,16 @@ export default function FamilyMemberDetailScreen({
 
     const saveSheet = async () => {
         if (!sheet) return;
+        const payloadValue =
+            sheet.key === 'dob'
+                ? formatApiDate(draft)
+                : sheet.key === 'gender'
+                  ? apiGender(draft)
+                  : draft;
         try {
             await patchMemberMutation.mutateAsync({
                 membershipId: member.id,
-                [sheet.key]: draft,
+                [sheet.key]: payloadValue,
             } as any);
             if (sheet.key === 'importantMedicalNote') {
                 setMemberHealthNotes(draft);
@@ -1036,7 +1104,11 @@ export default function FamilyMemberDetailScreen({
                                                                                 setTagPreview(
                                                                                     {
                                                                                         title: item.label,
-                                                                                        tags: item.value,
+                                                                                        tags: Array.isArray(
+                                                                                            item.value,
+                                                                                        )
+                                                                                            ? item.value
+                                                                                            : [],
                                                                                     },
                                                                                 );
                                                                             }}
@@ -1300,161 +1372,199 @@ export default function FamilyMemberDetailScreen({
                                 </Text>
                             </Pressable>
                         </View>
-                        {previewRecords.map((record) => (
-                            <Pressable
-                                key={record.id}
-                                style={styles.recordCard}
-                                onPress={() => {
-                                    setRecordMenuId(null);
-                                    setSelectedRecord(record);
-                                }}
-                            >
-                                <View style={styles.recordCardTop}>
-                                    <View
-                                        style={[
-                                            styles.recordIconCard,
-                                            {
-                                                backgroundColor: record.bg,
-                                            },
-                                        ]}
-                                    >
-                                        <Ionicons
-                                            name={
-                                                record.iconName as keyof typeof Ionicons.glyphMap
-                                            }
-                                            size={18}
-                                            color={record.iconColor}
-                                        />
-                                    </View>
-                                    <View style={styles.recordContent}>
-                                        <Text
-                                            style={styles.recordTitle}
-                                            numberOfLines={2}
+                        {recordsLoading ? (
+                            <View style={shared.cardBlock}>
+                                <Text style={styles.hiEmptyText}>
+                                    Đang tải hồ sơ khám bệnh...
+                                </Text>
+                            </View>
+                        ) : null}
+                        {!recordsLoading && previewRecords.length === 0 ? (
+                            <View style={shared.cardBlock}>
+                                <Text style={styles.hiEmptyText}>
+                                    Chưa có hồ sơ khám bệnh
+                                </Text>
+                            </View>
+                        ) : null}
+                        {!recordsLoading &&
+                            previewRecords.map((record) => (
+                                <Pressable
+                                    key={record.id}
+                                    style={styles.recordCard}
+                                    onPress={() => {
+                                        setRecordMenuId(null);
+                                        setSelectedRecord(record);
+                                    }}
+                                >
+                                    <View style={styles.recordCardTop}>
+                                        <View
+                                            style={[
+                                                styles.recordIconCard,
+                                                {
+                                                    backgroundColor: record.bg,
+                                                },
+                                            ]}
                                         >
-                                            {record.title}
-                                        </Text>
-                                        <Text
-                                            style={styles.recordMetaLine}
-                                            numberOfLines={1}
-                                        >
-                                            {record.hospital}
-                                            {record.doctor
-                                                ? ` • ${record.doctor}`
-                                                : ''}
-                                        </Text>
-                                        {record.diagnosis ? (
-                                            <View style={styles.recordDiagRow}>
+                                            <Ionicons
+                                                name={
+                                                    record.iconName as keyof typeof Ionicons.glyphMap
+                                                }
+                                                size={18}
+                                                color={record.iconColor}
+                                            />
+                                        </View>
+                                        <View style={styles.recordContent}>
+                                            <Text
+                                                style={styles.recordTitle}
+                                                numberOfLines={2}
+                                            >
+                                                {record.title}
+                                            </Text>
+                                            <Text
+                                                style={styles.recordMetaLine}
+                                                numberOfLines={1}
+                                            >
+                                                {record.hospital}
+                                                {record.doctor
+                                                    ? ` • ${record.doctor}`
+                                                    : ''}
+                                            </Text>
+                                            {record.diagnosis ? (
                                                 <View
-                                                    style={styles.recordDiagDot}
+                                                    style={styles.recordDiagRow}
+                                                >
+                                                    <View
+                                                        style={
+                                                            styles.recordDiagDot
+                                                        }
+                                                    />
+                                                    <Text
+                                                        style={
+                                                            styles.recordDiagText
+                                                        }
+                                                        numberOfLines={2}
+                                                    >
+                                                        {record.diagnosis}
+                                                    </Text>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                        <View style={{ position: 'relative' }}>
+                                            <Pressable
+                                                style={styles.recordMoreBtn}
+                                                onPress={(event) => {
+                                                    event.stopPropagation();
+                                                    setRecordMenuId((prev) =>
+                                                        prev === record.id
+                                                            ? null
+                                                            : record.id,
+                                                    );
+                                                }}
+                                            >
+                                                <Ionicons
+                                                    name='ellipsis-vertical'
+                                                    size={16}
+                                                    color={colors.text2}
+                                                />
+                                            </Pressable>
+                                            {recordMenuId === record.id ? (
+                                                <View style={styles.ctxMenu}>
+                                                    <Pressable
+                                                        style={styles.ctxItem}
+                                                        onPress={(event) => {
+                                                            event.stopPropagation();
+                                                            setRecordMenuId(
+                                                                null,
+                                                            );
+                                                            setSelectedRecord(
+                                                                record,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Ionicons
+                                                            name='create-outline'
+                                                            size={14}
+                                                            color={
+                                                                colors.primary
+                                                            }
+                                                        />
+                                                        <Text
+                                                            style={
+                                                                styles.ctxItemText
+                                                            }
+                                                        >
+                                                            Chỉnh sửa
+                                                        </Text>
+                                                    </Pressable>
+                                                    <View
+                                                        style={
+                                                            styles.ctxDivider
+                                                        }
+                                                    />
+                                                    <Pressable
+                                                        style={
+                                                            styles.ctxItemDel
+                                                        }
+                                                        onPress={(event) => {
+                                                            event.stopPropagation();
+                                                            setRecordMenuId(
+                                                                null,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Ionicons
+                                                            name='trash-outline'
+                                                            size={14}
+                                                            color={
+                                                                colors.danger
+                                                            }
+                                                        />
+                                                        <Text
+                                                            style={
+                                                                styles.ctxItemDelText
+                                                            }
+                                                        >
+                                                            Xoá hồ sơ
+                                                        </Text>
+                                                    </Pressable>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                    </View>
+                                    <View style={styles.recordCardFooter}>
+                                        <Text
+                                            style={[
+                                                styles.recordTag,
+                                                {
+                                                    backgroundColor:
+                                                        record.tagBg,
+                                                    color: record.tagColor,
+                                                },
+                                            ]}
+                                        >
+                                            {record.tag}
+                                        </Text>
+                                        {record.location ? (
+                                            <View
+                                                style={styles.recordMetaRight}
+                                            >
+                                                <Ionicons
+                                                    name='location-outline'
+                                                    size={11}
+                                                    color={colors.text3}
                                                 />
                                                 <Text
                                                     style={
-                                                        styles.recordDiagText
+                                                        styles.recordMetaText
                                                     }
-                                                    numberOfLines={2}
                                                 >
-                                                    {record.diagnosis}
+                                                    {record.location}
                                                 </Text>
                                             </View>
                                         ) : null}
                                     </View>
-                                    <View style={{ position: 'relative' }}>
-                                        <Pressable
-                                            style={styles.recordMoreBtn}
-                                            onPress={(event) => {
-                                                event.stopPropagation();
-                                                setRecordMenuId((prev) =>
-                                                    prev === record.id
-                                                        ? null
-                                                        : record.id,
-                                                );
-                                            }}
-                                        >
-                                            <Ionicons
-                                                name='ellipsis-vertical'
-                                                size={16}
-                                                color={colors.text2}
-                                            />
-                                        </Pressable>
-                                        {recordMenuId === record.id ? (
-                                            <View style={styles.ctxMenu}>
-                                                <Pressable
-                                                    style={styles.ctxItem}
-                                                    onPress={(event) => {
-                                                        event.stopPropagation();
-                                                        setRecordMenuId(null);
-                                                        setSelectedRecord(
-                                                            record,
-                                                        );
-                                                    }}
-                                                >
-                                                    <Ionicons
-                                                        name='create-outline'
-                                                        size={14}
-                                                        color={colors.primary}
-                                                    />
-                                                    <Text
-                                                        style={
-                                                            styles.ctxItemText
-                                                        }
-                                                    >
-                                                        Chỉnh sửa
-                                                    </Text>
-                                                </Pressable>
-                                                <View
-                                                    style={styles.ctxDivider}
-                                                />
-                                                <Pressable
-                                                    style={styles.ctxItemDel}
-                                                    onPress={(event) => {
-                                                        event.stopPropagation();
-                                                        setRecordMenuId(null);
-                                                    }}
-                                                >
-                                                    <Ionicons
-                                                        name='trash-outline'
-                                                        size={14}
-                                                        color={colors.danger}
-                                                    />
-                                                    <Text
-                                                        style={
-                                                            styles.ctxItemDelText
-                                                        }
-                                                    >
-                                                        Xoá hồ sơ
-                                                    </Text>
-                                                </Pressable>
-                                            </View>
-                                        ) : null}
-                                    </View>
-                                </View>
-                                <View style={styles.recordCardFooter}>
-                                    <Text
-                                        style={[
-                                            styles.recordTag,
-                                            {
-                                                backgroundColor: record.tagBg,
-                                                color: record.tagColor,
-                                            },
-                                        ]}
-                                    >
-                                        {record.tag}
-                                    </Text>
-                                    {record.location ? (
-                                        <View style={styles.recordMetaRight}>
-                                            <Ionicons
-                                                name='location-outline'
-                                                size={11}
-                                                color={colors.text3}
-                                            />
-                                            <Text style={styles.recordMetaText}>
-                                                {record.location}
-                                            </Text>
-                                        </View>
-                                    ) : null}
-                                </View>
-                            </Pressable>
-                        ))}
+                                </Pressable>
+                            ))}
 
                         <View style={styles.healthSectionHeader}>
                             <SectionLabel title='Tiêm chủng' />
@@ -1500,7 +1610,12 @@ export default function FamilyMemberDetailScreen({
                                             fill='none'
                                             strokeDasharray={2 * Math.PI * 24}
                                             strokeDashoffset={
-                                                2 * Math.PI * 24 * 0.25
+                                                2 *
+                                                Math.PI *
+                                                24 *
+                                                (1 -
+                                                    vaccineSummary.percent /
+                                                        100)
                                             }
                                             strokeLinecap='round'
                                             rotation='-90'
@@ -1508,18 +1623,19 @@ export default function FamilyMemberDetailScreen({
                                         />
                                     </Svg>
                                     <Text style={styles.vaccineProgText}>
-                                        75%
+                                        {vaccineSummary.percent}%
                                     </Text>
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.vaccineTitle}>
                                         Hoàn thành{' '}
                                         <Text style={{ color: '#D97706' }}>
-                                            75%
+                                            {vaccineSummary.percent}%
                                         </Text>
                                     </Text>
                                     <Text style={styles.vaccineSub}>
-                                        6 / 8 mũi khuyến nghị
+                                        {vaccineSummary.done} /{' '}
+                                        {vaccineSummary.total} mũi khuyến nghị
                                     </Text>
                                 </View>
                             </View>
@@ -1553,104 +1669,39 @@ export default function FamilyMemberDetailScreen({
                             </Pressable>
                         </View>
 
-                        <MetricCard
-                            title='Huyết áp'
-                            iconName='water-outline'
-                            iconColor={colors.danger}
-                            iconBg='#FEE2E2'
-                            statusText='Hơi cao'
-                            statusColor={colors.danger}
-                            statusBg='#FEE2E2'
-                            trendType='bar'
-                            trendData={[
-                                {
-                                    label: 'T1',
-                                    barHeight: 24,
-                                    color: '#FECACA',
-                                },
-                                {
-                                    label: 'T2',
-                                    barHeight: 20,
-                                    color: '#FECACA',
-                                },
-                                {
-                                    label: 'T3',
-                                    barHeight: 40,
-                                    color: colors.danger,
-                                },
-                            ]}
-                            latestValue='130/85 mmHg'
-                            latestValueColor={colors.danger}
-                            lastUpdate='15/03/2026'
-                            memberBasePath={memberBasePath}
-                            metricId='bp'
-                        />
-
-                        <MetricCard
-                            title='Cân nặng'
-                            iconName='barbell-outline'
-                            iconColor={colors.primary}
-                            iconBg='#DBEAFE'
-                            statusText='Bình thường'
-                            statusColor={colors.success}
-                            statusBg='#DCFCE7'
-                            trendType='text'
-                            trendData={[
-                                {
-                                    label: '01',
-                                    formattedValue: '55',
-                                    color: colors.text2,
-                                },
-                                {
-                                    label: '02',
-                                    formattedValue: '54',
-                                    color: colors.text2,
-                                },
-                                {
-                                    label: '03',
-                                    formattedValue: '55',
-                                    color: colors.primary,
-                                },
-                            ]}
-                            latestValue='55 kg'
-                            latestValueColor={colors.primary}
-                            lastUpdate='15/03/2026'
-                            memberBasePath={memberBasePath}
-                            metricId='weight'
-                        />
-
-                        <MetricCard
-                            title='Đường huyết'
-                            iconName='document-text-outline'
-                            iconColor='#D97706'
-                            iconBg='#FEF3C7'
-                            statusText='Bình thường'
-                            statusColor={colors.success}
-                            statusBg='#DCFCE7'
-                            trendType='bar'
-                            trendData={[
-                                {
-                                    label: 'T1',
-                                    barHeight: 26,
-                                    color: '#FDE68A',
-                                },
-                                {
-                                    label: 'T2',
-                                    barHeight: 26,
-                                    color: '#FDE68A',
-                                },
-                                {
-                                    label: 'T3',
-                                    barHeight: 22,
-                                    color: '#D97706',
-                                },
-                            ]}
-                            latestValue='5.4 mmol/L'
-                            latestValueColor='#D97706'
-                            lastUpdate='10/03/2026'
-                            memberBasePath={memberBasePath}
-                            metricId='glucose'
-                        />
+                        <View style={shared.cardBlock}>
+                            <Pressable
+                                style={styles.statsSummaryRow}
+                                onPress={() =>
+                                    router.push(
+                                        `${memberBasePath}/history/metrics` as any,
+                                    )
+                                }
+                            >
+                                <View style={styles.statsSummaryIcon}>
+                                    <MaterialCommunityIcons
+                                        name='chart-line'
+                                        size={18}
+                                        color='#D97706'
+                                    />
+                                </View>
+                                <View style={styles.statsSummaryBody}>
+                                    <Text style={styles.hiLabelTitle}>
+                                        Thống kê chi tiết sức khỏe
+                                    </Text>
+                                    <Text style={styles.statsSummarySub}>
+                                        {hasHealthMetrics
+                                            ? 'Xem biểu đồ huyết áp, cân nặng, đường huyết'
+                                            : 'Chưa có chỉ số sức khỏe'}
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name='chevron-forward'
+                                    size={16}
+                                    color={colors.primary}
+                                />
+                            </Pressable>
+                        </View>
                     </>
                 )}
             </ScrollView>

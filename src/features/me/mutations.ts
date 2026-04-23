@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { syncFamilyQueries } from '@/src/features/family/sync';
 import { appQueryClient } from '@/src/lib/query-client';
 import {
     userService,
@@ -118,6 +119,23 @@ function extractHealthProfileResponse(response: unknown) {
     return null;
 }
 
+function extractUserResponse(response: unknown) {
+    if (!response || typeof response !== 'object') {
+        return null;
+    }
+
+    const record = response as Record<string, unknown>;
+    if (record.user && typeof record.user === 'object') {
+        return record.user as Record<string, unknown>;
+    }
+
+    if (record.id || record.email || record.phone_number) {
+        return record;
+    }
+
+    return null;
+}
+
 function extractHealthMetricReadingResponse(response: unknown) {
     if (!response || typeof response !== 'object') {
         return null;
@@ -194,6 +212,9 @@ export function useCreateMyProfileMutation() {
     return useMutation({
         mutationFn: (payload: CreatePersonalProfilePayload) =>
             userService.createPersonalProfile(payload),
+        onSuccess: () => {
+            syncFamilyQueries();
+        },
     });
 }
 
@@ -225,6 +246,7 @@ export function usePatchMyProfileMutation() {
             appQueryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries();
         },
     });
 }
@@ -259,11 +281,13 @@ export function usePatchMyUserMutation() {
             }
         },
         onSuccess: (response, variables) => {
-            const serverUser =
-                response && typeof response === 'object'
-                    ? (response as Record<string, unknown>)
-                    : null;
-            const nextUser = serverUser ?? variables;
+            const serverUser = extractUserResponse(response);
+            const nextUser = serverUser
+                ? {
+                      ...variables,
+                      ...serverUser,
+                  }
+                : variables;
 
             appQueryClient.setQueryData(
                 meQueryKeys.overview(),
@@ -273,6 +297,7 @@ export function usePatchMyUserMutation() {
             appQueryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries();
         },
     });
 }
@@ -321,6 +346,7 @@ export function usePatchMyHealthProfileMutation() {
             appQueryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries();
         },
     });
 }
@@ -385,6 +411,7 @@ export function useCreateMyHealthMetricReadingMutation() {
             appQueryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries();
         },
     });
 }
