@@ -150,6 +150,7 @@ export default function ProfileScreen(): React.JSX.Element {
     const [userAge, setUserAge] = useState('20');
     const [contacts, setContacts] = useState({
         email: '',
+        fullName: '',
         phone: '',
     });
     const [contactDraft, setContactDraft] = useState(contacts);
@@ -186,10 +187,12 @@ export default function ProfileScreen(): React.JSX.Element {
         setUserAge(String(age));
         setContacts({
             email: stringValue(user.email),
+            fullName: stringValue(profile.full_name),
             phone: stringValue(user.phone_number),
         });
         setContactDraft({
             email: stringValue(user.email),
+            fullName: stringValue(profile.full_name),
             phone: stringValue(user.phone_number),
         });
         setFields({
@@ -304,19 +307,65 @@ export default function ProfileScreen(): React.JSX.Element {
 
         if (sheet.type === 'contacts') {
             setSheet(null);
-            const nextEmail = contactDraft.email.trim();
-            const currentEmail = stringValue(user?.email).trim();
-            const payload = {
-                ...(nextEmail !== currentEmail
-                    ? { email: nextEmail || null }
-                    : {}),
-            };
+            const nextFullName = contactDraft.fullName.trim();
+            const currentFullName = stringValue(profile?.full_name).trim();
+            const nextPhone = contactDraft.phone.trim();
+            const currentPhone = stringValue(user?.phone_number).trim();
+            const profilePayload =
+                nextFullName !== currentFullName
+                    ? { full_name: nextFullName }
+                    : {};
+            const userPayload =
+                nextPhone !== currentPhone
+                    ? { phone_number: nextPhone || null }
+                    : {};
 
-            if (Object.keys(payload).length === 0) {
+            if (
+                Object.keys(profilePayload).length === 0 &&
+                Object.keys(userPayload).length === 0
+            ) {
                 return;
             }
 
-            patchUserMutation.mutate(payload, {
+            if (Object.keys(profilePayload).length > 0 && !profileId) {
+                Alert.alert(
+                    'KhÃ´ng thá»ƒ lÆ°u',
+                    'KhÃ´ng tÃ¬m tháº¥y há»“ sÆ¡ hiá»‡n táº¡i.',
+                );
+                return;
+            }
+
+            if (Object.keys(profilePayload).length > 0) {
+                setUserName(nextFullName);
+                setContacts((current) => ({
+                    ...current,
+                    fullName: nextFullName,
+                }));
+                patchProfileMutation.mutate(
+                    {
+                        profileId,
+                        payload: profilePayload,
+                    },
+                    {
+                        onError: (err: unknown) => {
+                            console.error(
+                                'Failed to save profile full_name:',
+                                err,
+                            );
+                            Alert.alert(
+                                'KhÃ´ng thá»ƒ lÆ°u',
+                                'Vui lÃ²ng thá»­ láº¡i sau.',
+                            );
+                        },
+                    },
+                );
+            }
+
+            if (Object.keys(userPayload).length === 0) {
+                return;
+            }
+
+            patchUserMutation.mutate(userPayload, {
                 onError: (err: unknown) => {
                     const apiError = err as {
                         config?: { url?: string; data?: unknown };
@@ -839,22 +888,47 @@ export default function ProfileScreen(): React.JSX.Element {
                                                 color={colors.primary}
                                             />
                                             <TextInput
-                                                style={styles.contactFieldInput}
+                                                style={[
+                                                    styles.contactFieldInput,
+                                                    styles.contactFieldInputDisabled,
+                                                ]}
                                                 value={contactDraft.email}
-                                                onChangeText={(value) =>
-                                                    setContactDraft((prev) => ({
-                                                        ...prev,
-                                                        email: value,
-                                                    }))
-                                                }
-                                                keyboardType='email-address'
-                                                autoCapitalize='none'
-                                                autoCorrect={false}
+                                                editable={false}
+                                                selectTextOnFocus={false}
                                                 placeholder='Nhập email'
                                                 placeholderTextColor={
                                                     colors.text3
                                                 }
-                                                autoFocus
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.contactFieldGroup}>
+                                        <Text style={styles.contactFieldLabel}>
+                                            Họ và tên
+                                        </Text>
+                                        <View
+                                            style={styles.contactFieldInputWrap}
+                                        >
+                                            <Ionicons
+                                                name='person-outline'
+                                                size={17}
+                                                color={colors.primary}
+                                            />
+                                            <TextInput
+                                                style={styles.contactFieldInput}
+                                                value={contactDraft.fullName}
+                                                onChangeText={(value) =>
+                                                    setContactDraft((prev) => ({
+                                                        ...prev,
+                                                        fullName: value,
+                                                    }))
+                                                }
+                                                autoCapitalize='words'
+                                                placeholder='Nhập họ và tên'
+                                                placeholderTextColor={
+                                                    colors.text3
+                                                }
                                             />
                                         </View>
                                     </View>
