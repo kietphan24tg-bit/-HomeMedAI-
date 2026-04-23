@@ -328,10 +328,7 @@ export default function ProfileScreen(): React.JSX.Element {
             }
 
             if (Object.keys(profilePayload).length > 0 && !profileId) {
-                Alert.alert(
-                    'KhÃ´ng thá»ƒ lÆ°u',
-                    'KhÃ´ng tÃ¬m tháº¥y há»“ sÆ¡ hiá»‡n táº¡i.',
-                );
+                Alert.alert('Không thể lưu', 'Không tìm thấy hồ sơ hiện tại.');
                 return;
             }
 
@@ -353,8 +350,8 @@ export default function ProfileScreen(): React.JSX.Element {
                                 err,
                             );
                             Alert.alert(
-                                'KhÃ´ng thá»ƒ lÆ°u',
-                                'Vui lÃ²ng thá»­ láº¡i sau.',
+                                'Không thể lưu',
+                                'Vui lòng thử lại sau.',
                             );
                         },
                     },
