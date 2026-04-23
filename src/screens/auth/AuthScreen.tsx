@@ -45,22 +45,22 @@ function getGoogleSignInErrorMessage(error: unknown): string {
             : '';
 
     if (code === statusCodes.IN_PROGRESS) {
-        return 'Dang nhap Google dang duoc xu ly. Vui long doi mot chut.';
+        return 'Đăng nhập Google đang được xử lý. Vui lòng đợi một chút.';
     }
 
     if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        return 'Thiet bi chua san sang Google Play Services. Vui long cap nhat va thu lai.';
+        return 'Thiết bị chưa sẵn sàng Google Play Services. Vui lòng cập nhật và thử lại.';
     }
 
     if (code === '10' || message.includes('DEVELOPER_ERROR')) {
-        return 'Google Sign-In Android chua cau hinh dung SHA-1/SHA-256 hoac OAuth client.';
+        return 'Google Sign-In Android chưa cấu hình đúng SHA-1/SHA-256 hoặc OAuth client.';
     }
 
     if (message.includes('idToken') || message.includes('webClientId')) {
-        return 'Google Sign-In chua tra ve ID token. Kiem tra Web Client ID va cau hinh OAuth Android.';
+        return 'Google Sign-In chưa trả về ID token. Kiểm tra Web Client ID và cấu hình OAuth Android.';
     }
 
-    return 'Dang nhap Google that bai. Vui long thu lai.';
+    return 'Đăng nhập Google thất bại. Vui lòng thử lại.';
 }
 
 export default function AuthScreen({
@@ -105,7 +105,7 @@ export default function AuthScreen({
         try {
             if (!hasGoogleWebClientId()) {
                 throw new Error(
-                    'Google Sign-In chua duoc cau hinh. Thieu EXPO_PUBLIC_WEB_CLIENT_ID.',
+                    'Google Sign-In chưa được cấu hình. Thiếu EXPO_PUBLIC_WEB_CLIENT_ID.',
                 );
             }
 
@@ -122,7 +122,7 @@ export default function AuthScreen({
 
             if (!idToken) {
                 throw new Error(
-                    'Google Sign-In khong tra ve ID token. Kiem tra Web Client ID va OAuth Android.',
+                    'Google Sign-In không trả về ID token. Kiểm tra Web Client ID và OAuth Android.',
                 );
             }
 
@@ -159,9 +159,9 @@ export default function AuthScreen({
             const googleErrorMessage = getGoogleSignInErrorMessage(error);
             if (
                 googleErrorMessage !==
-                'Dang nhap Google that bai. Vui long thu lai.'
+                'Đăng nhập Google thất bại. Vui lòng thử lại.'
             ) {
-                appToast.showError('Loi', googleErrorMessage);
+                appToast.showError('Lỗi', googleErrorMessage);
                 return;
             }
             appToast.showError(
@@ -277,7 +277,7 @@ export default function AuthScreen({
             }
 
             appToast.showSuccess(
-                'Success',
+                'Thành công',
                 'Đăng ký tài khoản thành công. Vui lòng đăng nhập để tiếp tục.',
             );
             clearForm();

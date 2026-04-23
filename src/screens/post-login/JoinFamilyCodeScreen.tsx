@@ -15,7 +15,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatePanel from '@/src/components/state/StatePanel';
 import { appToast } from '@/src/lib/toast';
-import { familiesServices } from '@/src/services/families.services';
+import {
+    familiesServices,
+    type InvitePreviewResponse,
+} from '@/src/services/families.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
 import {
     moderateScale,
@@ -28,10 +31,8 @@ import { colors, shadows, typography } from '@/src/styles/tokens';
 
 type PreviewState = 'idle' | 'loading' | 'success' | 'error';
 
-type PreviewData = {
+type PreviewData = InvitePreviewResponse & {
     family_id?: string;
-    family_name?: string;
-    invite_code?: string;
     address?: string;
     created_at?: string;
 };
@@ -40,11 +41,11 @@ type CandidateProfile = {
     id: string;
     initials: string;
     name: string;
-    role: string;
+    role?: string;
 };
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
-const DEFAULT_FAMILY_ADDRESS = 'Chưa cập nhật địa chỉ';
+const DEFAULT_FAMILY_ADDRESS = 'ChÆ°a cáº­p nháº­t Ä‘á»‹a chá»‰';
 const PROFILE_AVATAR_BACKGROUNDS = ['#D8F3E5', '#DCEAFE', '#FDE2E2', '#FEF3C7'];
 
 const formatPreviewDate = (value?: string): string => {
@@ -104,23 +105,15 @@ function mapProfileToCandidate(
         return null;
     }
 
-    const linkedUserId = profile.linked_user_id ?? item.linked_user_id;
-    const isLinked =
-        typeof linkedUserId === 'string' && linkedUserId.trim().length > 0;
-
-    if (isLinked) {
-        return null;
-    }
-
     const name =
         stringValue(profile.full_name) ||
         stringValue(item.full_name) ||
         stringValue(item.name) ||
-        `Hồ sơ ${index + 1}`;
+        `Há»“ sÆ¡ ${index + 1}`;
     const role =
         stringValue(item.relation_role) ||
         stringValue(item.role) ||
-        'Thành viên';
+        'ThĂ nh viĂªn';
 
     return {
         id,
@@ -135,7 +128,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const [inviteCode, setInviteCode] = useState('');
     const [previewState, setPreviewState] = useState<PreviewState>('idle');
     const [previewErrorMessage, setPreviewErrorMessage] = useState(
-        'Mã không hợp lệ hoặc hiện chưa thể xác minh. Vui lòng thử lại.',
+        'MĂ£ khĂ´ng há»£p lá»‡ hoáº·c hiá»‡n chÆ°a thá»ƒ xĂ¡c minh. Vui lĂ²ng thá»­ láº¡i.',
     );
     const [previewData, setPreviewData] = useState<PreviewData | null>(null);
     const [candidateProfiles, setCandidateProfiles] = useState<
@@ -146,11 +139,12 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
         null,
     );
+    const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
     const handlePreview = async () => {
         if (!inviteCode.trim()) {
             setPreviewState('error');
-            setPreviewErrorMessage('Vui lòng nhập mã mời gia đình.');
+            setPreviewErrorMessage('Vui lĂ²ng nháº­p mĂ£ má»i gia Ä‘Ă¬nh.');
             setPreviewData(null);
             setCandidateProfiles([]);
             setShowLinkModal(false);
@@ -160,7 +154,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
         try {
             setPreviewState('loading');
             setPreviewErrorMessage(
-                'Mã không hợp lệ hoặc hiện chưa thể xác minh. Vui lòng thử lại.',
+                'MĂ£ khĂ´ng há»£p lá»‡ hoáº·c hiá»‡n chÆ°a thá»ƒ xĂ¡c minh. Vui lĂ²ng thá»­ láº¡i.',
             );
             const res = await familiesServices.getLinkableProfilesByInviteCode(
                 inviteCode.trim(),
@@ -170,12 +164,17 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                 .filter(
                     (profile): profile is CandidateProfile => profile !== null,
                 );
+            const raw = res as Record<string, unknown>;
 
             setPreviewData({
-                ...res,
-                family_id: stringValue(res?.family_id) || stringValue(res?.id),
+                valid: true,
+                expires_at: '',
+                invite_code: stringValue(raw.invite_code) || inviteCode.trim(),
+                family_id: stringValue(raw.family_id) || stringValue(raw.id),
                 family_name:
-                    stringValue(res?.family_name) || stringValue(res?.name),
+                    stringValue(raw.family_name) || stringValue(raw.name),
+                address: stringValue(raw.address) || undefined,
+                created_at: stringValue(raw.created_at) || undefined,
             });
             setCandidateProfiles(profiles);
             setPreviewState('success');
@@ -193,10 +192,10 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             setCandidateProfiles([]);
             setPreviewErrorMessage(
                 status === 410
-                    ? 'Mã mời đã hết hạn hoặc đã được đổi. Vui lòng xin chủ gia đình tạo mã mời mới.'
+                    ? 'MĂ£ má»i Ä‘Ă£ háº¿t háº¡n hoáº·c Ä‘Ă£ Ä‘Æ°á»£c Ä‘á»•i. Vui lĂ²ng xin chá»§ gia Ä‘Ă¬nh táº¡o mĂ£ má»i má»›i.'
                     : typeof detail === 'string'
                       ? detail
-                      : 'Mã không hợp lệ hoặc hiện chưa thể xác minh. Vui lòng thử lại.',
+                      : 'MĂ£ khĂ´ng há»£p lá»‡ hoáº·c hiá»‡n chÆ°a thá»ƒ xĂ¡c minh. Vui lĂ²ng thá»­ láº¡i.',
             );
             setPreviewState('error');
             setShowLinkModal(false);
@@ -209,8 +208,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
         if (!overview?.post_login_flow_completed) {
             appToast.showInfo(
-                'Chưa hoàn tất',
-                'Flow tham gia gia đình hiện chưa có bước liên kết hồ sơ hoàn chỉnh. Vui lòng tiếp tục từ lời mời hoặc tạo hồ sơ cá nhân.',
+                'ChÆ°a hoĂ n táº¥t',
+                'Flow tham gia gia Ä‘Ă¬nh hiá»‡n chÆ°a cĂ³ bÆ°á»›c liĂªn káº¿t há»“ sÆ¡ hoĂ n chá»‰nh. Vui lĂ²ng tiáº¿p tá»¥c tá»« lá»i má»i hoáº·c táº¡o há»“ sÆ¡ cĂ¡ nhĂ¢n.',
             );
             return;
         }
@@ -218,60 +217,19 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
         router.replace(APP_TABS_ROUTE);
     };
 
-    const getJoinFullName = async (fallback?: string | null) => {
-        const overview = await syncMeOverview();
-        const profile =
-            overview?.profile && typeof overview.profile === 'object'
-                ? (overview.profile as Record<string, unknown>)
-                : null;
-        const profileName = stringValue(profile?.full_name).trim();
-        const emailName = stringValue(overview?.user?.email)
-            .split('@')[0]
-            ?.trim();
-
-        return profileName || fallback?.trim() || emailName || 'Thanh vien';
-    };
-
-    const handleJoinWithCode = async (fullNameFallback?: string | null) => {
-        appToast.showInfo(
-            'Chọn hồ sơ',
-            'Vui lòng chọn một hồ sơ trong gia đình để liên kết tài khoản.',
-        );
-        return;
-        const code = inviteCode.trim() || previewData?.invite_code?.trim();
-
-        if (!code) {
+    const handleOpenLinkModal = () => {
+        if (!previewData?.valid) {
+            appToast.showInfo(
+                'M? m?i ?? h?t hi?u l?c',
+                'Vui l?ng y?u c?u ch? gia ??nh g?i m? m?i m?i.',
+            );
             return;
         }
 
-        try {
-            setIsJoining(true);
-            await familiesServices.acceptInviteCode({
-                invite_code: code ?? '',
-                full_name: await getJoinFullName(fullNameFallback),
-            });
-            await handleComplete();
-        } catch (error) {
-            console.error(
-                'Join family by invite code failed:',
-                (error as any)?.response?.data ?? error,
-            );
-            appToast.showError(
-                'LiÃªn káº¿t tháº¥t báº¡i',
-                (error as any)?.response?.data?.message ||
-                    (error as any)?.response?.data?.detail ||
-                    'KhÃ´ng thá»ƒ liÃªn káº¿t há»“ sÆ¡ vá»›i gia Ä‘Ã¬nh lÃºc nÃ y.',
-            );
-        } finally {
-            setIsJoining(false);
-        }
-    };
-
-    const handleOpenLinkModal = () => {
         if (!candidateProfiles.length) {
             appToast.showInfo(
-                'Chưa có hồ sơ',
-                'Gia đình này hiện chưa có hồ sơ chưa liên kết để bạn chọn.',
+                'Ch?a c? h? s?',
+                'Gia ??nh n?y hi?n ch?a c? h? s? ch?a li?n k?t ?? b?n ch?n.',
             );
             return;
         }
@@ -283,20 +241,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const handleConfirmLink = async () => {
         if (!selectedProfileId) {
             appToast.showInfo(
-                'Chọn hồ sơ',
-                'Vui lòng chọn một hồ sơ để tiếp tục liên kết.',
-            );
-            return;
-        }
-
-        const selectedProfile = candidateProfiles.find(
-            (member) => member.id === selectedProfileId,
-        );
-
-        if (!selectedProfile) {
-            appToast.showError(
-                'Không tìm thấy hồ sơ',
-                'Hồ sơ đã chọn không còn hợp lệ. Vui lòng chọn lại.',
+                'Ch?n h? s?',
+                'Vui l?ng ch?n m?t h? s? ?? ti?p t?c li?n k?t.',
             );
             return;
         }
@@ -307,14 +253,14 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             await familiesServices.linkProfileByInviteCode({
                 invite_code:
                     inviteCode.trim() || previewData?.invite_code || '',
-                profile_id: selectedProfile.id,
+                profile_id: selectedProfileId,
             });
             await handleComplete();
         } catch (error) {
             console.error(error);
             appToast.showError(
-                'Liên kết thất bại',
-                'Không thể liên kết hồ sơ với gia đình lúc này.',
+                'Li?n k?t th?t b?i',
+                'Kh?ng th? li?n k?t h? s? v?i gia ??nh l?c n?y.',
             );
         } finally {
             setIsJoining(false);
@@ -336,27 +282,28 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                         size={18}
                         color={colors.primary}
                     />
-                    <Text style={styles.backText}>Quay lại</Text>
+                    <Text style={styles.backText}>Quay láº¡i</Text>
                 </Pressable>
 
                 <View style={styles.hero}>
                     <View style={styles.badge}>
-                        <Text style={styles.badgeText}>Mã gia đình</Text>
+                        <Text style={styles.badgeText}>MĂ£ gia Ä‘Ă¬nh</Text>
                     </View>
                     <Text style={styles.title}>
-                        Nhập mã để{'\n'}
+                        Nháº­p mĂ£ Ä‘á»ƒ{'\n'}
                         <Text style={styles.titleAccent}>
-                            tham gia gia đình
+                            tham gia gia Ä‘Ă¬nh
                         </Text>
                     </Text>
                     <Text style={styles.subtitle}>
-                        Nếu gia đình của bạn đã có hồ sơ được tạo sẵn, bước tiếp
-                        theo sẽ dùng mã này để tìm đúng dữ liệu tương ứng.
+                        Náº¿u gia Ä‘Ă¬nh cá»§a báº¡n Ä‘Ă£ cĂ³ há»“ sÆ¡ Ä‘Æ°á»£c
+                        táº¡o sáºµn, bÆ°á»›c tiáº¿p theo sáº½ dĂ¹ng mĂ£ nĂ y
+                        Ä‘á»ƒ tĂ¬m Ä‘Ăºng dá»¯ liá»‡u tÆ°Æ¡ng á»©ng.
                     </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Mã gia đình / mã mời</Text>
+                    <Text style={styles.label}>MĂ£ gia Ä‘Ă¬nh / mĂ£ má»i</Text>
                     <View style={styles.inputWrap}>
                         <Ionicons
                             name='key-outline'
@@ -368,7 +315,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             style={styles.input}
                             value={inviteCode}
                             onChangeText={setInviteCode}
-                            placeholder='Ví dụ: ABC123'
+                            placeholder='VĂ­ dá»¥: ABC123'
                             placeholderTextColor={colors.text3}
                             autoCapitalize='none'
                             autoCorrect={false}
@@ -392,8 +339,8 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             ) : null}
                             <Text style={styles.primaryBtnText}>
                                 {previewState === 'loading'
-                                    ? 'Đang kiểm tra...'
-                                    : 'Kiểm tra mã'}
+                                    ? 'Äang kiá»ƒm tra...'
+                                    : 'Kiá»ƒm tra mĂ£'}
                             </Text>
                         </View>
                     </Pressable>
@@ -410,7 +357,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 />
                             </View>
                             <Text style={styles.previewLabel}>
-                                Đã tìm thấy gia đình
+                                ÄĂ£ tĂ¬m tháº¥y gia Ä‘Ă¬nh
                             </Text>
                         </View>
 
@@ -427,7 +374,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 <View style={styles.previewFamilyInfo}>
                                     <Text style={styles.previewTitle}>
                                         {previewData.family_name ||
-                                            'Gia đình hợp lệ'}
+                                            'Gia Ä‘Ă¬nh há»£p lá»‡'}
                                     </Text>
                                     <View style={styles.previewLocationRow}>
                                         <Ionicons
@@ -449,7 +396,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             <View style={styles.previewInfoCard}>
                                 <View style={styles.previewInfoRow}>
                                     <Text style={styles.previewInfoLabel}>
-                                        Mã mời
+                                        MĂ£ má»i
                                     </Text>
                                     <View style={styles.previewCodeChip}>
                                         <Text style={styles.previewCodeText}>
@@ -465,15 +412,41 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
 
                                 <View style={styles.previewInfoRow}>
                                     <Text style={styles.previewInfoLabel}>
-                                        Ngày tạo
+                                        Háº¿t háº¡n
                                     </Text>
                                     <Text style={styles.previewInfoValue}>
                                         {formatPreviewDate(
-                                            previewData.created_at,
+                                            previewData.expires_at,
                                         )}
                                     </Text>
                                 </View>
                             </View>
+
+                            {!previewData.valid ? (
+                                <View
+                                    style={{
+                                        backgroundColor: '#FFF1F2',
+                                        borderWidth: 1,
+                                        borderColor: '#FECDD3',
+                                        borderRadius: moderateScale(12),
+                                        paddingHorizontal: scale(12),
+                                        paddingVertical: verticalScale(10),
+                                        marginBottom: verticalScale(12),
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: '#BE123C',
+                                            fontFamily: typography.font.bold,
+                                            fontSize: scaleFont(11.5),
+                                        }}
+                                    >
+                                        MĂ£ má»i khĂ´ng cĂ²n hiá»‡u lá»±c. Vui
+                                        lĂ²ng yĂªu cáº§u chá»§ gia Ä‘Ă¬nh chia
+                                        sáº» mĂ£ má»›i.
+                                    </Text>
+                                </View>
+                            ) : null}
 
                             <Pressable
                                 style={[
@@ -484,7 +457,9 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                 disabled={isJoining}
                             >
                                 <Text style={styles.joinBtnText}>
-                                    Tham gia gia đình này
+                                    {isJoining || isLoadingProfiles
+                                        ? 'Äang xá»­ lĂ½...'
+                                        : 'Tham gia gia Ä‘Ă¬nh nĂ y'}
                                 </Text>
                             </Pressable>
                         </View>
@@ -494,7 +469,7 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                 {previewState === 'error' ? (
                     <StatePanel
                         variant='error'
-                        title='Không kiểm tra được mã gia đình'
+                        title='KhĂ´ng kiá»ƒm tra Ä‘Æ°á»£c mĂ£ gia Ä‘Ă¬nh'
                         message={previewErrorMessage}
                         compact
                     />
@@ -522,10 +497,11 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderTextWrap}>
                                 <Text style={styles.modalTitle}>
-                                    Liên kết tài khoản
+                                    LiĂªn káº¿t tĂ i khoáº£n
                                 </Text>
                                 <Text style={styles.modalSubtitle}>
-                                    Bạn là thành viên nào trong gia đình?
+                                    Báº¡n lĂ  thĂ nh viĂªn nĂ o trong gia
+                                    Ä‘Ă¬nh?
                                 </Text>
                             </View>
                         </View>
@@ -544,14 +520,15 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                                     color={colors.info}
                                 />
                                 <Text style={styles.modalHintText}>
-                                    Chọn hồ sơ của bạn trong gia đình để liên
-                                    kết với tài khoản này. Mỗi hồ sơ chỉ liên
-                                    kết được một tài khoản.
+                                    Chá»n há»“ sÆ¡ cá»§a báº¡n trong gia Ä‘Ă¬nh
+                                    Ä‘á»ƒ liĂªn káº¿t vá»›i tĂ i khoáº£n nĂ y.
+                                    Má»—i há»“ sÆ¡ chá»‰ liĂªn káº¿t Ä‘Æ°á»£c
+                                    má»™t tĂ i khoáº£n.
                                 </Text>
                             </View>
 
                             <Text style={styles.modalSectionTitle}>
-                                Thành viên chưa có tài khoản
+                                ThĂ nh viĂªn chÆ°a cĂ³ tĂ i khoáº£n
                             </Text>
 
                             {candidateProfiles.map((member, index) => {
@@ -632,7 +609,9 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
                             disabled={!selectedProfileId || isJoining}
                         >
                             <Text style={styles.confirmBtnText}>
-                                Xác nhận liên kết
+                                {isJoining
+                                    ? 'Äang xá»­ lĂ½...'
+                                    : 'XĂ¡c nháº­n liĂªn káº¿t'}
                             </Text>
                         </Pressable>
                     </Pressable>

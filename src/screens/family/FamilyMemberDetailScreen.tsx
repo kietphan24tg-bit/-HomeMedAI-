@@ -104,11 +104,11 @@ const RECORD_STYLE_PRESETS = [
 ];
 
 function bmiStatusLabel(bmi: number): string {
-    if (!bmi) return 'Chua du du lieu';
-    if (bmi < 18.5) return 'Can nang thap';
-    if (bmi < 23) return 'Binh thuong';
-    if (bmi < 25) return 'Thua can';
-    return 'Can theo doi';
+    if (!bmi) return 'Chưa đủ dữ liệu';
+    if (bmi < 18.5) return 'Cân nặng thấp';
+    if (bmi < 23) return 'Bình thường';
+    if (bmi < 25) return 'Thừa cân';
+    return 'Cần theo dõi';
 }
 
 function normalizeMedicationSchedule(desc?: string): {
@@ -117,8 +117,8 @@ function normalizeMedicationSchedule(desc?: string): {
 } {
     if (!desc) {
         return {
-            schedule: 'Chua ro lich dung',
-            note: 'cap nhat them thong tin',
+            schedule: 'Chưa rõ lịch dùng',
+            note: 'cập nhật thêm thông tin',
         };
     }
 
@@ -129,9 +129,9 @@ function normalizeMedicationSchedule(desc?: string): {
 
     return {
         schedule: parts[1]
-            ? `${parts[1]} 1 vien`
-            : (parts[0] ?? 'Chua ro lich dung'),
-        note: parts[2]?.toLowerCase() ?? 'cap nhat them thong tin',
+            ? `${parts[1]} 1 viên`
+            : (parts[0] ?? 'Chưa rõ lịch dùng'),
+        note: parts[2]?.toLowerCase() ?? 'cập nhật thêm thông tin',
     };
 }
 
