@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StatePanel from '@/src/components/state/StatePanel';
-import { FAMILIES } from '@/src/data/family-data';
 import { appToast } from '@/src/lib/toast';
 import { familiesServices } from '@/src/services/families.services';
 import { useAuthStore } from '@/src/stores/useAuthStore';
@@ -35,6 +34,13 @@ type PreviewData = {
     invite_code?: string;
     address?: string;
     created_at?: string;
+};
+
+type CandidateProfile = {
+    id: string;
+    initials: string;
+    name: string;
+    role: string;
 };
 
 const APP_TABS_ROUTE = '/(protected)/(app)/(tabs)' as const;
@@ -63,30 +69,84 @@ const getFamilyInitial = (name?: string): string => {
     return initial || 'G';
 };
 
+function toArray(data: unknown): Record<string, unknown>[] {
+    if (Array.isArray(data)) return data as Record<string, unknown>[];
+    if (Array.isArray((data as any)?.data)) return (data as any).data;
+    if (Array.isArray((data as any)?.profiles)) return (data as any).profiles;
+    return [];
+}
+
+function stringValue(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+}
+
+function getProfileInitials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+
+    return name.slice(0, 2).toUpperCase() || 'TV';
+}
+
+function mapProfileToCandidate(
+    item: Record<string, unknown>,
+    index: number,
+): CandidateProfile | null {
+    const profile =
+        item.profile && typeof item.profile === 'object'
+            ? (item.profile as Record<string, unknown>)
+            : item;
+    const id = stringValue(profile.id ?? item.profile_id);
+
+    if (!id) {
+        return null;
+    }
+
+    const linkedUserId = profile.linked_user_id ?? item.linked_user_id;
+    const isLinked =
+        typeof linkedUserId === 'string' && linkedUserId.trim().length > 0;
+
+    if (isLinked) {
+        return null;
+    }
+
+    const name =
+        stringValue(profile.full_name) ||
+        stringValue(item.full_name) ||
+        stringValue(item.name) ||
+        `Hồ sơ ${index + 1}`;
+    const role =
+        stringValue(item.relation_role) ||
+        stringValue(item.role) ||
+        'Thành viên';
+
+    return {
+        id,
+        initials: getProfileInitials(name),
+        name,
+        role,
+    };
+}
+
 export default function JoinFamilyCodeScreen(): React.JSX.Element {
     const syncMeOverview = useAuthStore((state) => state.syncMeOverview);
     const [inviteCode, setInviteCode] = useState('');
     const [previewState, setPreviewState] = useState<PreviewState>('idle');
     const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+    const [candidateProfiles, setCandidateProfiles] = useState<
+        CandidateProfile[]
+    >([]);
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
         null,
     );
 
-    const matchedFamily =
-        (previewData?.family_id
-            ? FAMILIES.find((family) => family.id === previewData.family_id)
-            : null) ??
-        FAMILIES.find((family) => family.name === previewData?.family_name) ??
-        null;
-
-    const candidateProfiles =
-        matchedFamily?.members.filter((member) => !member.isSelf) ?? [];
-
     const handlePreview = async () => {
         if (!inviteCode.trim()) {
             setPreviewState('error');
             setPreviewData(null);
+            setCandidateProfiles([]);
             setShowLinkModal(false);
             return;
         }
@@ -96,13 +156,25 @@ export default function JoinFamilyCodeScreen(): React.JSX.Element {
             const res = await familiesServices.previewInviteCode(
                 inviteCode.trim(),
             );
+            const familyId = stringValue(res?.family_id);
+            const profilesRes = familyId
+                ? await familiesServices.getProfiles(familyId)
+                : [];
+            const profiles = toArray(profilesRes)
+                .map(mapProfileToCandidate)
+                .filter(
+                    (profile): profile is CandidateProfile => profile !== null,
+                );
+
             setPreviewData(res);
+            setCandidateProfiles(profiles);
             setPreviewState('success');
             setShowLinkModal(false);
             setSelectedProfileId(null);
         } catch (error) {
             console.error(error);
             setPreviewData(null);
+            setCandidateProfiles([]);
             setPreviewState('error');
             setShowLinkModal(false);
             setSelectedProfileId(null);
