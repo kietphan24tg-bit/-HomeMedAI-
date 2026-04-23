@@ -26,10 +26,22 @@ import type {
 } from '@/src/types/medical-dictionary';
 
 function getTypeLabel(type: DictionaryEntryType): string {
-    if (type === 'disease') return 'Disease';
-    if (type === 'drug') return 'Drug';
-    return 'Vaccine';
+    if (type === 'disease') return 'Bệnh';
+    if (type === 'drug') return 'Thuốc';
+    return 'Vắc xin';
 }
+
+const DETAIL_LABELS: Record<string, string> = {
+    symptoms: 'Triệu chứng',
+    treatment: 'Điều trị',
+    warning_signs: 'Dấu hiệu cảnh báo',
+    indication: 'Công dụng',
+    adult_dose: 'Liều dùng cho người lớn',
+    caution: 'Lưu ý',
+    schedule: 'Lịch tiêm',
+    common_reactions: 'Phản ứng thường gặp',
+    note: 'Ghi chú',
+};
 
 function getTypeTheme(type: DictionaryEntryType) {
     if (type === 'disease') {
@@ -59,24 +71,28 @@ function getTypeTheme(type: DictionaryEntryType) {
 }
 
 function humanizeKey(key: string): string {
+    if (DETAIL_LABELS[key]) {
+        return DETAIL_LABELS[key];
+    }
+
     return key
         .replace(/_/g, ' ')
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function formatValue(value: unknown): string {
-    if (value === null || value === undefined) return 'No data available';
+    if (value === null || value === undefined) return 'Chưa có dữ liệu';
     if (typeof value === 'string') return value;
     if (typeof value === 'number' || typeof value === 'boolean') {
         return String(value);
     }
     if (Array.isArray(value)) {
-        if (value.length === 0) return 'No data available';
-        return value.map((item) => formatValue(item)).join('\n• ');
+        if (value.length === 0) return 'Chưa có dữ liệu';
+        return value.map((item) => `- ${formatValue(item)}`).join('\n');
     }
     if (typeof value === 'object') {
         const entries = Object.entries(value);
-        if (entries.length === 0) return 'No data available';
+        if (entries.length === 0) return 'Chưa có dữ liệu';
         return entries
             .map(
                 ([entryKey, entryValue]) =>
@@ -102,7 +118,7 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
     useEffect(() => {
         async function loadDetail() {
             if (!entryType || !itemId) {
-                setError('Unable to find the selected dictionary item.');
+                setError('Không tìm thấy mục từ điển đã chọn.');
                 setLoading(false);
                 return;
             }
@@ -116,7 +132,7 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                 );
                 setDetail(res);
             } catch {
-                setError('Unable to load dictionary detail right now.');
+                setError('Hiện chưa thể tải chi tiết mục từ điển.');
             } finally {
                 setLoading(false);
             }
@@ -173,12 +189,12 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                 </View>
 
                 <Text style={styles.heroTitle}>
-                    {detail?.title ?? 'Loading detail...'}
+                    {detail?.title ?? 'Đang tải chi tiết...'}
                 </Text>
 
                 <Text style={styles.heroSubtitle}>
                     {detail?.summary?.trim() ||
-                        'Detailed API content will appear here once loaded.'}
+                        'Nội dung chi tiết sẽ hiển thị sau khi tải xong.'}
                 </Text>
             </LinearGradient>
 
@@ -191,7 +207,7 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                     <View style={styles.feedbackCard}>
                         <ActivityIndicator color={colors.primary} />
                         <Text style={styles.feedbackText}>
-                            Loading detail...
+                            Đang tải chi tiết...
                         </Text>
                     </View>
                 ) : null}
@@ -212,7 +228,7 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                         {detail.aliases.length > 0 ? (
                             <View style={styles.card}>
                                 <Text style={styles.sectionTitle}>
-                                    Related Keywords
+                                    Từ khóa liên quan
                                 </Text>
                                 <View style={styles.aliasWrap}>
                                     {detail.aliases.map((alias) => (
@@ -243,16 +259,16 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                         ) : null}
 
                         <View style={styles.card}>
-                            <Text style={styles.sectionTitle}>Summary</Text>
+                            <Text style={styles.sectionTitle}>Tóm tắt</Text>
                             <Text style={styles.sectionBody}>
                                 {detail.summary?.trim() ||
-                                    'No summary available for this item.'}
+                                    'Chưa có tóm tắt cho mục này.'}
                             </Text>
                         </View>
 
                         <View style={styles.card}>
                             <Text style={styles.sectionTitle}>
-                                Detail Content
+                                Nội dung chi tiết
                             </Text>
                             {Object.keys(detail.content).length > 0 ? (
                                 Object.entries(detail.content).map(
@@ -272,8 +288,7 @@ export default function DictionaryDetailScreen(): React.JSX.Element {
                                 )
                             ) : (
                                 <Text style={styles.sectionBody}>
-                                    No structured content available for this
-                                    item.
+                                    Chưa có nội dung chi tiết cho mục này.
                                 </Text>
                             )}
                         </View>
