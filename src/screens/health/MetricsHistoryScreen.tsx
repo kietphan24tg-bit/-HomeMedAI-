@@ -11,7 +11,13 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Line, Path, Svg, Circle as SvgCircle } from 'react-native-svg';
+import {
+    Line,
+    Path,
+    Svg,
+    Circle as SvgCircle,
+    Text as SvgText,
+} from 'react-native-svg';
 import type { MetricData, MetricReading } from '@/src/data/metrics-data';
 import { useMeOverviewQuery } from '@/src/features/me/queries';
 import {
@@ -57,6 +63,95 @@ const METRIC_META: Record<
         iconColor: '#D97706',
     },
 };
+
+const CHART_WIDTH = 340;
+const CHART_HEIGHT = 132;
+const CHART_LEFT = 36;
+const CHART_RIGHT = 320;
+const CHART_TOP = 18;
+const CHART_BOTTOM = 88;
+const CHART_LABEL_Y = 118;
+
+function chartX(index: number, total: number) {
+    if (total <= 1) {
+        return (CHART_LEFT + CHART_RIGHT) / 2;
+    }
+
+    return CHART_LEFT + (index / (total - 1)) * (CHART_RIGHT - CHART_LEFT);
+}
+
+function paddedRange(values: number[]) {
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = Math.max((max - min) * 0.15, 5);
+
+    return {
+        min: min - padding,
+        max: max + padding,
+    };
+}
+
+function chartY(value: number, min: number, max: number) {
+    const range = Math.max(max - min, 1);
+
+    return CHART_BOTTOM - ((value - min) / range) * (CHART_BOTTOM - CHART_TOP);
+}
+
+function linePath(values: number[], min: number, max: number) {
+    return values
+        .map(
+            (value, index) =>
+                `${chartX(index, values.length)} ${chartY(value, min, max)}`,
+        )
+        .join(' L ');
+}
+
+function renderGrid() {
+    return (
+        <>
+            <Line
+                x1='10'
+                y1={CHART_TOP}
+                x2='330'
+                y2={CHART_TOP}
+                stroke='#E2E8F0'
+                strokeWidth='1'
+            />
+            <Line
+                x1='10'
+                y1={(CHART_TOP + CHART_BOTTOM) / 2}
+                x2='330'
+                y2={(CHART_TOP + CHART_BOTTOM) / 2}
+                stroke='#E2E8F0'
+                strokeWidth='1'
+            />
+            <Line
+                x1='10'
+                y1={CHART_BOTTOM}
+                x2='330'
+                y2={CHART_BOTTOM}
+                stroke='#E2E8F0'
+                strokeWidth='1'
+            />
+        </>
+    );
+}
+
+function renderDateLabels(dates: string[]) {
+    return dates.map((date, index) => (
+        <SvgText
+            key={`${date}-${index}`}
+            x={chartX(index, dates.length)}
+            y={CHART_LABEL_Y}
+            textAnchor='middle'
+            fill={colors.text3}
+            fontSize='11'
+            fontFamily={typography.font.medium}
+        >
+            {date}
+        </SvgText>
+    ));
+}
 
 function emptyMetricData(metric: MetricType): MetricData {
     const meta = METRIC_META[metric];
@@ -274,83 +369,23 @@ function renderChart(tab: string, metricData: MetricData) {
     if (tab === 'bp') {
         const systolic = metricData.chartData.systolic ?? [];
         const diastolic = metricData.chartData.diastolic ?? [];
+        const dates = metricData.chartData.dates ?? [];
 
         if (!systolic.length || !diastolic.length) {
             return (
-                <Svg width='100%' height='108' viewBox='0 0 340 120'>
-                    <Line
-                        x1='10'
-                        y1='20'
-                        x2='330'
-                        y2='20'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
-                    <Line
-                        x1='10'
-                        y1='50'
-                        x2='330'
-                        y2='50'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
-                    <Line
-                        x1='10'
-                        y1='80'
-                        x2='330'
-                        y2='80'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
+                <Svg width='100%' height={CHART_HEIGHT} viewBox='0 0 340 132'>
+                    {renderGrid()}
                 </Svg>
             );
         }
 
-        const maxSys = Math.max(...systolic);
-        const minSys = Math.min(...systolic);
-        const maxDias = Math.max(...diastolic);
-        const minDias = Math.min(...diastolic);
-        const sysRange = Math.max(maxSys - minSys, 1);
-        const diasRange = Math.max(maxDias - minDias, 1);
-
-        const sysScale = (val: number) =>
-            100 - ((val - minSys) / sysRange) * 60;
-        const diasScale = (val: number) =>
-            100 - ((val - minDias) / diasRange) * 30 + 40;
-
-        const sysPaths = systolic
-            .map((val, i) => `${40 + i * 65} ${sysScale(val)}`)
-            .join(' L ');
-        const diasPaths = diastolic
-            .map((val, i) => `${40 + i * 65} ${diasScale(val)}`)
-            .join(' L ');
+        const sharedRange = paddedRange([...systolic, ...diastolic]);
+        const sysPaths = linePath(systolic, sharedRange.min, sharedRange.max);
+        const diasPaths = linePath(diastolic, sharedRange.min, sharedRange.max);
 
         return (
-            <Svg width='100%' height='108' viewBox='0 0 340 120'>
-                <Line
-                    x1='10'
-                    y1='20'
-                    x2='330'
-                    y2='20'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
-                <Line
-                    x1='10'
-                    y1='50'
-                    x2='330'
-                    y2='50'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
-                <Line
-                    x1='10'
-                    y1='80'
-                    x2='330'
-                    y2='80'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
+            <Svg width='100%' height={CHART_HEIGHT} viewBox='0 0 340 132'>
+                {renderGrid()}
 
                 <Path
                     d={`M ${sysPaths}`}
@@ -368,8 +403,8 @@ function renderChart(tab: string, metricData: MetricData) {
                 {systolic.map((val, i) => (
                     <SvgCircle
                         key={`sys-${i}`}
-                        cx={40 + i * 65}
-                        cy={sysScale(val)}
+                        cx={chartX(i, systolic.length)}
+                        cy={chartY(val, sharedRange.min, sharedRange.max)}
                         r='4'
                         fill={colors.danger}
                     />
@@ -377,85 +412,34 @@ function renderChart(tab: string, metricData: MetricData) {
                 {diastolic.map((val, i) => (
                     <SvgCircle
                         key={`dias-${i}`}
-                        cx={40 + i * 65}
-                        cy={diasScale(val)}
+                        cx={chartX(i, diastolic.length)}
+                        cy={chartY(val, sharedRange.min, sharedRange.max)}
                         r='4'
                         fill='#FFF'
                         stroke='#FCA5A5'
                         strokeWidth='2'
                     />
                 ))}
+                {renderDateLabels(dates)}
             </Svg>
         );
     } else {
         const values = metricData.chartData.values ?? [];
+        const dates = metricData.chartData.dates ?? [];
 
         if (!values.length) {
             return (
-                <Svg width='100%' height='108' viewBox='0 0 340 120'>
-                    <Line
-                        x1='10'
-                        y1='20'
-                        x2='330'
-                        y2='20'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
-                    <Line
-                        x1='10'
-                        y1='50'
-                        x2='330'
-                        y2='50'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
-                    <Line
-                        x1='10'
-                        y1='80'
-                        x2='330'
-                        y2='80'
-                        stroke='#E2E8F0'
-                        strokeWidth='1'
-                    />
+                <Svg width='100%' height={CHART_HEIGHT} viewBox='0 0 340 132'>
+                    {renderGrid()}
                 </Svg>
             );
         }
-        const maxVal = Math.max(...values);
-        const minVal = Math.min(...values);
-        const valRange = Math.max(maxVal - minVal, 1);
-        const valScale = (val: number) =>
-            100 - ((val - minVal) / valRange) * 60;
-
-        const paths = values
-            .map((val, i) => `${40 + i * 65} ${valScale(val)}`)
-            .join(' L ');
+        const range = paddedRange(values);
+        const paths = linePath(values, range.min, range.max);
 
         return (
-            <Svg width='100%' height='108' viewBox='0 0 340 120'>
-                <Line
-                    x1='10'
-                    y1='20'
-                    x2='330'
-                    y2='20'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
-                <Line
-                    x1='10'
-                    y1='50'
-                    x2='330'
-                    y2='50'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
-                <Line
-                    x1='10'
-                    y1='80'
-                    x2='330'
-                    y2='80'
-                    stroke='#E2E8F0'
-                    strokeWidth='1'
-                />
+            <Svg width='100%' height={CHART_HEIGHT} viewBox='0 0 340 132'>
+                {renderGrid()}
 
                 <Path
                     d={`M ${paths}`}
@@ -466,12 +450,13 @@ function renderChart(tab: string, metricData: MetricData) {
                 {values.map((val, i) => (
                     <SvgCircle
                         key={`val-${i}`}
-                        cx={40 + i * 65}
-                        cy={valScale(val)}
+                        cx={chartX(i, values.length)}
+                        cy={chartY(val, range.min, range.max)}
                         r='4'
                         fill={colors.primary}
                     />
                 ))}
+                {renderDateLabels(dates)}
             </Svg>
         );
     }
@@ -479,6 +464,7 @@ function renderChart(tab: string, metricData: MetricData) {
 
 interface MetricsHistoryScreenProps {
     memberName?: string;
+    healthProfile?: unknown;
     hideAddButton?: boolean;
     onAddNew?: () => void;
     onExportPDF?: (metricId: string) => void;
@@ -490,6 +476,7 @@ interface MetricsHistoryScreenProps {
  */
 export default function MetricsHistoryScreen({
     memberName = 'Nguyễn Thị Bình',
+    healthProfile,
     hideAddButton = false,
     onAddNew,
     onExportPDF,
@@ -513,9 +500,9 @@ export default function MetricsHistoryScreen({
         () =>
             buildMetricDataFromHealthProfile(
                 activeMetric,
-                meOverview?.health_profile,
+                healthProfile ?? meOverview?.health_profile,
             ) ?? emptyMetricData(activeMetric),
-        [activeMetric, meOverview?.health_profile],
+        [activeMetric, healthProfile, meOverview?.health_profile],
     );
     const hasMetricData = metricData.readings.length > 0;
 

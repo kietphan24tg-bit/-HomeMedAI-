@@ -1,4 +1,5 @@
 import apiClient from '../api/client';
+import { toVietnamE164 } from '../utils/phone';
 
 export type ProfileScope = 'all' | 'without_family' | 'with_family';
 
@@ -14,7 +15,6 @@ export type CreatePersonalProfilePayload = {
 export type PatchMyProfilePayload = Partial<CreatePersonalProfilePayload>;
 
 export type PatchMyUserPayload = {
-    email?: string | null;
     phone_number?: string | null;
 };
 
@@ -228,7 +228,18 @@ export const userService = {
         return res.data;
     },
     patchMyUser: async (payload: PatchMyUserPayload = {}) => {
-        const res = await apiClient.patch('/users/me', payload);
+        const normalizedPhoneNumber =
+            payload.phone_number === null
+                ? null
+                : toVietnamE164(payload.phone_number);
+        const res = await apiClient.patch(
+            '/users/me',
+            compactPayload({
+                ...payload,
+                phone_number:
+                    normalizedPhoneNumber ?? payload.phone_number ?? undefined,
+            }),
+        );
         return res.data;
     },
     patchMyHealthProfile: async (

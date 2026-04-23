@@ -1,7 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     useFamilyProfilesQuery,
@@ -38,6 +45,7 @@ const AVATAR_BG_COLORS = [
     '#FFF7ED',
     '#FFF1F2',
 ];
+const FAMILY_REMINDERS_SYNC_INTERVAL_MS = 30000;
 
 function normalizeStatus(value: string | null | undefined): Reminder['status'] {
     const normalized = (value ?? '').toLowerCase();
@@ -128,9 +136,12 @@ export default function FamilyRemindersScreen({
 }: {
     familyId: string;
 }): React.JSX.Element {
-    const { data: family } = useFamilyQuery(familyId);
-    const { data: familyProfiles = [] } = useFamilyProfilesQuery(familyId);
+    const { data: family, isLoading: familyLoading } = useFamilyQuery(familyId);
+    const { data: familyProfiles = [], isLoading: profilesLoading } =
+        useFamilyProfilesQuery(familyId);
     const [reminders, setReminders] = useState<Reminder[]>([]);
+    const [remindersLoading, setRemindersLoading] = useState(true);
+    const remindersLoadedRef = useRef(false);
 
     const familyProfileIds = useMemo(() => {
         const fromProfiles = familyProfiles
@@ -169,8 +180,11 @@ export default function FamilyRemindersScreen({
     useEffect(() => {
         let active = true;
 
-        const load = async () => {
+        const load = async (showLoading = false) => {
             if (!family) return;
+            if (showLoading) {
+                setRemindersLoading(true);
+            }
             try {
                 const [notificationRes, ...appointmentRes] = await Promise.all([
                     notificationsService.getMyNotifications(),
@@ -253,17 +267,48 @@ export default function FamilyRemindersScreen({
                 if (active) {
                     appToast.showError('Không tải được lịch nhắc gia đình.');
                 }
+            } finally {
+                if (active) {
+                    remindersLoadedRef.current = true;
+                    setRemindersLoading(false);
+                }
             }
         };
 
-        void load();
+        void load(!remindersLoadedRef.current);
+        const intervalId = setInterval(() => {
+            void load(false);
+        }, FAMILY_REMINDERS_SYNC_INTERVAL_MS);
+
         return () => {
             active = false;
+            clearInterval(intervalId);
         };
     }, [family, family?.name, familyProfileIds, profileNameMap]);
 
+    if (familyLoading || profilesLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingState}>
+                    <ActivityIndicator size='large' color={colors.primary} />
+                    <Text style={styles.loadingText}>
+                        Đang tải lịch nhắc gia đình...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     if (!family) {
-        return <View style={styles.container} />;
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingState}>
+                    <Text style={styles.loadingText}>
+                        Không tìm thấy gia đình.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
     }
 
     const handleAction = (id: string, action: 'taken' | 'skipped') => {
@@ -316,11 +361,23 @@ export default function FamilyRemindersScreen({
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {reminders.length > 0 && (
+                {remindersLoading ? (
+                    <View style={styles.loadingCard}>
+                        <ActivityIndicator
+                            size='small'
+                            color={colors.primary}
+                        />
+                        <Text style={styles.loadingText}>
+                            Đang tải lịch nhắc...
+                        </Text>
+                    </View>
+                ) : null}
+
+                {!remindersLoading && reminders.length > 0 && (
                     <Text style={styles.sectionTitle}>Tất cả lịch nhắc</Text>
                 )}
 
-                {reminders.length === 0 && (
+                {!remindersLoading && reminders.length === 0 && (
                     <View style={styles.emptyCard}>
                         <Text style={styles.emptyTitle}>Chưa có lịch nhắc</Text>
                         <Text style={styles.emptySubtitle}>
@@ -330,121 +387,131 @@ export default function FamilyRemindersScreen({
                     </View>
                 )}
 
-                {reminders.map((reminder) => {
-                    const colorPair = getReminderColorPair(reminder);
-                    return (
-                        <View key={reminder.id} style={styles.card}>
-                            <View style={styles.timePillRow}>
-                                <View style={styles.timePill}>
-                                    <Ionicons
-                                        name='time-outline'
-                                        size={12}
-                                        color={colors.warning}
-                                    />
-                                    <Text style={styles.timePillText}>
-                                        {reminder.date
-                                            ? `${reminder.date} • ${reminder.time}`
-                                            : reminder.time}
-                                    </Text>
-                                </View>
-                                <View
-                                    style={[
-                                        styles.statusPill,
-                                        {
-                                            backgroundColor:
-                                                reminder.status === 'pending'
-                                                    ? colors.warningBg
-                                                    : reminder.status ===
-                                                        'taken'
-                                                      ? colors.successBg
-                                                      : colors.dangerBg,
-                                        },
-                                    ]}
-                                >
-                                    <Text style={styles.statusPillText}>
-                                        {reminder.status === 'pending'
-                                            ? 'Đang chờ'
-                                            : reminder.status === 'taken'
-                                              ? 'Đã xử lý'
-                                              : 'Đã bỏ qua'}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.cardBody}>
-                                <View
-                                    style={[
-                                        styles.memberAvatar,
-                                        { backgroundColor: colorPair.bg },
-                                    ]}
-                                >
-                                    <Text
+                {!remindersLoading &&
+                    reminders.map((reminder) => {
+                        const colorPair = getReminderColorPair(reminder);
+                        return (
+                            <View key={reminder.id} style={styles.card}>
+                                <View style={styles.timePillRow}>
+                                    <View style={styles.timePill}>
+                                        <Ionicons
+                                            name='time-outline'
+                                            size={12}
+                                            color={colors.warning}
+                                        />
+                                        <Text style={styles.timePillText}>
+                                            {reminder.date
+                                                ? `${reminder.date} • ${reminder.time}`
+                                                : reminder.time}
+                                        </Text>
+                                    </View>
+                                    <View
                                         style={[
-                                            styles.memberAvatarText,
-                                            { color: colorPair.text },
+                                            styles.statusPill,
+                                            {
+                                                backgroundColor:
+                                                    reminder.status ===
+                                                    'pending'
+                                                        ? colors.warningBg
+                                                        : reminder.status ===
+                                                            'taken'
+                                                          ? colors.successBg
+                                                          : colors.dangerBg,
+                                            },
                                         ]}
                                     >
-                                        {reminder.memberInitials}
-                                    </Text>
-                                </View>
-                                <View style={styles.medicineDetailContainer}>
-                                    <Text style={styles.memberNameText}>
-                                        {reminder.memberName}
-                                    </Text>
-                                    <Text style={styles.medicineName}>
-                                        {reminder.medicineName}
-                                    </Text>
-                                    <View style={styles.dosageRow}>
-                                        <Ionicons
-                                            name='calendar-outline'
-                                            size={11}
-                                            color={colors.text3}
-                                        />
-                                        <Text style={styles.dosageInfo}>
-                                            {reminder.dosageInfo}
+                                        <Text style={styles.statusPillText}>
+                                            {reminder.status === 'pending'
+                                                ? 'Đang chờ'
+                                                : reminder.status === 'taken'
+                                                  ? 'Đã xử lý'
+                                                  : 'Đã bỏ qua'}
                                         </Text>
                                     </View>
                                 </View>
-                            </View>
 
-                            {reminder.status === 'pending' &&
-                            reminder.category === 'medicine' ? (
-                                <View style={styles.actions}>
-                                    <Pressable
-                                        style={styles.takenBtn}
-                                        onPress={() =>
-                                            handleAction(reminder.id, 'taken')
-                                        }
+                                <View style={styles.cardBody}>
+                                    <View
+                                        style={[
+                                            styles.memberAvatar,
+                                            { backgroundColor: colorPair.bg },
+                                        ]}
                                     >
-                                        <Ionicons
-                                            name='checkmark-circle-outline'
-                                            size={15}
-                                            color='#fff'
-                                        />
-                                        <Text style={styles.takenBtnText}>
-                                            Đã uống
+                                        <Text
+                                            style={[
+                                                styles.memberAvatarText,
+                                                { color: colorPair.text },
+                                            ]}
+                                        >
+                                            {reminder.memberInitials}
                                         </Text>
-                                    </Pressable>
-                                    <Pressable
-                                        style={styles.skipBtn}
-                                        onPress={() =>
-                                            handleAction(reminder.id, 'skipped')
-                                        }
+                                    </View>
+                                    <View
+                                        style={styles.medicineDetailContainer}
                                     >
-                                        <Ionicons
-                                            name='close-circle-outline'
-                                            size={15}
-                                            color={colors.text2}
-                                        />
-                                        <Text style={styles.skipBtnText}>
-                                            Bỏ qua
+                                        <Text style={styles.memberNameText}>
+                                            {reminder.memberName}
                                         </Text>
-                                    </Pressable>
+                                        <Text style={styles.medicineName}>
+                                            {reminder.medicineName}
+                                        </Text>
+                                        <View style={styles.dosageRow}>
+                                            <Ionicons
+                                                name='calendar-outline'
+                                                size={11}
+                                                color={colors.text3}
+                                            />
+                                            <Text style={styles.dosageInfo}>
+                                                {reminder.dosageInfo}
+                                            </Text>
+                                        </View>
+                                    </View>
                                 </View>
-                            ) : null}
-                        </View>
-                    );
-                })}
+
+                                {reminder.status === 'pending' &&
+                                reminder.category === 'medicine' ? (
+                                    <View style={styles.actions}>
+                                        <Pressable
+                                            style={styles.takenBtn}
+                                            onPress={() =>
+                                                handleAction(
+                                                    reminder.id,
+                                                    'taken',
+                                                )
+                                            }
+                                        >
+                                            <Ionicons
+                                                name='checkmark-circle-outline'
+                                                size={15}
+                                                color='#fff'
+                                            />
+                                            <Text style={styles.takenBtnText}>
+                                                Đã uống
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.skipBtn}
+                                            onPress={() =>
+                                                handleAction(
+                                                    reminder.id,
+                                                    'skipped',
+                                                )
+                                            }
+                                        >
+                                            <Ionicons
+                                                name='close-circle-outline'
+                                                size={15}
+                                                color={colors.text2}
+                                            />
+                                            <Text style={styles.skipBtnText}>
+                                                Bỏ qua
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                ) : null}
+                            </View>
+                        );
+                    })}
 
                 <View style={styles.bottomSpacer} />
             </ScrollView>
@@ -501,6 +568,27 @@ const styles = StyleSheet.create({
         paddingTop: verticalScale(8),
         paddingBottom: verticalScale(40),
         gap: verticalScale(8),
+    },
+    loadingState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: verticalScale(10),
+        paddingHorizontal: scale(24),
+    },
+    loadingCard: {
+        ...cardSystem.shell,
+        borderRadius: scale(14),
+        paddingHorizontal: scale(14),
+        paddingVertical: verticalScale(18),
+        alignItems: 'center',
+        gap: verticalScale(8),
+    },
+    loadingText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+        color: colors.text3,
+        textAlign: 'center',
     },
     sectionTitle: {
         ...formSystem.sectionTitle,

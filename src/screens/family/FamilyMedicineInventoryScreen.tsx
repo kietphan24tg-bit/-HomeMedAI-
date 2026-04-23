@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Modal,
     Platform,
     Pressable,
@@ -413,9 +414,8 @@ export default function FamilyMedicineInventoryScreen({
         useState<FamilyMedicineItem | null>(null);
     const [scheduleSaving, setScheduleSaving] = useState(false);
 
-    const { data: remoteItems = [] } = useFamilyMedicineInventoryQuery(
-        family.id,
-    );
+    const { data: remoteItems = [], isLoading: inventoryLoading } =
+        useFamilyMedicineInventoryQuery(family.id);
     const addMedicineMutation = useAddMedicineInventoryMutation();
     const patchMedicineMutation = usePatchMedicineInventoryMutation();
     const medicineSavePending =
@@ -852,23 +852,39 @@ export default function FamilyMedicineInventoryScreen({
                 contentContainerStyle={styles.contentInner}
                 showsVerticalScrollIndicator={false}
             >
-                <MedicineSection
-                    status='ok'
-                    items={okItems}
-                    onCardPress={handleCardPress}
-                />
-                <MedicineSection
-                    status='low'
-                    items={lowItems}
-                    onCardPress={handleCardPress}
-                />
-                <MedicineSection
-                    status='expiring'
-                    items={expiringItems}
-                    onCardPress={handleCardPress}
-                />
+                {!inventoryLoading ? (
+                    <>
+                        <MedicineSection
+                            status='ok'
+                            items={okItems}
+                            onCardPress={handleCardPress}
+                        />
+                        <MedicineSection
+                            status='low'
+                            items={lowItems}
+                            onCardPress={handleCardPress}
+                        />
+                        <MedicineSection
+                            status='expiring'
+                            items={expiringItems}
+                            onCardPress={handleCardPress}
+                        />
+                    </>
+                ) : null}
 
-                {!filteredItems.length ? (
+                {inventoryLoading ? (
+                    <View style={styles.loadingState}>
+                        <ActivityIndicator
+                            size='small'
+                            color={colors.primary}
+                        />
+                        <Text style={styles.loadingText}>
+                            Đang tải tủ thuốc...
+                        </Text>
+                    </View>
+                ) : null}
+
+                {!inventoryLoading && !filteredItems.length ? (
                     <View style={styles.emptyState}>
                         <Ionicons
                             name='file-tray-outline'
@@ -2186,6 +2202,19 @@ const styles = StyleSheet.create({
         color: colors.text3,
         textAlign: 'center',
         marginTop: verticalScale(6),
+    },
+    loadingState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: verticalScale(36),
+        paddingHorizontal: scale(24),
+        gap: verticalScale(8),
+    },
+    loadingText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12.5),
+        color: colors.text3,
+        textAlign: 'center',
     },
 
     // Bottom bar

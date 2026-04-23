@@ -43,6 +43,12 @@ export type JoinByInviteCodeRequest = {
     full_name?: string;
 };
 
+export type AcceptInviteCodeRequest = {
+    invite_code: string;
+    profile_id?: string;
+    full_name?: string | null;
+};
+
 export type RespondInviteRequest = {
     action: 'accept' | 'reject';
     invite_id: string;
@@ -147,10 +153,32 @@ export const familiesServices = {
         );
         return res.data;
     },
+    getLinkableProfilesByInviteCode: async (invite_code: string) => {
+        const res = await apiClient.get<LinkableProfilesResponse>(
+            '/families/invite/linkable-profiles',
+            {
+                params: { invite_code },
+            },
+        );
+        return res.data;
+    },
     linkProfileByInvite: async (payload: LinkInviteProfileRequest) => {
         const res = await apiClient.post<LinkInviteProfileResponse>(
             '/families/invite/link-profile',
             payload,
+        );
+        return res.data;
+    },
+    linkProfileByInviteCode: async ({
+        invite_code,
+        profile_id,
+    }: LinkInviteProfileRequest) => {
+        const res = await apiClient.post<LinkInviteProfileResponse>(
+            '/families/invite/link-profile',
+            {
+                invite_code,
+                profile_id,
+            },
         );
         return res.data;
     },
@@ -202,17 +230,53 @@ export const familiesServices = {
         });
         return res.data;
     },
+    acceptInviteCode: async ({
+        invite_code,
+        full_name,
+        profile_id,
+    }: AcceptInviteCodeRequest) => {
+        const res = await apiClient.post('/families/join', {
+            invite_code,
+            full_name,
+            profile_id,
+        });
+        return res.data;
+    },
     respondInvite: async ({
         action,
         invite_id,
         full_name,
         profile_id,
     }: RespondInviteRequest) => {
-        const res = await apiClient.post(`/families/join`, {
+        const res = await apiClient.post('/families/join', {
             action,
             invite_id,
             full_name,
             profile_id,
+        });
+        return res.data;
+    },
+    acceptInvite: async ({
+        invite_id,
+        full_name,
+        profile_id,
+    }: {
+        invite_id: string;
+        full_name?: string | null;
+        profile_id?: string;
+    }) => {
+        const res = await apiClient.post('/families/join', {
+            action: 'accept',
+            invite_id,
+            full_name,
+            profile_id,
+        });
+        return res.data;
+    },
+    rejectInvite: async ({ invite_id }: { invite_id: string }) => {
+        const res = await apiClient.post('/families/join', {
+            action: 'reject',
+            invite_id,
         });
         return res.data;
     },

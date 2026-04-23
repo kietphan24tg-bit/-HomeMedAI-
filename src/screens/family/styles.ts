@@ -1062,6 +1062,33 @@ export const styles = StyleSheet.create({
         marginBottom: verticalScale(4),
         marginTop: verticalScale(1),
     },
+    statsSummaryRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: scale(18),
+        paddingVertical: verticalScale(10),
+        minHeight: verticalScale(48),
+    },
+    statsSummaryIcon: {
+        width: moderateScale(30),
+        height: moderateScale(30),
+        borderRadius: moderateScale(9),
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: scale(10),
+        backgroundColor: '#FEF3C7',
+    },
+    statsSummaryBody: {
+        flex: 1,
+        justifyContent: 'center',
+        minHeight: verticalScale(30),
+    },
+    statsSummarySub: {
+        fontFamily: typography.font.regular,
+        fontSize: scaleFont(11),
+        color: colors.text3,
+        marginTop: verticalScale(3),
+    },
     hiChipsWrap: {
         flexDirection: 'row',
         alignItems: 'center',

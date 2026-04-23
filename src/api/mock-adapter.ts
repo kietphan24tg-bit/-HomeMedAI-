@@ -311,12 +311,13 @@ const DICTIONARY_SEED: DictionarySeedItem[] = [
     {
         id: 'disease-flu',
         type: 'disease',
-        title: 'Influenza (Cúm mùa)',
-        aliases: ['flu', 'cúm', 'influenza'],
-        summary: 'Nhiễm virus hô hấp cấp, thường tự giới hạn sau 5-7 ngày.',
+        title: 'Cúm mùa',
+        aliases: ['cúm', 'influenza', 'flu'],
+        summary:
+            'Bệnh nhiễm virus đường hô hấp cấp, thường tự giới hạn sau 5-7 ngày.',
         content: {
             symptoms: ['Sốt', 'Đau họng', 'Mệt mỏi', 'Ho khan'],
-            treatment: 'Nghỉ ngơi, bù nước, hạ sốt theo hướng dẫn bác sĩ.',
+            treatment: 'Nghỉ ngơi, bù nước, hạ sốt theo hướng dẫn của bác sĩ.',
             warning_signs: ['Khó thở', 'Sốt cao kéo dài', 'Đau ngực'],
         },
         source_file: 'mock://dictionary/disease-flu',
@@ -325,7 +326,7 @@ const DICTIONARY_SEED: DictionarySeedItem[] = [
         id: 'drug-paracetamol',
         type: 'drug',
         title: 'Paracetamol',
-        aliases: ['acetaminophen', 'hạ sốt'],
+        aliases: ['acetaminophen', 'hạ sốt', 'giảm đau'],
         summary: 'Thuốc giảm đau, hạ sốt phổ biến cho người lớn và trẻ em.',
         content: {
             indication: ['Sốt', 'Đau đầu', 'Đau cơ'],
@@ -337,8 +338,8 @@ const DICTIONARY_SEED: DictionarySeedItem[] = [
     {
         id: 'vaccine-covid19',
         type: 'vaccine',
-        title: 'Vaccine COVID-19',
-        aliases: ['covid vaccine', 'vaccine corona'],
+        title: 'Vắc xin COVID-19',
+        aliases: ['vắc xin covid', 'vaccine covid', 'vắc xin corona'],
         summary: 'Giúp giảm nguy cơ bệnh nặng và nhập viện do COVID-19.',
         content: {
             schedule: 'Theo khuyến cáo của Bộ Y tế và nhóm nguy cơ.',

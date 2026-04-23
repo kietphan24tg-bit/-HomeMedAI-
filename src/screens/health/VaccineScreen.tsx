@@ -19,6 +19,7 @@ import {
     Svg,
     LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
+import { syncFamilyQueries } from '@/src/features/family/sync';
 import { useMeHealthProfileQuery } from '@/src/features/me/queries';
 import { meQueryKeys } from '@/src/features/me/queryKeys';
 import { appToast } from '@/src/lib/toast';
@@ -352,6 +353,7 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
             await queryClient.invalidateQueries({
                 queryKey: ['appointment-reminders', profileId],
             });
+            syncFamilyQueries(queryClient);
             appToast.showSuccess('Đã lưu lịch nhắc tiêm');
         },
         onError: () => {
@@ -410,6 +412,21 @@ export default function VaccineScreen({ onClose }: Props): React.JSX.Element {
             appToast.showError('Không thể lưu mũi tiêm');
         },
     });
+
+    React.useEffect(() => {
+        if (
+            createReminderMutation.isSuccess ||
+            subscribeVaccineMutation.isSuccess ||
+            createDoseMutation.isSuccess
+        ) {
+            syncFamilyQueries(queryClient);
+        }
+    }, [
+        createReminderMutation.isSuccess,
+        subscribeVaccineMutation.isSuccess,
+        createDoseMutation.isSuccess,
+        queryClient,
+    ]);
 
     const handleScheduleVaccine = useCallback(
         (payload: {
@@ -1166,10 +1183,10 @@ function VaxDetailScreen({
                     <View>
                         <Text style={styles.vdSummaryLabel}>Tiến độ</Text>
                         <Text style={styles.vdSummaryProgress}>
-                            {done} / {item.total} m?i
+                            {done} / {item.total} mũi
                         </Text>
                         <Text style={styles.vdSummarySub}>
-                            {item.total} m?i khuyến nghị
+                            {item.total} mũi khuyến nghị
                         </Text>
                     </View>
                     <View
@@ -1248,7 +1265,7 @@ function VaxDetailScreen({
                                 {/* Body */}
                                 <View style={styles.vdDoseBody}>
                                     <Text style={styles.vdDoseLabel}>
-                                        M?i {i + 1}
+                                        Mũi {i + 1}
                                     </Text>
                                     {isDone ? (
                                         <>
@@ -1310,7 +1327,7 @@ function VaxDetailScreen({
                                                 },
                                             ]}
                                         >
-                                            Ch?a tiêm
+                                            Chưa tiêm
                                         </Text>
                                     )}
                                 </View>
@@ -1459,7 +1476,7 @@ function AddDoseSheet({
                             />
                         </Pressable>
                         <Text style={[styles.subTopbarTitle, { flex: 0 }]}>
-                            Thêm m?i tiêm
+                            Thêm mũi tiêm
                         </Text>
                     </View>
 
@@ -1485,9 +1502,9 @@ function AddDoseSheet({
                             />
                         </View>
 
-                        {/* M?i thứ */}
+                        {/* Mũi thứ */}
                         <View style={styles.arGroup}>
-                            <Text style={styles.arLabel}>M?i thứ</Text>
+                            <Text style={styles.arLabel}>Mũi thứ</Text>
                             <TextInput
                                 style={styles.arInput}
                                 placeholder='VD: 3'
@@ -2087,7 +2104,7 @@ function AddVaxSheet({
                                     </View>
                                     <View>
                                         <Text style={styles.vdFieldLabel}>
-                                            Tổng số m?i khuyến nghị
+                                            Tổng số mũi khuyến nghị
                                         </Text>
                                         <TextInput
                                             style={styles.vdFieldInput}

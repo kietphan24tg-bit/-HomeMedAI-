@@ -1,9 +1,3 @@
-import { usePatchFamilyMutation } from '@/src/features/family/mutations';
-import { useFamilyMembersQuery } from '@/src/features/family/queries';
-import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
-import { buttonSystem, shared } from '@/src/styles/shared';
-import { colors, typography } from '@/src/styles/tokens';
-import type { FamilyGroup } from '@/src/types/family';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -27,6 +21,12 @@ import {
     SafeAreaView,
     useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { usePatchFamilyMutation } from '@/src/features/family/mutations';
+import { useFamilyMembersQuery } from '@/src/features/family/queries';
+import { scale, scaleFont, verticalScale } from '@/src/styles/responsive';
+import { buttonSystem, shared } from '@/src/styles/shared';
+import { colors, typography } from '@/src/styles/tokens';
+import type { FamilyGroup } from '@/src/types/family';
 import { MemberRow, SectionLabel } from './familyShared';
 import { styles } from './styles';
 
@@ -36,7 +36,8 @@ export default function FamilyDetailScreen({
     family: FamilyGroup;
 }): React.JSX.Element {
     const insets = useSafeAreaInsets();
-    const { data: members = [] } = useFamilyMembersQuery(family.id);
+    const { data: members = [], isLoading: membersLoading } =
+        useFamilyMembersQuery(family.id);
     const [editOpen, setEditOpen] = useState(false);
     const [editName, setEditName] = useState(family.name);
     const [editAddress, setEditAddress] = useState(family.address ?? '');
@@ -208,27 +209,39 @@ export default function FamilyDetailScreen({
                 <SectionLabel title='Thành viên' />
 
                 <View style={shared.cardBlock}>
-                    {members.map((member: any, index: number) => (
-                        <MemberRow
-                            key={member.id}
-                            member={member}
-                            isLast={index === members.length - 1}
-                            onPress={() =>
-                                router.push({
-                                    pathname:
-                                        '/family/[familyId]/member/[memberId]',
-                                    params: {
-                                        familyId: family.id,
-                                        memberId: String(member.id),
-                                    },
-                                })
-                            }
-                        />
-                    ))}
+                    {membersLoading ? (
+                        <View style={localStyles.loadingRow}>
+                            <ActivityIndicator
+                                size='small'
+                                color={colors.primary}
+                            />
+                            <Text style={localStyles.loadingText}>
+                                Đang tải thành viên...
+                            </Text>
+                        </View>
+                    ) : (
+                        members.map((member: any, index: number) => (
+                            <MemberRow
+                                key={member.id}
+                                member={member}
+                                isLast={index === members.length - 1}
+                                onPress={() =>
+                                    router.push({
+                                        pathname:
+                                            '/family/[familyId]/member/[memberId]',
+                                        params: {
+                                            familyId: family.id,
+                                            memberId: String(member.id),
+                                        },
+                                    })
+                                }
+                            />
+                        ))
+                    )}
                     <Pressable
                         style={[
                             styles.addMrow,
-                            members.length === 0
+                            members.length === 0 && !membersLoading
                                 ? { borderTopWidth: 0 }
                                 : {
                                       borderTopWidth: 1,
@@ -534,6 +547,18 @@ const localStyles = StyleSheet.create({
     heroIconSpacer: {
         width: scale(36),
         height: scale(36),
+    },
+    loadingRow: {
+        minHeight: verticalScale(58),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(8),
+    },
+    loadingText: {
+        fontFamily: typography.font.medium,
+        fontSize: scaleFont(12),
+        color: colors.text3,
     },
     editActions: {
         flexDirection: 'row',

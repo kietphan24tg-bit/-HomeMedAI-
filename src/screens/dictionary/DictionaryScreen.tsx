@@ -31,13 +31,17 @@ const FILTERS: {
     value: DictionaryEntryType | null;
     icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-    { label: 'All', value: null, icon: 'grid-outline' },
-    { label: 'Disease', value: 'disease', icon: 'pulse-outline' },
-    { label: 'Drug', value: 'drug', icon: 'medkit-outline' },
-    { label: 'Vaccine', value: 'vaccine', icon: 'shield-checkmark-outline' },
+    { label: 'Tất cả', value: null, icon: 'grid-outline' },
+    { label: 'Bệnh', value: 'disease', icon: 'pulse-outline' },
+    { label: 'Thuốc', value: 'drug', icon: 'medkit-outline' },
+    {
+        label: 'Vắc xin',
+        value: 'vaccine',
+        icon: 'shield-checkmark-outline',
+    },
 ];
 
-const QUICK_QUERIES = ['paracetamol', 'covid', 'flu', 'allergy', 'vaccine'];
+const QUICK_QUERIES = ['paracetamol', 'covid', 'cúm', 'dị ứng', 'vắc xin'];
 
 async function searchDictionary({
     query,
@@ -57,9 +61,9 @@ async function searchDictionary({
 }
 
 function getTypeLabel(type: DictionaryEntryType): string {
-    if (type === 'disease') return 'Disease';
-    if (type === 'drug') return 'Drug';
-    return 'Vaccine';
+    if (type === 'disease') return 'Bệnh';
+    if (type === 'drug') return 'Thuốc';
+    return 'Vắc xin';
 }
 
 function getTypePalette(type: DictionaryEntryType) {
@@ -139,13 +143,12 @@ function ResultCard({ item }: { item: DictionarySearchItem }) {
 
                 {item.aliases.length > 0 ? (
                     <Text style={styles.aliasText}>
-                        Keywords: {item.aliases.slice(0, 3).join(', ')}
+                        Từ khóa: {item.aliases.slice(0, 3).join(', ')}
                     </Text>
                 ) : null}
 
                 <Text style={styles.resultSummary} numberOfLines={2}>
-                    {item.summary?.trim() ||
-                        'No short summary available for this item.'}
+                    {item.summary?.trim() || 'Chưa có mô tả ngắn cho mục này.'}
                 </Text>
             </View>
 
@@ -188,7 +191,7 @@ export default function DictionaryScreen(): React.JSX.Element {
             setHasNext(res.has_next);
             setTotal(res.total);
         } catch {
-            setError('Unable to load dictionary data right now.');
+            setError('Hiện chưa thể tải dữ liệu từ điển.');
         } finally {
             setLoadingMore(false);
         }
@@ -232,7 +235,7 @@ export default function DictionaryScreen(): React.JSX.Element {
                     return;
                 }
 
-                setError('Unable to load dictionary data right now.');
+                setError('Hiện chưa thể tải dữ liệu từ điển.');
                 setItems([]);
                 setPage(1);
                 setHasNext(false);
@@ -274,18 +277,16 @@ export default function DictionaryScreen(): React.JSX.Element {
                             size={14}
                             color='#BFDBFE'
                         />
-                        <Text style={styles.heroBadgeText}>
-                            Medical Dictionary
-                        </Text>
+                        <Text style={styles.heroBadgeText}>Từ điển y khoa</Text>
                     </View>
                 </View>
 
                 <Text style={styles.heroTitle}>
-                    Search diseases, drugs, and vaccines
+                    Tra cứu bệnh, thuốc và vắc xin
                 </Text>
                 <Text style={styles.heroSubtitle}>
-                    Enter a keyword, narrow by type, then open the result to
-                    view the API-backed detail page.
+                    Nhập từ khóa, lọc theo nhóm, rồi mở kết quả để xem nội dung
+                    chi tiết.
                 </Text>
 
                 <View style={styles.searchWrap}>
@@ -293,7 +294,7 @@ export default function DictionaryScreen(): React.JSX.Element {
                     <TextInput
                         value={query}
                         onChangeText={setQuery}
-                        placeholder='Example: paracetamol, flu, vaccine...'
+                        placeholder='Ví dụ: paracetamol, cúm, vắc xin...'
                         placeholderTextColor='#94A3B8'
                         style={styles.searchInput}
                         autoCapitalize='none'
@@ -357,11 +358,11 @@ export default function DictionaryScreen(): React.JSX.Element {
                 {!trimmedQuery ? (
                     <View style={styles.emptyCard}>
                         <Text style={styles.emptyTitle}>
-                            Start with a keyword
+                            Bắt đầu với một từ khóa
                         </Text>
                         <Text style={styles.emptyText}>
-                            Search by disease, drug, or vaccine name. Use one of
-                            the quick queries below to test the flow.
+                            Tra cứu theo tên bệnh, thuốc hoặc vắc xin. Bạn có
+                            thể thử nhanh với các gợi ý bên dưới.
                         </Text>
                         <View style={styles.quickWrap}>
                             {QUICK_QUERIES.map((quickQuery) => (
@@ -381,9 +382,9 @@ export default function DictionaryScreen(): React.JSX.Element {
 
                 {trimmedQuery ? (
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Search Results</Text>
+                        <Text style={styles.sectionTitle}>Kết quả tra cứu</Text>
                         <Text style={styles.sectionMeta}>
-                            {loading ? 'Loading...' : `${total} items`}
+                            {loading ? 'Đang tải...' : `${total} mục`}
                         </Text>
                     </View>
                 ) : null}
@@ -392,7 +393,7 @@ export default function DictionaryScreen(): React.JSX.Element {
                     <View style={styles.feedbackCard}>
                         <ActivityIndicator color={colors.primary} />
                         <Text style={styles.feedbackText}>
-                            Loading dictionary data...
+                            Đang tải dữ liệu từ điển...
                         </Text>
                     </View>
                 ) : null}
@@ -416,10 +417,10 @@ export default function DictionaryScreen(): React.JSX.Element {
                             color={colors.text3}
                         />
                         <Text style={styles.feedbackTitle}>
-                            No matching results
+                            Không tìm thấy kết quả phù hợp
                         </Text>
                         <Text style={styles.feedbackText}>
-                            Try a shorter keyword or switch to another filter.
+                            Hãy thử từ khóa ngắn hơn hoặc đổi bộ lọc khác.
                         </Text>
                     </View>
                 ) : null}
@@ -443,7 +444,7 @@ export default function DictionaryScreen(): React.JSX.Element {
                         ) : (
                             <>
                                 <Text style={styles.loadMoreText}>
-                                    Load More Results
+                                    Xem thêm kết quả
                                 </Text>
                                 <Ionicons
                                     name='arrow-down'

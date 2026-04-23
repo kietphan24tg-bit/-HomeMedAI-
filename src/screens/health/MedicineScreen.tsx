@@ -18,6 +18,7 @@ import {
     usePatchMedicineInventoryMutation,
 } from '@/src/features/family/mutations';
 import { useMyFamiliesQuery } from '@/src/features/family/queries';
+import { syncFamilyQueries } from '@/src/features/family/sync';
 import { useMeHealthProfileQuery } from '@/src/features/me/queries';
 import { meQueryKeys } from '@/src/features/me/queryKeys';
 import { appToast } from '@/src/lib/toast';
@@ -436,6 +437,7 @@ export default function MedicineScreen({
                     'medicine-inventory',
                 ],
             });
+            syncFamilyQueries(queryClient);
         } catch {
             setItems((prev) =>
                 prev.map((item) => (item.id === id ? currentItem : item)),
@@ -526,6 +528,7 @@ export default function MedicineScreen({
             await queryClient.invalidateQueries({
                 queryKey: meQueryKeys.overview(),
             });
+            syncFamilyQueries(queryClient);
             setDetailOpen(false);
             setSelectedItem(null);
         } catch {
