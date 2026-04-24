@@ -320,7 +320,7 @@ export default function MetricsInputScreen({
             </View>
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
                 <ScrollView
@@ -328,6 +328,8 @@ export default function MetricsInputScreen({
                     contentContainerStyle={styles.content}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps='handled'
+                    keyboardDismissMode='interactive'
+                    automaticallyAdjustKeyboardInsets
                 >
                     {/* Metric Type */}
                     <Text style={styles.label}>Loại chỉ số</Text>

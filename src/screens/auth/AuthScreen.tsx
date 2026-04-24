@@ -5,7 +5,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import {
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { getDeviceMetadata } from '@/src/lib/device';
@@ -322,124 +330,136 @@ export default function AuthScreen({
                     backgroundColor={colors.bg}
                 />
             )}
-            <ScrollView
+            <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                contentContainerStyle={s.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps='handled'
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
-                <View style={s.headerSection}>
-                    <View style={s.deco1} />
-                    <View style={s.deco2} />
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={s.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps='handled'
+                    keyboardDismissMode='interactive'
+                    automaticallyAdjustKeyboardInsets
+                >
+                    <View style={s.headerSection}>
+                        <View style={s.deco1} />
+                        <View style={s.deco2} />
 
-                    <LinearGradient
-                        colors={gradients.brandDuo}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={s.logoBox}
-                    >
-                        <Svg
-                            width={28}
-                            height={28}
-                            viewBox='0 0 24 24'
-                            fill='none'
+                        <LinearGradient
+                            colors={gradients.brandDuo}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={s.logoBox}
                         >
-                            <Path
-                                d='M22 12h-4l-3 9L9 3l-3 9H2'
-                                stroke='#fff'
-                                strokeWidth={1.5}
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
+                            <Svg
+                                width={28}
+                                height={28}
+                                viewBox='0 0 24 24'
                                 fill='none'
+                            >
+                                <Path
+                                    d='M22 12h-4l-3 9L9 3l-3 9H2'
+                                    stroke='#fff'
+                                    strokeWidth={1.5}
+                                    strokeLinecap='round'
+                                    strokeLinejoin='round'
+                                    fill='none'
+                                />
+                            </Svg>
+                        </LinearGradient>
+
+                        <Text style={s.appName}>HOMEMEDAI</Text>
+                        <Text style={s.headerTitle}>
+                            Bắt đầu hành trình{'\n'}
+                            <Text style={{ color: colors.primary }}>
+                                chăm sóc
+                            </Text>{' '}
+                            sức khỏe
+                        </Text>
+                        {showSubtext && (
+                            <Text style={s.headerSub}>
+                                Tạo tài khoản hoặc đăng nhập để tiếp tục
+                            </Text>
+                        )}
+                    </View>
+
+                    <View style={s.tabsContainer}>
+                        <Pressable
+                            style={[s.tab, mode === 'signin' && s.tabActive]}
+                            onPress={() => switchMode('signin')}
+                        >
+                            <Text
+                                style={[
+                                    s.tabText,
+                                    mode === 'signin' && s.tabTextActive,
+                                ]}
+                            >
+                                Đăng nhập
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            style={[s.tab, mode === 'signup' && s.tabActive]}
+                            onPress={() => switchMode('signup')}
+                        >
+                            <Text
+                                style={[
+                                    s.tabText,
+                                    mode === 'signup' && s.tabTextActive,
+                                ]}
+                            >
+                                Đăng ký
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    <View>
+                        {mode === 'signin' ? (
+                            <SignInForm
+                                key='signin'
+                                email={email}
+                                setEmail={setEmail}
+                                password={password}
+                                setPassword={setPassword}
+                                showPassword={showPassword}
+                                setShowPassword={setShowPassword}
+                                loading={loading}
+                                handleAction={handleAction}
+                                errors={errors}
+                                onForgotPassword={() =>
+                                    setView('forgot-password')
+                                }
+                                onGoogleSignIn={handleGoogleSignIn}
+                                googleLoading={googleLoading}
                             />
-                        </Svg>
-                    </LinearGradient>
-
-                    <Text style={s.appName}>HOMEMEDAI</Text>
-                    <Text style={s.headerTitle}>
-                        Bắt đầu hành trình{'\n'}
-                        <Text style={{ color: colors.primary }}>
-                            chăm sóc
-                        </Text>{' '}
-                        sức khỏe
-                    </Text>
-                    {showSubtext && (
-                        <Text style={s.headerSub}>
-                            Tạo tài khoản hoặc đăng nhập để tiếp tục
-                        </Text>
-                    )}
-                </View>
-
-                <View style={s.tabsContainer}>
-                    <Pressable
-                        style={[s.tab, mode === 'signin' && s.tabActive]}
-                        onPress={() => switchMode('signin')}
-                    >
-                        <Text
-                            style={[
-                                s.tabText,
-                                mode === 'signin' && s.tabTextActive,
-                            ]}
-                        >
-                            Đăng nhập
-                        </Text>
-                    </Pressable>
-                    <Pressable
-                        style={[s.tab, mode === 'signup' && s.tabActive]}
-                        onPress={() => switchMode('signup')}
-                    >
-                        <Text
-                            style={[
-                                s.tabText,
-                                mode === 'signup' && s.tabTextActive,
-                            ]}
-                        >
-                            Đăng ký
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <View>
-                    {mode === 'signin' ? (
-                        <SignInForm
-                            key='signin'
-                            email={email}
-                            setEmail={setEmail}
-                            password={password}
-                            setPassword={setPassword}
-                            showPassword={showPassword}
-                            setShowPassword={setShowPassword}
-                            loading={loading}
-                            handleAction={handleAction}
-                            errors={errors}
-                            onForgotPassword={() => setView('forgot-password')}
-                            onGoogleSignIn={handleGoogleSignIn}
-                            googleLoading={googleLoading}
-                        />
-                    ) : (
-                        <RegisterForm
-                            key='signup'
-                            email={email}
-                            setEmail={setEmail}
-                            phoneNumber={phoneNumber}
-                            setPhoneNumber={(value) =>
-                                setPhoneNumber(sanitizeVietnamPhoneInput(value))
-                            }
-                            password={password}
-                            setPassword={setPassword}
-                            showPassword={showPassword}
-                            setShowPassword={setShowPassword}
-                            confirmPassword={confirmPassword}
-                            setConfirmPassword={setConfirmPassword}
-                            showConfirmPassword={showConfirmPassword}
-                            setShowConfirmPassword={setShowConfirmPassword}
-                            loading={loading}
-                            handleAction={handleAction}
-                            errors={errors}
-                        />
-                    )}
-                </View>
-            </ScrollView>
+                        ) : (
+                            <RegisterForm
+                                key='signup'
+                                email={email}
+                                setEmail={setEmail}
+                                phoneNumber={phoneNumber}
+                                setPhoneNumber={(value) =>
+                                    setPhoneNumber(
+                                        sanitizeVietnamPhoneInput(value),
+                                    )
+                                }
+                                password={password}
+                                setPassword={setPassword}
+                                showPassword={showPassword}
+                                setShowPassword={setShowPassword}
+                                confirmPassword={confirmPassword}
+                                setConfirmPassword={setConfirmPassword}
+                                showConfirmPassword={showConfirmPassword}
+                                setShowConfirmPassword={setShowConfirmPassword}
+                                loading={loading}
+                                handleAction={handleAction}
+                                errors={errors}
+                            />
+                        )}
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </Wrapper>
     );
 }

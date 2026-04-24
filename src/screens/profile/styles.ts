@@ -389,6 +389,7 @@ export const styles = StyleSheet.create({
     },
     contactFieldInputDisabled: {
         color: colors.text3,
+        opacity: 0.7,
     },
     sheetSelectOption: {
         ...inputSystem.selectOption,

@@ -1717,7 +1717,7 @@ export default function FamilyMemberDetailScreen({
                     onPress={() => setSheet(null)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.sheetKeyboard}
                     >
                         <Pressable
@@ -1986,7 +1986,7 @@ export default function FamilyMemberDetailScreen({
                     onPress={() => setAddContactModal(false)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={{ justifyContent: 'flex-end', flex: 1 }}
                     >
                         <Pressable
@@ -2133,7 +2133,7 @@ export default function FamilyMemberDetailScreen({
                     onPress={() => setHealthSheetKey(null)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={{ justifyContent: 'flex-end' }}
                     >
                         <Pressable
@@ -2269,7 +2269,7 @@ export default function FamilyMemberDetailScreen({
                     onPress={() => setTagPreview(null)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={{ justifyContent: 'flex-end' }}
                     >
                         <Pressable

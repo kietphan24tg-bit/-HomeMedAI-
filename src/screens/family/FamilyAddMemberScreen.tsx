@@ -5,7 +5,9 @@ import {
     ActivityIndicator,
     Clipboard,
     FlatList,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StatusBar,
@@ -364,91 +366,106 @@ export default function FamilyAddMemberScreen({
                     style={createModalStyles.overlay}
                     onPress={() => setCreateModalOpen(false)}
                 >
-                    <Pressable
-                        style={createModalStyles.sheet}
-                        onPress={(e) => e.stopPropagation()}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={createModalStyles.kbAvoid}
                     >
-                        <Text style={createModalStyles.title}>
-                            Tạo hồ sơ người thân
-                        </Text>
-                        <Text style={createModalStyles.label}>Họ và tên</Text>
-                        <TextInput
-                            value={proxyFullName}
-                            onChangeText={setProxyFullName}
-                            placeholder='Ví dụ: Nguyễn Văn A'
-                            placeholderTextColor={colors.text3}
-                            style={createModalStyles.input}
-                        />
-                        <Text
-                            style={[createModalStyles.label, { marginTop: 14 }]}
-                        >
-                            Vai trò trong gia đình
-                        </Text>
-                        <FlatList
-                            data={[...ROLE_OPTIONS]}
-                            keyExtractor={(item) => item.id}
-                            style={{ maxHeight: verticalScale(220) }}
-                            renderItem={({ item }) => {
-                                const selected = proxyRelationId === item.id;
-                                return (
-                                    <Pressable
-                                        onPress={() =>
-                                            setProxyRelationId(item.id)
-                                        }
-                                        style={[
-                                            createModalStyles.roleRow,
-                                            selected
-                                                ? createModalStyles.roleRowOn
-                                                : null,
-                                        ]}
-                                    >
-                                        <Text
-                                            style={createModalStyles.roleEmoji}
-                                        >
-                                            {item.emoji}
-                                        </Text>
-                                        <Text
-                                            style={createModalStyles.roleLabel}
-                                        >
-                                            {item.label}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            }}
-                        />
                         <Pressable
-                            style={[
-                                createModalStyles.submit,
-                                createProfileMutation.isPending ||
-                                !proxyFullName.trim() ||
-                                !proxyRelationId
-                                    ? { opacity: 0.5 }
-                                    : null,
-                            ]}
-                            disabled={
-                                createProfileMutation.isPending ||
-                                !proxyFullName.trim() ||
-                                !proxyRelationId
-                            }
-                            onPress={submitProxyProfile}
+                            style={createModalStyles.sheet}
+                            onPress={(e) => e.stopPropagation()}
                         >
-                            {createProfileMutation.isPending ? (
-                                <ActivityIndicator color='#fff' />
-                            ) : (
-                                <Text style={createModalStyles.submitText}>
-                                    Tạo hồ sơ
-                                </Text>
-                            )}
-                        </Pressable>
-                        <Pressable
-                            style={createModalStyles.cancelBtn}
-                            onPress={() => setCreateModalOpen(false)}
-                        >
-                            <Text style={createModalStyles.cancelText}>
-                                Hủy
+                            <Text style={createModalStyles.title}>
+                                Tạo hồ sơ người thân
                             </Text>
+                            <Text style={createModalStyles.label}>
+                                Họ và tên
+                            </Text>
+                            <TextInput
+                                value={proxyFullName}
+                                onChangeText={setProxyFullName}
+                                placeholder='Ví dụ: Nguyễn Văn A'
+                                placeholderTextColor={colors.text3}
+                                style={createModalStyles.input}
+                            />
+                            <Text
+                                style={[
+                                    createModalStyles.label,
+                                    { marginTop: 14 },
+                                ]}
+                            >
+                                Vai trò trong gia đình
+                            </Text>
+                            <FlatList
+                                data={[...ROLE_OPTIONS]}
+                                keyExtractor={(item) => item.id}
+                                style={{ maxHeight: verticalScale(220) }}
+                                renderItem={({ item }) => {
+                                    const selected =
+                                        proxyRelationId === item.id;
+                                    return (
+                                        <Pressable
+                                            onPress={() =>
+                                                setProxyRelationId(item.id)
+                                            }
+                                            style={[
+                                                createModalStyles.roleRow,
+                                                selected
+                                                    ? createModalStyles.roleRowOn
+                                                    : null,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={
+                                                    createModalStyles.roleEmoji
+                                                }
+                                            >
+                                                {item.emoji}
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    createModalStyles.roleLabel
+                                                }
+                                            >
+                                                {item.label}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                }}
+                            />
+                            <Pressable
+                                style={[
+                                    createModalStyles.submit,
+                                    createProfileMutation.isPending ||
+                                    !proxyFullName.trim() ||
+                                    !proxyRelationId
+                                        ? { opacity: 0.5 }
+                                        : null,
+                                ]}
+                                disabled={
+                                    createProfileMutation.isPending ||
+                                    !proxyFullName.trim() ||
+                                    !proxyRelationId
+                                }
+                                onPress={submitProxyProfile}
+                            >
+                                {createProfileMutation.isPending ? (
+                                    <ActivityIndicator color='#fff' />
+                                ) : (
+                                    <Text style={createModalStyles.submitText}>
+                                        Tạo hồ sơ
+                                    </Text>
+                                )}
+                            </Pressable>
+                            <Pressable
+                                style={createModalStyles.cancelBtn}
+                                onPress={() => setCreateModalOpen(false)}
+                            >
+                                <Text style={createModalStyles.cancelText}>
+                                    Hủy
+                                </Text>
+                            </Pressable>
                         </Pressable>
-                    </Pressable>
+                    </KeyboardAvoidingView>
                 </Pressable>
             </Modal>
         </SafeAreaView>
@@ -459,6 +476,9 @@ const createModalStyles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(15,23,42,0.45)',
+        justifyContent: 'flex-end',
+    },
+    kbAvoid: {
         justifyContent: 'flex-end',
     },
     sheet: {

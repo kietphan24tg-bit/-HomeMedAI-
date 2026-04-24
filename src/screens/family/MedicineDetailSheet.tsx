@@ -5,6 +5,7 @@ import DateTimePicker, {
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     Pressable,
@@ -275,118 +276,93 @@ export default function MedicineDetailSheet({
                 </View>
 
                 {/* ── Scrollable content ── */}
-                <ScrollView
+                <KeyboardAvoidingView
                     style={s.scroll}
-                    contentContainerStyle={s.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps='handled'
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >
-                    {/* ─── [1] THÔNG TIN THUỐC ─── */}
-                    <SectionCard
-                        icon='medical-outline'
-                        iconBg={ACCENT_LIGHT}
-                        iconColor={ACCENT}
-                        title='THÔNG TIN THUỐC'
+                    <ScrollView
+                        style={s.scroll}
+                        contentContainerStyle={s.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps='handled'
+                        keyboardDismissMode='interactive'
+                        automaticallyAdjustKeyboardInsets
                     >
-                        <Label text='Tên thuốc' required />
-                        <TextInput
-                            value={name}
-                            onChangeText={setName}
-                            style={s.input}
-                            placeholder='Paracetamol'
-                            placeholderTextColor={colors.text3}
-                        />
-
-                        <Label text='Liều dùng/lần' />
-                        <View style={s.row}>
+                        {/* ─── [1] THÔNG TIN THUỐC ─── */}
+                        <SectionCard
+                            icon='medical-outline'
+                            iconBg={ACCENT_LIGHT}
+                            iconColor={ACCENT}
+                            title='THÔNG TIN THUỐC'
+                        >
+                            <Label text='Tên thuốc' required />
                             <TextInput
-                                value={dosePerUseVal}
-                                onChangeText={setDosePerUseVal}
-                                style={[s.input, { flex: 2 }]}
-                                placeholder='12'
+                                value={name}
+                                onChangeText={setName}
+                                style={s.input}
+                                placeholder='Paracetamol'
                                 placeholderTextColor={colors.text3}
-                                keyboardType='numeric'
                             />
-                            <Pressable
-                                style={[s.selectInput, { flex: 1 }]}
-                                onPress={() => setDosePerUseDDOpen(true)}
-                            >
-                                <Text style={s.selectText}>
-                                    {dosePerUseUnit}
-                                </Text>
-                                <Ionicons
-                                    name='chevron-down'
-                                    size={14}
-                                    color={colors.text3}
+
+                            <Label text='Liều dùng/lần' />
+                            <View style={s.row}>
+                                <TextInput
+                                    value={dosePerUseVal}
+                                    onChangeText={setDosePerUseVal}
+                                    style={[s.input, { flex: 2 }]}
+                                    placeholder='12'
+                                    placeholderTextColor={colors.text3}
+                                    keyboardType='numeric'
                                 />
-                            </Pressable>
-                        </View>
+                                <Pressable
+                                    style={[s.selectInput, { flex: 1 }]}
+                                    onPress={() => setDosePerUseDDOpen(true)}
+                                >
+                                    <Text style={s.selectText}>
+                                        {dosePerUseUnit}
+                                    </Text>
+                                    <Ionicons
+                                        name='chevron-down'
+                                        size={14}
+                                        color={colors.text3}
+                                    />
+                                </Pressable>
+                            </View>
 
-                        <Label text='Dùng cho (tag)' />
-                        <View style={s.tagRow}>
-                            {(() => {
-                                const tagSummary = summarizeTags(tags);
-                                const secondTag = tags[1] ?? null;
-                                if (!tagSummary.lead) {
-                                    return null;
-                                }
+                            <Label text='Dùng cho (tag)' />
+                            <View style={s.tagRow}>
+                                {(() => {
+                                    const tagSummary = summarizeTags(tags);
+                                    const secondTag = tags[1] ?? null;
+                                    if (!tagSummary.lead) {
+                                        return null;
+                                    }
 
-                                return (
-                                    <>
-                                        <Pressable
-                                            style={s.tag}
-                                            onPress={() =>
-                                                setTagPreviewVisible(true)
-                                            }
-                                        >
-                                            <Text
-                                                style={s.tagText}
-                                                numberOfLines={1}
-                                            >
-                                                {truncateTag(tagSummary.lead)}
-                                            </Text>
+                                    return (
+                                        <>
                                             <Pressable
-                                                hitSlop={6}
-                                                onPress={(event) => {
-                                                    event.stopPropagation();
-                                                    setTags((prev) =>
-                                                        prev.slice(1),
-                                                    );
-                                                }}
+                                                style={s.tag}
+                                                onPress={() =>
+                                                    setTagPreviewVisible(true)
+                                                }
                                             >
-                                                <Ionicons
-                                                    name='close-circle'
-                                                    size={14}
-                                                    color={colors.text2}
-                                                    style={{
-                                                        marginLeft: scale(4),
-                                                    }}
-                                                />
-                                            </Pressable>
-                                        </Pressable>
-
-                                        {tagSummary.remaining === 1 &&
-                                        secondTag ? (
-                                            <View style={s.tag}>
                                                 <Text
                                                     style={s.tagText}
                                                     numberOfLines={1}
                                                 >
-                                                    {truncateTag(secondTag)}
+                                                    {truncateTag(
+                                                        tagSummary.lead,
+                                                    )}
                                                 </Text>
                                                 <Pressable
                                                     hitSlop={6}
-                                                    onPress={() =>
+                                                    onPress={(event) => {
+                                                        event.stopPropagation();
                                                         setTags((prev) =>
-                                                            prev.filter(
-                                                                (
-                                                                    _item,
-                                                                    index,
-                                                                ) =>
-                                                                    index !== 1,
-                                                            ),
-                                                        )
-                                                    }
+                                                            prev.slice(1),
+                                                        );
+                                                    }}
                                                 >
                                                     <Ionicons
                                                         name='close-circle'
@@ -398,409 +374,467 @@ export default function MedicineDetailSheet({
                                                         }}
                                                     />
                                                 </Pressable>
-                                            </View>
-                                        ) : null}
-
-                                        {tagSummary.remaining > 1 ? (
-                                            <Pressable
-                                                style={s.tagSummaryBtn}
-                                                onPress={() =>
-                                                    setTagPreviewVisible(true)
-                                                }
-                                            >
-                                                <Text style={s.tagSummaryText}>
-                                                    +{tagSummary.remaining} mục
-                                                    khác
-                                                </Text>
                                             </Pressable>
-                                        ) : null}
-                                    </>
-                                );
-                            })()}
-                            <Pressable
-                                style={[s.tag, s.tagAdd]}
-                                onPress={() => {
-                                    setNewTag('');
-                                    setTagInputVisible(true);
-                                }}
-                            >
-                                <Text
-                                    style={[s.tagText, { color: colors.text2 }]}
+
+                                            {tagSummary.remaining === 1 &&
+                                            secondTag ? (
+                                                <View style={s.tag}>
+                                                    <Text
+                                                        style={s.tagText}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {truncateTag(secondTag)}
+                                                    </Text>
+                                                    <Pressable
+                                                        hitSlop={6}
+                                                        onPress={() =>
+                                                            setTags((prev) =>
+                                                                prev.filter(
+                                                                    (
+                                                                        _item,
+                                                                        index,
+                                                                    ) =>
+                                                                        index !==
+                                                                        1,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        <Ionicons
+                                                            name='close-circle'
+                                                            size={14}
+                                                            color={colors.text2}
+                                                            style={{
+                                                                marginLeft:
+                                                                    scale(4),
+                                                            }}
+                                                        />
+                                                    </Pressable>
+                                                </View>
+                                            ) : null}
+
+                                            {tagSummary.remaining > 1 ? (
+                                                <Pressable
+                                                    style={s.tagSummaryBtn}
+                                                    onPress={() =>
+                                                        setTagPreviewVisible(
+                                                            true,
+                                                        )
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={s.tagSummaryText}
+                                                    >
+                                                        +{tagSummary.remaining}{' '}
+                                                        mục khác
+                                                    </Text>
+                                                </Pressable>
+                                            ) : null}
+                                        </>
+                                    );
+                                })()}
+                                <Pressable
+                                    style={[s.tag, s.tagAdd]}
+                                    onPress={() => {
+                                        setNewTag('');
+                                        setTagInputVisible(true);
+                                    }}
                                 >
-                                    + Tag
-                                </Text>
-                            </Pressable>
-                        </View>
-
-                        <Label text='Ghi chú' />
-                        <TextInput
-                            value={note}
-                            onChangeText={setNote}
-                            style={[
-                                s.input,
-                                {
-                                    minHeight: verticalScale(72),
-                                    textAlignVertical: 'top',
-                                },
-                            ]}
-                            placeholder='Uống sau ăn'
-                            placeholderTextColor={colors.text3}
-                            multiline
-                        />
-                    </SectionCard>
-
-                    {/* ─── [2] TỒN KHO ─── */}
-                    <SectionCard
-                        icon='cube-outline'
-                        iconBg='#FFF3E0'
-                        iconColor='#FB8C00'
-                        title='TỒN KHO'
-                    >
-                        <Label text='Số lượng còn' required />
-                        <View style={s.row}>
-                            <TextInput
-                                value={qty}
-                                onChangeText={(text) => {
-                                    const sanitized = text
-                                        .replace(',', '.')
-                                        .replace(/[^0-9.]/g, '')
-                                        .replace(/^(\d*\.?\d*).*$/, '$1');
-                                    setQty(sanitized);
-                                }}
-                                style={[s.input, { flex: 2 }]}
-                                placeholder='12'
-                                placeholderTextColor={colors.text3}
-                                keyboardType='numeric'
-                            />
-                            <Pressable
-                                style={[s.selectInput, { flex: 1 }]}
-                                onPress={() => setStockDDOpen(true)}
-                            >
-                                <Text style={s.selectText}>{stockUnit}</Text>
-                                <Ionicons
-                                    name='chevron-down'
-                                    size={14}
-                                    color={colors.text3}
-                                />
-                            </Pressable>
-                        </View>
-
-                        <Label text='Hạn sử dụng' required />
-                        <Pressable
-                            style={s.dateInput}
-                            onPress={() => setExpPickerOpen(true)}
-                        >
-                            <Text
-                                style={
-                                    exp
-                                        ? s.dateInputText
-                                        : s.dateInputPlaceholder
-                                }
-                            >
-                                {exp || 'Chọn ngày hết hạn'}
-                            </Text>
-                            <Ionicons
-                                name='calendar-outline'
-                                size={16}
-                                color={colors.text3}
-                            />
-                        </Pressable>
-                        {expPickerOpen &&
-                            (Platform.OS === 'ios' ? (
-                                <View style={s.iosDateWrap}>
-                                    <View style={s.iosDateHeader}>
-                                        <Pressable
-                                            onPress={() =>
-                                                setExpPickerOpen(false)
-                                            }
-                                        >
-                                            <Text style={s.iosDateDone}>
-                                                Xong
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                    <DateTimePicker
-                                        value={expDate || new Date()}
-                                        mode='date'
-                                        display='inline'
-                                        onChange={handleExpDateChange}
-                                    />
-                                </View>
-                            ) : (
-                                <DateTimePicker
-                                    value={expDate || new Date()}
-                                    mode='date'
-                                    display='default'
-                                    onChange={handleExpDateChange}
-                                />
-                            ))}
-
-                        <Label text='Vị trí lưu trữ' />
-                        <TextInput
-                            value={location}
-                            onChangeText={setLocation}
-                            style={s.input}
-                            placeholder='Tủ bếp tầng 2'
-                            placeholderTextColor={colors.text3}
-                        />
-
-                        <View style={s.alertRow}>
-                            <View style={s.alertPanel}>
-                                <View style={s.alertHeaderRow}>
-                                    <Text style={s.alertHeaderTitle}>
-                                        Bật thông báo (Cảnh báo sắp hết)
+                                    <Text
+                                        style={[
+                                            s.tagText,
+                                            { color: colors.text2 },
+                                        ]}
+                                    >
+                                        + Tag
                                     </Text>
-                                    <Switch
-                                        value={alertOn}
-                                        onValueChange={setAlertOn}
-                                        trackColor={{
-                                            false: '#DDE6E4',
-                                            true: colors.success,
-                                        }}
-                                        thumbColor='#FFFFFF'
-                                        ios_backgroundColor='#DDE6E4'
-                                    />
-                                </View>
-                                {alertOn ? (
-                                    <View style={s.alertThresholdCard}>
-                                        <Text style={s.alertThresholdTitle}>
-                                            Ngưỡng cảnh báo
-                                        </Text>
-                                        <View style={s.alertStepper}>
-                                            <Pressable
-                                                style={s.alertStepBtn}
-                                                onPress={() =>
-                                                    changeLowAlert(-1)
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name='remove'
-                                                    size={16}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                            <Text style={s.alertStepperValue}>
-                                                {`${lowAlert || '1'} ${stockUnit}`}
-                                            </Text>
-                                            <Pressable
-                                                style={s.alertStepBtn}
-                                                onPress={() =>
-                                                    changeLowAlert(1)
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name='add'
-                                                    size={16}
-                                                    color={colors.text2}
-                                                />
-                                            </Pressable>
-                                        </View>
-                                    </View>
-                                ) : null}
+                                </Pressable>
                             </View>
-                            <Pressable
+
+                            <Label text='Ghi chú' />
+                            <TextInput
+                                value={note}
+                                onChangeText={setNote}
                                 style={[
-                                    s.alertToggle,
-                                    alertOn && s.alertToggleActive,
+                                    s.input,
+                                    {
+                                        minHeight: verticalScale(72),
+                                        textAlignVertical: 'top',
+                                    },
                                 ]}
-                                onPress={() => setAlertOn(!alertOn)}
-                            >
-                                <Text
-                                    style={[
-                                        s.alertToggleText,
-                                        alertOn && s.alertToggleTextActive,
-                                    ]}
+                                placeholder='Uống sau ăn'
+                                placeholderTextColor={colors.text3}
+                                multiline
+                            />
+                        </SectionCard>
+
+                        {/* ─── [2] TỒN KHO ─── */}
+                        <SectionCard
+                            icon='cube-outline'
+                            iconBg='#FFF3E0'
+                            iconColor='#FB8C00'
+                            title='TỒN KHO'
+                        >
+                            <Label text='Số lượng còn' required />
+                            <View style={s.row}>
+                                <TextInput
+                                    value={qty}
+                                    onChangeText={(text) => {
+                                        const sanitized = text
+                                            .replace(',', '.')
+                                            .replace(/[^0-9.]/g, '')
+                                            .replace(/^(\d*\.?\d*).*$/, '$1');
+                                        setQty(sanitized);
+                                    }}
+                                    style={[s.input, { flex: 2 }]}
+                                    placeholder='12'
+                                    placeholderTextColor={colors.text3}
+                                    keyboardType='numeric'
+                                />
+                                <Pressable
+                                    style={[s.selectInput, { flex: 1 }]}
+                                    onPress={() => setStockDDOpen(true)}
                                 >
-                                    {alertOn ? 'Bật' : 'Tắt'}
-                                </Text>
-                            </Pressable>
-                            <Text style={s.alertInlineLabel}>Ngưỡng</Text>
-                            <View style={s.alertThresholdBox}>
-                                <View style={s.alertThresholdLabelWrap}>
-                                    <Text style={s.alertInlineLabelBox}>
-                                        Ngưỡng
-                                    </Text>
-                                </View>
-                                <View style={s.alertValueWrap}>
-                                    <TextInput
-                                        value={lowAlert}
-                                        onChangeText={setLowAlert}
-                                        style={s.alertInlineInput}
-                                        placeholder='5'
-                                        placeholderTextColor={colors.text3}
-                                        keyboardType='numeric'
-                                    />
-                                    <Text style={s.alertInlineUnit}>
+                                    <Text style={s.selectText}>
                                         {stockUnit}
                                     </Text>
-                                </View>
-                            </View>
-                        </View>
-                    </SectionCard>
-
-                    {/* ─── [3] LỊCH NHẮC UỐNG THUỐC ─── */}
-                    <SectionCard
-                        icon='notifications-outline'
-                        iconBg='#E8EAF6'
-                        iconColor='#5C6BC0'
-                        title='LỊCH NHẮC UỐNG THUỐC'
-                    >
-                        <HField label='Bật nhắc uống'>
-                            <Switch
-                                value={scheduleConfig.enabled}
-                                onValueChange={(val) => {
-                                    setScheduleConfig((prev) => {
-                                        const next = {
-                                            ...prev,
-                                            enabled: val,
-                                        };
-                                        return next;
-                                    });
-                                    setReminderOn(val);
-                                    if (val) {
-                                        setScheduleModalOpen(true);
-                                    }
-                                }}
-                                trackColor={{
-                                    false: colors.border,
-                                    true: colors.success,
-                                }}
-                                thumbColor='#fff'
-                            />
-                        </HField>
-
-                        {scheduleConfig.enabled && (
-                            <>
-                                {/* Preview summary */}
-                                <View style={s.schedulePreviewCard}>
-                                    <View style={s.schedulePreviewRow}>
-                                        <Ionicons
-                                            name='time-outline'
-                                            size={16}
-                                            color={ACCENT}
-                                        />
-                                        <Text style={s.schedulePreviewText}>
-                                            {schedulePreviewText}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Open advanced modal button */}
-                                <Pressable
-                                    style={s.advancedBtn}
-                                    onPress={() => setScheduleModalOpen(true)}
-                                >
                                     <Ionicons
-                                        name='settings-outline'
-                                        size={16}
-                                        color={ACCENT}
-                                    />
-                                    <Text style={s.advancedBtnText}>
-                                        Cài đặt nâng cao
-                                    </Text>
-                                    <Ionicons
-                                        name='chevron-forward'
-                                        size={16}
+                                        name='chevron-down'
+                                        size={14}
                                         color={colors.text3}
                                     />
                                 </Pressable>
+                            </View>
 
-                                {onTestPush ? (
-                                    <HField label='Kiểm thử'>
-                                        <Pressable
-                                            style={s.testPushBtn}
-                                            disabled={testPushPending}
-                                            onPress={() => {
-                                                void (async () => {
-                                                    setTestPushPending(true);
-                                                    try {
-                                                        await onTestPush();
-                                                    } finally {
-                                                        setTestPushPending(
-                                                            false,
-                                                        );
-                                                    }
-                                                })();
-                                            }}
-                                        >
-                                            {testPushPending ? (
-                                                <ActivityIndicator
-                                                    color={ACCENT}
-                                                />
-                                            ) : (
-                                                <Text style={s.testPushBtnText}>
-                                                    Gửi thử thông báo
+                            <Label text='Hạn sử dụng' required />
+                            <Pressable
+                                style={s.dateInput}
+                                onPress={() => setExpPickerOpen(true)}
+                            >
+                                <Text
+                                    style={
+                                        exp
+                                            ? s.dateInputText
+                                            : s.dateInputPlaceholder
+                                    }
+                                >
+                                    {exp || 'Chọn ngày hết hạn'}
+                                </Text>
+                                <Ionicons
+                                    name='calendar-outline'
+                                    size={16}
+                                    color={colors.text3}
+                                />
+                            </Pressable>
+                            {expPickerOpen &&
+                                (Platform.OS === 'ios' ? (
+                                    <View style={s.iosDateWrap}>
+                                        <View style={s.iosDateHeader}>
+                                            <Pressable
+                                                onPress={() =>
+                                                    setExpPickerOpen(false)
+                                                }
+                                            >
+                                                <Text style={s.iosDateDone}>
+                                                    Xong
                                                 </Text>
-                                            )}
-                                        </Pressable>
-                                    </HField>
-                                ) : null}
-                            </>
-                        )}
-                    </SectionCard>
-
-                    {/* ─── Bottom actions ─── */}
-                    <View style={s.footerWrapper}>
-                        <Pressable
-                            style={s.footerActionBtn}
-                            onPress={() => setCloneSheetOpen(true)}
-                        >
-                            <Ionicons
-                                name='copy-outline'
-                                size={20}
-                                color={colors.text}
-                            />
-                            <Text style={s.footerActionText}>
-                                Nhân bản thuốc này
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            style={s.footerActionBtn}
-                            onPress={() => setDeleteSheetOpen(true)}
-                        >
-                            <Ionicons
-                                name='trash-outline'
-                                size={20}
-                                color={colors.danger}
-                            />
-                            <Text
-                                style={[
-                                    s.footerActionText,
-                                    { color: colors.danger },
-                                ]}
-                            >
-                                Xóa thuốc
-                            </Text>
-                        </Pressable>
-
-                        <View style={s.footerDividerLine} />
-
-                        <View style={s.footerSaveRow}>
-                            <Pressable
-                                style={s.btnFooterGhost}
-                                onPress={onClose}
-                            >
-                                <Text style={s.btnFooterGhostText}>Hủy</Text>
-                            </Pressable>
-                            <Pressable
-                                style={s.btnFooterSolid}
-                                onPress={handleSave}
-                                disabled={isPending}
-                            >
-                                {isPending ? (
-                                    <ActivityIndicator
-                                        size='small'
-                                        color='#fff'
-                                    />
+                                            </Pressable>
+                                        </View>
+                                        <DateTimePicker
+                                            value={expDate || new Date()}
+                                            mode='date'
+                                            display='inline'
+                                            onChange={handleExpDateChange}
+                                        />
+                                    </View>
                                 ) : (
-                                    <Text style={s.btnFooterSolidText}>
-                                        Lưu
+                                    <DateTimePicker
+                                        value={expDate || new Date()}
+                                        mode='date'
+                                        display='default'
+                                        onChange={handleExpDateChange}
+                                    />
+                                ))}
+
+                            <Label text='Vị trí lưu trữ' />
+                            <TextInput
+                                value={location}
+                                onChangeText={setLocation}
+                                style={s.input}
+                                placeholder='Tủ bếp tầng 2'
+                                placeholderTextColor={colors.text3}
+                            />
+
+                            <View style={s.alertRow}>
+                                <View style={s.alertPanel}>
+                                    <View style={s.alertHeaderRow}>
+                                        <Text style={s.alertHeaderTitle}>
+                                            Bật thông báo (Cảnh báo sắp hết)
+                                        </Text>
+                                        <Switch
+                                            value={alertOn}
+                                            onValueChange={setAlertOn}
+                                            trackColor={{
+                                                false: '#DDE6E4',
+                                                true: colors.success,
+                                            }}
+                                            thumbColor='#FFFFFF'
+                                            ios_backgroundColor='#DDE6E4'
+                                        />
+                                    </View>
+                                    {alertOn ? (
+                                        <View style={s.alertThresholdCard}>
+                                            <Text style={s.alertThresholdTitle}>
+                                                Ngưỡng cảnh báo
+                                            </Text>
+                                            <View style={s.alertStepper}>
+                                                <Pressable
+                                                    style={s.alertStepBtn}
+                                                    onPress={() =>
+                                                        changeLowAlert(-1)
+                                                    }
+                                                >
+                                                    <Ionicons
+                                                        name='remove'
+                                                        size={16}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                                <Text
+                                                    style={s.alertStepperValue}
+                                                >
+                                                    {`${lowAlert || '1'} ${stockUnit}`}
+                                                </Text>
+                                                <Pressable
+                                                    style={s.alertStepBtn}
+                                                    onPress={() =>
+                                                        changeLowAlert(1)
+                                                    }
+                                                >
+                                                    <Ionicons
+                                                        name='add'
+                                                        size={16}
+                                                        color={colors.text2}
+                                                    />
+                                                </Pressable>
+                                            </View>
+                                        </View>
+                                    ) : null}
+                                </View>
+                                <Pressable
+                                    style={[
+                                        s.alertToggle,
+                                        alertOn && s.alertToggleActive,
+                                    ]}
+                                    onPress={() => setAlertOn(!alertOn)}
+                                >
+                                    <Text
+                                        style={[
+                                            s.alertToggleText,
+                                            alertOn && s.alertToggleTextActive,
+                                        ]}
+                                    >
+                                        {alertOn ? 'Bật' : 'Tắt'}
                                     </Text>
-                                )}
+                                </Pressable>
+                                <Text style={s.alertInlineLabel}>Ngưỡng</Text>
+                                <View style={s.alertThresholdBox}>
+                                    <View style={s.alertThresholdLabelWrap}>
+                                        <Text style={s.alertInlineLabelBox}>
+                                            Ngưỡng
+                                        </Text>
+                                    </View>
+                                    <View style={s.alertValueWrap}>
+                                        <TextInput
+                                            value={lowAlert}
+                                            onChangeText={setLowAlert}
+                                            style={s.alertInlineInput}
+                                            placeholder='5'
+                                            placeholderTextColor={colors.text3}
+                                            keyboardType='numeric'
+                                        />
+                                        <Text style={s.alertInlineUnit}>
+                                            {stockUnit}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </SectionCard>
+
+                        {/* ─── [3] LỊCH NHẮC UỐNG THUỐC ─── */}
+                        <SectionCard
+                            icon='notifications-outline'
+                            iconBg='#E8EAF6'
+                            iconColor='#5C6BC0'
+                            title='LỊCH NHẮC UỐNG THUỐC'
+                        >
+                            <HField label='Bật nhắc uống'>
+                                <Switch
+                                    value={scheduleConfig.enabled}
+                                    onValueChange={(val) => {
+                                        setScheduleConfig((prev) => {
+                                            const next = {
+                                                ...prev,
+                                                enabled: val,
+                                            };
+                                            return next;
+                                        });
+                                        setReminderOn(val);
+                                        if (val) {
+                                            setScheduleModalOpen(true);
+                                        }
+                                    }}
+                                    trackColor={{
+                                        false: colors.border,
+                                        true: colors.success,
+                                    }}
+                                    thumbColor='#fff'
+                                />
+                            </HField>
+
+                            {scheduleConfig.enabled && (
+                                <>
+                                    {/* Preview summary */}
+                                    <View style={s.schedulePreviewCard}>
+                                        <View style={s.schedulePreviewRow}>
+                                            <Ionicons
+                                                name='time-outline'
+                                                size={16}
+                                                color={ACCENT}
+                                            />
+                                            <Text style={s.schedulePreviewText}>
+                                                {schedulePreviewText}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Open advanced modal button */}
+                                    <Pressable
+                                        style={s.advancedBtn}
+                                        onPress={() =>
+                                            setScheduleModalOpen(true)
+                                        }
+                                    >
+                                        <Ionicons
+                                            name='settings-outline'
+                                            size={16}
+                                            color={ACCENT}
+                                        />
+                                        <Text style={s.advancedBtnText}>
+                                            Cài đặt nâng cao
+                                        </Text>
+                                        <Ionicons
+                                            name='chevron-forward'
+                                            size={16}
+                                            color={colors.text3}
+                                        />
+                                    </Pressable>
+
+                                    {onTestPush ? (
+                                        <HField label='Kiểm thử'>
+                                            <Pressable
+                                                style={s.testPushBtn}
+                                                disabled={testPushPending}
+                                                onPress={() => {
+                                                    void (async () => {
+                                                        setTestPushPending(
+                                                            true,
+                                                        );
+                                                        try {
+                                                            await onTestPush();
+                                                        } finally {
+                                                            setTestPushPending(
+                                                                false,
+                                                            );
+                                                        }
+                                                    })();
+                                                }}
+                                            >
+                                                {testPushPending ? (
+                                                    <ActivityIndicator
+                                                        color={ACCENT}
+                                                    />
+                                                ) : (
+                                                    <Text
+                                                        style={
+                                                            s.testPushBtnText
+                                                        }
+                                                    >
+                                                        Gửi thử thông báo
+                                                    </Text>
+                                                )}
+                                            </Pressable>
+                                        </HField>
+                                    ) : null}
+                                </>
+                            )}
+                        </SectionCard>
+
+                        {/* ─── Bottom actions ─── */}
+                        <View style={s.footerWrapper}>
+                            <Pressable
+                                style={s.footerActionBtn}
+                                onPress={() => setCloneSheetOpen(true)}
+                            >
+                                <Ionicons
+                                    name='copy-outline'
+                                    size={20}
+                                    color={colors.text}
+                                />
+                                <Text style={s.footerActionText}>
+                                    Nhân bản thuốc này
+                                </Text>
                             </Pressable>
+                            <Pressable
+                                style={s.footerActionBtn}
+                                onPress={() => setDeleteSheetOpen(true)}
+                            >
+                                <Ionicons
+                                    name='trash-outline'
+                                    size={20}
+                                    color={colors.danger}
+                                />
+                                <Text
+                                    style={[
+                                        s.footerActionText,
+                                        { color: colors.danger },
+                                    ]}
+                                >
+                                    Xóa thuốc
+                                </Text>
+                            </Pressable>
+
+                            <View style={s.footerDividerLine} />
+
+                            <View style={s.footerSaveRow}>
+                                <Pressable
+                                    style={s.btnFooterGhost}
+                                    onPress={onClose}
+                                >
+                                    <Text style={s.btnFooterGhostText}>
+                                        Hủy
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={s.btnFooterSolid}
+                                    onPress={handleSave}
+                                    disabled={isPending}
+                                >
+                                    {isPending ? (
+                                        <ActivityIndicator
+                                            size='small'
+                                            color='#fff'
+                                        />
+                                    ) : (
+                                        <Text style={s.btnFooterSolidText}>
+                                            Lưu
+                                        </Text>
+                                    )}
+                                </Pressable>
+                            </View>
                         </View>
-                    </View>
-                </ScrollView>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
 
             {/* Dropdown modals */}
@@ -960,7 +994,10 @@ function TagInputSheet({
             animationType='fade'
             onRequestClose={onClose}
         >
-            <View style={bs.backdrop}>
+            <KeyboardAvoidingView
+                style={bs.backdrop}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
                 <Pressable style={bs.overlay} onPress={onClose} />
                 <View style={bs.sheet}>
                     <View style={bs.handle} />
@@ -984,7 +1021,7 @@ function TagInputSheet({
                         </Pressable>
                     </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

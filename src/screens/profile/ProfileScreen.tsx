@@ -697,7 +697,7 @@ export default function ProfileScreen(): React.JSX.Element {
                     onPress={() => setSheet(null)}
                 >
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.sheetKeyboard}
                     >
                         <Pressable
